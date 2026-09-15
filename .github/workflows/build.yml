@@ -29,7 +29,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -66,9 +68,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
-          packages: "ndk;28.2.13676358"
+          packages: "platform-tools ndk;28.2.13676358"
 
       - name: Restore signing key
         if: ${{ env.KEYSTORE_BASE64 != '' }}
