@@ -11,6 +11,7 @@ import com.newoether.agora.diagnostics.DeveloperDiagnostics
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -40,6 +41,25 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         vm.setVisible(false)
     }
 
+    @Test fun switchingSessionsDoesNotExposePreviousLastKnownModel() = runTest(dispatcher) {
+        every { client.events(any()) } answers {
+            val id = firstArg<String>()
+            flow {
+                if (id == "session") emit(bodyPage(
+                    emptyList(), null, emptyList(), RemoteRuntime("idle", model = "old-model")))
+                awaitCancellation()
+            }
+        }
+        val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
+        saveAndSelect(vm)
+        vm.setVisible(true); runCurrent()
+        vm.selectSession(session); runCurrent()
+        assertEquals("old-model", vm.state.value.selectedModel)
+        vm.selectSession(session.copy(id = "other")); runCurrent()
+        assertNull(vm.state.value.runtime)
+        assertNull(vm.state.value.selectedModel)
+        vm.setVisible(false)
+    }
     @Test fun sendAcceptanceIsBoundToOriginAndDoesNotClearEditedDraft() = runTest(dispatcher) {
         val gate = CompletableDeferred<String>()
         coEvery { client.send(any(), any(), any()) } coAnswers { gate.await() }

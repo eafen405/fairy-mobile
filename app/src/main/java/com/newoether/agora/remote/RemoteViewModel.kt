@@ -148,7 +148,7 @@ internal class RemoteViewModel(
         mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
         invalidateReads()
         mutableState.value = state.value.copy(deviceId = null, session = null, addingDevice = true,
-            editedDeviceId = id, storageError = false, failure = null)
+            editedDeviceId = id, storageError = false, failure = null, lastKnownModel = null)
     }
 
     fun saveDevice(address: String, token: String, name: String? = null) =
@@ -173,7 +173,7 @@ internal class RemoteViewModel(
         mutableState.value = state.value.copy(deviceId = id, addingDevice = false, editedDeviceId = null,
             sessions = emptyList(), sessionCursor = null,
             session = null, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null,
-            runtime = null, models = emptyList(), modelsLoading = false, composerFocusOwner = null,
+            runtime = null, lastKnownModel = null, models = emptyList(), modelsLoading = false, composerFocusOwner = null,
             draftSessionId = null, draftSettings = RemoteSettings(), draftNativeSession = null)
         refresh()
     }
@@ -183,7 +183,7 @@ internal class RemoteViewModel(
         selectionEpoch++
         mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
         invalidateReads()
-        mutableState.value = state.value.copy(session = session, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null, runtime = null, composerFocusOwner = null,
+        mutableState.value = state.value.copy(session = session, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null, runtime = null, lastKnownModel = null, composerFocusOwner = null,
             draftSessionId = null, draftSettings = RemoteSettings(), draftNativeSession = null)
         refresh()
     }
@@ -365,7 +365,9 @@ internal class RemoteViewModel(
             mutableState.value = state.value.copy(
                 nodes = nodes, messageGroups = groups, hydrationEnabled = visible,
                 historyCursor = if (old.isEmpty()) incoming.last().nextCursor else state.value.historyCursor,
-                queued = page.queued, loading = false, failure = null, runtime = page.runtime.takeIf { liveControl },
+                queued = page.queued, loading = false, failure = null,
+                runtime = page.runtime.takeIf { liveControl },
+                lastKnownModel = page.runtime?.model ?: state.value.lastKnownModel,
             )
         }
         state.value.deviceId?.let { id -> updateDevice(id) { it.copy(status = RemoteDeviceStatus.CONNECTED, failure = null) } }
@@ -476,7 +478,7 @@ internal class RemoteViewModel(
         mutableState.value = state.value.copy(
             session = RemoteSession(id, "", "", 0), draftSessionId = id, draftSettings = RemoteSettings(), draftNativeSession = null,
             nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null,
-            composerFocusOwner = "${snapshot.deviceId}/$id",
+            lastKnownModel = null, composerFocusOwner = "${snapshot.deviceId}/$id",
         )
     }
 
@@ -735,8 +737,11 @@ internal class RemoteViewModel(
                             snapshot.selectedServiceTier, updateServiceTier = true))
                     } else snapshot.draftSettings.model?.let { client.setModel(sessionId, it) }
                     if (selected != selectionEpoch || clients[snapshot.deviceId] !== client) throw FiloInputException()
-                    mutableState.value = state.value.copy(session = created,
-                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.id}" to owner))
+                    mutableState.value = state.value.copy(
+                        session = created,
+                        lastKnownModel = snapshot.selectedModel,
+                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.id}" to owner),
+                    )
                     refresh()
                 }
                 inputStarted = true

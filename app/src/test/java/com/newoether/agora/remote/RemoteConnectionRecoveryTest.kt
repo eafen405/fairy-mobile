@@ -212,6 +212,8 @@ class RemoteConnectionRecoveryTest {
         assertEquals(RemoteDeviceStatus.CONNECTED, vm.state.value.devices.single().status)
         assertFalse(vm.state.value.loading)
         assertNull(vm.state.value.runtime)
+        assertEquals("model", vm.state.value.selectedModel)
+        assertFalse(vm.state.value.canEditSettings)
         assertTrue(notices.isEmpty())
         advanceTimeBy(3000); runCurrent()
         assertEquals(listOf("answer"), vm.state.value.nodes.map { it.id })
