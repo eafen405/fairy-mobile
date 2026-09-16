@@ -32,7 +32,6 @@ internal data class RemoteState(
     val models: List<RemoteModel> = emptyList(),
     val controlling: Boolean = false, val composerFocusOwner: String? = null,
     val draftSessionId: String? = null, val draftSettings: RemoteSettings = RemoteSettings(),
-    val draftNativeSession: RemoteSession? = null,
     val modelsLoading: Boolean = false,
     val sessionOwners: Map<String, String> = emptyMap(),
     val sessionStatuses: Map<String, RemoteSessionStatus> = emptyMap(),
