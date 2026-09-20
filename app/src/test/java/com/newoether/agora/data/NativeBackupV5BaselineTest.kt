@@ -5,8 +5,6 @@ import java.nio.file.Files
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.archivers.zip.ZipFile
@@ -28,25 +26,39 @@ class NativeBackupV5BaselineTest {
             NativeBackupV5Baseline.openOrNull(baselineFile).use { baseline ->
                 requireNotNull(baseline)
                 assertEquals(setOf("same"), baseline.unchangedConversationIds(mapOf("same" to 1L, "changed" to 3L)))
+                val copiedMedia = mutableSetOf<String>()
+                val indexEntries = mutableListOf<NativeConversationIndexEntry>()
                 ZipArchiveOutputStream(resultFile).use { output ->
-                    NativeBackupV5Writer.write(
+                    indexEntries += NativeBackupV5Writer.copyConversationFromBaseline(
                         zip = output,
-                        conversations = listOf(
-                            json("id" to "same", "dataChangedAt" to 1L),
-                            json("id" to "changed", "dataChangedAt" to 3L),
-                            json("id" to "new", "dataChangedAt" to 4L),
-                        ),
-                        runs = emptyList(),
-                        messages = listOf(
-                            json("id" to "changed-message", "conversationId" to "changed"),
-                            json("id" to "new-message", "conversationId" to "new"),
-                        ),
-                        tasks = emptyList(),
-                        loops = emptyList(),
                         baseline = baseline,
-                        unchangedConversationIds = setOf("same"),
+                        baselineEntry = requireNotNull(baseline.indexEntry("same")),
+                        copiedMedia = copiedMedia,
                     )
+                    indexEntries += NativeBackupV5Writer.writeConversationEntry(
+                        zip = output,
+                        conversationId = "changed",
+                        dataChangedAt = 3L,
+                        conversationJson = """{"id":"changed","dataChangedAt":3}""",
+                        runs = emptySequence<String>().iterator(),
+                        messages = listOf("""{"id":"changed-message","conversationId":"changed"}""").iterator(),
+                        loops = emptySequence<String>().iterator(),
+                        mediaEntries = emptySet(),
+                    )
+                    indexEntries += NativeBackupV5Writer.writeConversationEntry(
+                        zip = output,
+                        conversationId = "new",
+                        dataChangedAt = 4L,
+                        conversationJson = """{"id":"new","dataChangedAt":4}""",
+                        runs = emptySequence<String>().iterator(),
+                        messages = listOf("""{"id":"new-message","conversationId":"new"}""").iterator(),
+                        loops = emptySequence<String>().iterator(),
+                        mediaEntries = emptySet(),
+                    )
+                    NativeBackupV5Writer.writeTasksEntry(output, emptySequence<String>().iterator())
+                    NativeBackupV5Writer.writeConversationIndex(output, indexEntries)
                 }
+                assertEquals(setOf(MEDIA_ENTRY), copiedMedia)
             }
 
             ZipFile.builder().setFile(baselineFile).get().use { oldZip ->
@@ -108,15 +120,6 @@ class NativeBackupV5BaselineTest {
 
     private fun raw(zip: ZipFile, name: String): ByteArray =
         zip.getRawInputStream(zip.getEntry(name)).use { it.readBytes() }
-
-    private fun json(vararg values: Pair<String, Any>) = buildJsonObject {
-        values.forEach { (key, value) ->
-            when (value) {
-                is String -> put(key, value)
-                is Long -> put(key, value)
-            }
-        }
-    }
 
     private companion object {
         const val MEDIA_ENTRY = "media/images/same.png"

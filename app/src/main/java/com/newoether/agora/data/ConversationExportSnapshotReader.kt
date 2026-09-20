@@ -15,7 +15,21 @@ import kotlinx.coroutines.ensureActive
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Streams one point-in-time conversation graph from an independent Room connection pool. */
+/** One record of the export snapshot, emitted in archive-relevant order. */
+internal sealed interface SnapshotRecord {
+    data class Conversation(val entity: ChatEntity) : SnapshotRecord
+    data class Run(val entity: RunEntity) : SnapshotRecord
+    data class Message(val entity: MessageEntity) : SnapshotRecord
+    data class Loop(val entity: LoopEntity) : SnapshotRecord
+    data class Task(val entity: TaskEntity) : SnapshotRecord
+}
+
+/**
+ * Streams one point-in-time conversation graph from an independent Room connection pool.
+ * Each conversation emits its header, runs, paged messages, and loops in order, followed by all
+ * tasks. Message pages are delivered without accumulating a per-conversation list, so snapshot
+ * memory stays bounded by one page instead of the largest conversation.
+ */
 internal class ConversationExportSnapshotReader(
     private val context: Context,
 ) {
@@ -25,17 +39,7 @@ internal class ConversationExportSnapshotReader(
         private val snapshotThreadSequence = AtomicInteger()
     }
 
-    data class ConversationSnapshot(
-        val conversation: ChatEntity,
-        val runs: List<RunEntity>,
-        val messages: List<MessageEntity>,
-        val loops: List<LoopEntity>,
-    )
-
-    suspend fun readSnapshot(
-        onConversation: suspend (ConversationSnapshot) -> Unit,
-        onTask: suspend (TaskEntity) -> Unit,
-    ) {
+    suspend fun readSnapshot(onRecord: suspend (SnapshotRecord) -> Unit) {
         val snapshotExecutor = Executors.newFixedThreadPool(SNAPSHOT_THREAD_COUNT) { runnable ->
             Thread(
                 {
@@ -56,7 +60,11 @@ internal class ConversationExportSnapshotReader(
                 connection.withTransaction(Transactor.SQLiteTransactionType.DEFERRED) {
                     for (conversation in snapshotDao.getAllConversationsList()) {
                         currentCoroutineContext().ensureActive()
-                        val messages = mutableListOf<MessageEntity>()
+                        onRecord(SnapshotRecord.Conversation(conversation))
+                        for (run in snapshotDao.getRunsForConversationSnapshot(conversation.id)) {
+                            currentCoroutineContext().ensureActive()
+                            onRecord(SnapshotRecord.Run(run))
+                        }
                         var afterMessageId: String? = null
                         while (true) {
                             currentCoroutineContext().ensureActive()
@@ -66,22 +74,21 @@ internal class ConversationExportSnapshotReader(
                                 MESSAGE_PAGE_SIZE,
                             )
                             if (page.isEmpty()) break
-                            messages += page
+                            for (message in page) {
+                                currentCoroutineContext().ensureActive()
+                                onRecord(SnapshotRecord.Message(message))
+                            }
                             afterMessageId = page.last().id
                             if (page.size < MESSAGE_PAGE_SIZE) break
                         }
-                        onConversation(
-                            ConversationSnapshot(
-                                conversation = conversation,
-                                runs = snapshotDao.getRunsForConversationSnapshot(conversation.id),
-                                messages = messages,
-                                loops = snapshotDao.getLoopsForConversationSnapshot(conversation.id),
-                            )
-                        )
+                        for (loop in snapshotDao.getLoopsForConversationSnapshot(conversation.id)) {
+                            currentCoroutineContext().ensureActive()
+                            onRecord(SnapshotRecord.Loop(loop))
+                        }
                     }
                     for (task in snapshotDao.getAllTasksList()) {
                         currentCoroutineContext().ensureActive()
-                        onTask(task)
+                        onRecord(SnapshotRecord.Task(task))
                     }
                 }
             }

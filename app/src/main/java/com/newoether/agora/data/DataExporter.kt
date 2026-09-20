@@ -18,9 +18,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
-import kotlinx.serialization.json.jsonObject
 import java.io.BufferedOutputStream
-import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -159,14 +157,12 @@ class DataExporter(
         val missingResourceCount: Int = 0,
     )
 
-    private data class MediaExportPlan(
-        val messageImages: Map<String, List<String>>,
-        val messageAttachmentMeta: Map<String, String?>,
-        val draftAttachments: Map<String, String?>,
-        val sourceToArchiveEntry: Map<String, String>,
-        val copiedImageCount: Int,
-        val missingResourceCount: Int,
-    )
+    /** Captured JSONL spool file plus the byte-slice index describing its layout. */
+    private class ExportedSpool(val file: File, val index: ExportSpoolIndex) {
+        fun delete() {
+            file.delete()
+        }
+    }
 
     private fun openImageStream(imgUri: String): java.io.InputStream? {
         val uri = imgUri.toUri()
@@ -207,46 +203,59 @@ class DataExporter(
         }
     }
 
-    private fun BufferedWriter.writeSnapshotRecord(type: String, json: String) {
-        write(type)
-        write('\t'.code)
-        write(json)
-        newLine()
+    /** Copies one media stream directly into the archive without a heap-sized byte array. */
+    private fun copyStreamToZipEntry(
+        zip: ZipArchiveOutputStream,
+        entryName: String,
+        input: InputStream?,
+    ): Boolean {
+        if (input == null) return false
+        return input.use { stream ->
+            zip.putArchiveEntry(ZipArchiveEntry(entryName))
+            try {
+                stream.copyTo(zip) > 0L
+            } finally {
+                zip.closeArchiveEntry()
+            }
+        }
     }
 
     private suspend fun captureConversationSnapshot(
         conversationSettings: Map<String, ConversationSettings>,
-    ): File {
+    ): ExportedSpool {
         val spool = File.createTempFile(SNAPSHOT_PREFIX, SNAPSHOT_SUFFIX, context.cacheDir)
         try {
-            spool.bufferedWriter(Charsets.UTF_8).use { writer ->
-                ConversationExportSnapshotReader(context).readSnapshot(
-                    onConversation = { snapshot ->
-                        val conversation = snapshot.conversation
-                        writer.writeSnapshotRecord(
-                            SNAPSHOT_CONVERSATION,
-                            Json.encodeToString(
-                                ExportChatEntity(
-                                    id = conversation.id,
-                                    title = conversation.title,
-                                    lastUpdated = conversation.lastUpdated,
-                                    dataChangedAt = conversation.dataChangedAt,
-                                    selectedBranchesJson = conversation.selectedBranchesJson,
-                                    systemPromptId = conversation.systemPromptId,
-                                    modelId = conversation.modelId,
-                                    taskId = conversation.taskId,
-                                    origin = conversation.origin,
-                                    graduated = conversation.graduated,
-                                    selectedRunBranchesJson = conversation.selectedRunBranchesJson,
-                                    draftText = conversation.draftText,
-                                    draftAttachments = conversation.draftAttachments,
-                                    conversationSettings = conversationSettings[conversation.id],
+            val index = ExportSpoolWriter(spool).use { writer ->
+                ConversationExportSnapshotReader(context).readSnapshot { record ->
+                    when (record) {
+                        is SnapshotRecord.Conversation -> {
+                            val conversation = record.entity
+                            writer.writeConversation(
+                                id = conversation.id,
+                                dataChangedAt = conversation.dataChangedAt,
+                                json = Json.encodeToString(
+                                    ExportChatEntity(
+                                        id = conversation.id,
+                                        title = conversation.title,
+                                        lastUpdated = conversation.lastUpdated,
+                                        dataChangedAt = conversation.dataChangedAt,
+                                        selectedBranchesJson = conversation.selectedBranchesJson,
+                                        systemPromptId = conversation.systemPromptId,
+                                        modelId = conversation.modelId,
+                                        taskId = conversation.taskId,
+                                        origin = conversation.origin,
+                                        graduated = conversation.graduated,
+                                        selectedRunBranchesJson = conversation.selectedRunBranchesJson,
+                                        draftText = conversation.draftText,
+                                        draftAttachments = conversation.draftAttachments,
+                                        conversationSettings = conversationSettings[conversation.id],
+                                    ),
                                 ),
-                            ),
-                        )
-                        snapshot.runs.forEach { run ->
-                            writer.writeSnapshotRecord(
-                                SNAPSHOT_RUN,
+                            )
+                        }
+                        is SnapshotRecord.Run -> {
+                            val run = record.entity
+                            writer.writeRun(
                                 Json.encodeToString(
                                     ExportRunEntity(
                                         id = run.id,
@@ -264,9 +273,9 @@ class DataExporter(
                                 ),
                             )
                         }
-                        snapshot.messages.forEach { message ->
-                            writer.writeSnapshotRecord(
-                                SNAPSHOT_MESSAGE,
+                        is SnapshotRecord.Message -> {
+                            val message = record.entity
+                            writer.writeMessage(
                                 Json.encodeToString(
                                     ExportMessageEntity(
                                         id = message.id,
@@ -298,10 +307,9 @@ class DataExporter(
                                 ),
                             )
                         }
-                        snapshot.loops.forEach { loop ->
-                            val sanitized = sanitizeImportedLoop(loop)
-                            writer.writeSnapshotRecord(
-                                SNAPSHOT_LOOP,
+                        is SnapshotRecord.Loop -> {
+                            val sanitized = sanitizeImportedLoop(record.entity)
+                            writer.writeLoop(
                                 Json.encodeToString(
                                     ExportLoopEntity(
                                         conversationId = sanitized.conversationId,
@@ -313,87 +321,64 @@ class DataExporter(
                                 ),
                             )
                         }
-                    },
-                    onTask = { task ->
-                        writer.writeSnapshotRecord(
-                            SNAPSHOT_TASK,
-                            Json.encodeToString(
-                                ExportTaskEntity(
-                                    id = task.id,
-                                    name = task.name,
-                                    prompt = task.prompt,
-                                    systemPrompt = task.systemPrompt,
-                                    modelId = task.modelId,
-                                    cronExpr = task.cronExpr,
-                                    runAt = task.runAt,
-                                    createdAt = task.createdAt,
-                                    lastRunAt = task.lastRunAt,
+                        is SnapshotRecord.Task -> {
+                            val task = record.entity
+                            writer.writeTask(
+                                Json.encodeToString(
+                                    ExportTaskEntity(
+                                        id = task.id,
+                                        name = task.name,
+                                        prompt = task.prompt,
+                                        systemPrompt = task.systemPrompt,
+                                        modelId = task.modelId,
+                                        cronExpr = task.cronExpr,
+                                        runAt = task.runAt,
+                                        createdAt = task.createdAt,
+                                        lastRunAt = task.lastRunAt,
+                                    ),
                                 ),
-                            ),
-                        )
-                    },
-                )
+                            )
+                        }
+                    }
+                }
+                writer.finish()
             }
-            return spool
+            return ExportedSpool(spool, index)
         } catch (error: Throwable) {
             spool.delete()
             throw error
         }
     }
 
-    private suspend fun forEachSnapshotRecord(
-        spool: File,
-        type: String,
-        block: suspend (String) -> Unit,
-    ) {
-        spool.bufferedReader(Charsets.UTF_8).use { reader ->
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                val line = reader.readLine() ?: break
-                val separator = line.indexOf('\t')
-                if (separator != 1) throw IOException("Invalid export snapshot record")
-                if (line.startsWith(type)) block(line.substring(separator + 1))
-            }
-        }
-    }
-
-    /** Copies one media stream directly into the archive without a heap-sized byte array. */
-    private fun copyStreamToZipEntry(
+    /**
+     * Writes the captured spool to the archive one conversation slice at a time. Media for a
+     * conversation is copied while its slice streams, the entry payload is assembled record by
+     * record, and only dedup maps plus the index remain resident across conversations.
+     */
+    private suspend fun writeConversationArchive(
         zip: ZipArchiveOutputStream,
-        entryName: String,
-        input: InputStream?,
-    ): Boolean {
-        if (input == null) return false
-        return input.use { stream ->
-            zip.putArchiveEntry(ZipArchiveEntry(entryName))
-            try {
-                stream.copyTo(zip) > 0L
-            } finally {
-                zip.closeArchiveEntry()
-            }
-        }
-    }
-
-    private fun ZipArchiveOutputStream.writeJsonToken(value: String) {
-        write(value.toByteArray(Charsets.UTF_8))
-    }
-
-    private suspend fun buildMediaExportPlan(
-        zip: ZipArchiveOutputStream,
-        spool: File,
+        spool: ExportedSpool,
+        baseline: NativeBackupV5Baseline?,
         unchangedConversationIds: Set<String>,
-    ): MediaExportPlan {
-        val messageImages = mutableMapOf<String, List<String>>()
-        val messageAttachmentMeta = mutableMapOf<String, String?>()
-        val draftAttachments = mutableMapOf<String, String?>()
+    ): ExportResult {
+        val spoolReader = ExportSpoolReader(spool.file)
         val sourceToArchiveEntry = mutableMapOf<String, String>()
-        var copiedImageCount = 0
+        val copiedBaselineMedia = linkedSetOf<String>()
+        val indexEntries = mutableListOf<NativeConversationIndexEntry>()
+        var imagesExported = 0
         var missingResourceCount = 0
 
-        fun copySource(source: String, prefix: String): String? {
+        fun copySource(
+            source: String,
+            prefix: String,
+            referenced: MutableSet<String>?,
+        ): String? {
             if (source.isBlank()) return null
             val sourceKey = mediaSourceKey(source)
-            sourceToArchiveEntry[sourceKey]?.let { return it }
+            sourceToArchiveEntry[sourceKey]?.let { entry ->
+                referenced?.add(entry)
+                return entry
+            }
             val entry = archiveMediaEntry(prefix, source)
             val copied = try {
                 copyStreamToZipEntry(
@@ -404,140 +389,176 @@ class DataExporter(
             } catch (_: Exception) {
                 false
             }
-            return entry.takeIf { copied }?.also { sourceToArchiveEntry[sourceKey] = it }
+            return entry.takeIf { copied }?.also {
+                sourceToArchiveEntry[sourceKey] = it
+                referenced?.add(it)
+            }
         }
 
-        forEachSnapshotRecord(spool, SNAPSHOT_MESSAGE) { raw ->
-            val message = Json.decodeFromString<ExportMessageEntity>(raw)
-            if (message.conversationId in unchangedConversationIds) return@forEachSnapshotRecord
-            val meta = message.attachmentMeta?.let {
-                runCatching { Json.decodeFromString<AttachmentMeta>(it) }.getOrNull()
-            }
-            meta?.items
-                ?.asSequence()
-                ?.filter { it.type == "video" && !it.unavailable }
-                ?.mapNotNull { it.originalUri }
-                ?.forEach { source ->
-                    copySource(source, NativeBackupFormat.VIDEO_MEDIA_PREFIX)
-                }
+        fun trackedEntry(prefix: String, referenced: MutableSet<String>): (String) -> String? =
+            { source -> copySource(source, prefix, referenced) }
 
-            if (message.images.isNotEmpty()) {
-                val oldToNewImageIndex = mutableMapOf<Int, Int>()
-                val archivedImages = buildList {
-                    message.images.forEachIndexed { oldIndex, source ->
-                        copySource(source, NativeBackupFormat.IMAGE_MEDIA_PREFIX)?.let { entry ->
-                            oldToNewImageIndex[oldIndex] = size
-                            add(entry)
-                            copiedImageCount++
+        fun trackedLookup(referenced: MutableSet<String>): (String) -> String? =
+            { source ->
+                sourceToArchiveEntry[mediaSourceKey(source)]?.also { referenced.add(it) }
+            }
+
+        for (conversation in spool.index.conversations) {
+            currentCoroutineContext().ensureActive()
+            val baselineEntry = baseline?.indexEntry(conversation.id)
+                ?.takeIf { conversation.id in unchangedConversationIds }
+            if (baselineEntry != null) {
+                indexEntries += NativeBackupV5Writer.copyConversationFromBaseline(
+                    zip = zip,
+                    baseline = baseline,
+                    baselineEntry = baselineEntry,
+                    copiedMedia = copiedBaselineMedia,
+                )
+                continue
+            }
+
+            val referencedMedia = linkedSetOf<String>()
+            val archivedImagesByMessage = mutableMapOf<String, List<String>>()
+            val attachmentMetaByMessage = mutableMapOf<String, String?>()
+            var archivedDraftAttachments: String? = null
+
+            // First pass over the slice: stream this conversation's media into the archive.
+            spoolReader.readRecords(conversation.slice) { type, raw ->
+                when (type) {
+                    SNAPSHOT_CONVERSATION -> {
+                        val attachments = Json.decodeFromString<ExportChatEntity>(raw)
+                            .draftAttachments?.let { encoded ->
+                                runCatching {
+                                    Json.decodeFromString<List<SelectedAttachment>>(encoded)
+                                }.getOrNull()
+                            } ?: return@readRecords
+                        val archived = NativeBackupMediaPolicy.rewriteDraftAttachmentsForExport(
+                            attachments = attachments,
+                            archiveEntryForSource = trackedEntry(
+                                NativeBackupFormat.DRAFT_MEDIA_PREFIX,
+                                referencedMedia,
+                            ),
+                            onMissingResource = { missingResourceCount++ },
+                        )
+                        archivedDraftAttachments = archived
+                            .takeIf(List<SelectedAttachment>::isNotEmpty)
+                            ?.let { Json.encodeToString(it) }
+                    }
+                    SNAPSHOT_MESSAGE -> {
+                        val message = Json.decodeFromString<ExportMessageEntity>(raw)
+                        val meta = message.attachmentMeta?.let {
+                            runCatching { Json.decodeFromString<AttachmentMeta>(it) }.getOrNull()
+                        }
+                        meta?.items
+                            ?.asSequence()
+                            ?.filter { it.type == "video" && !it.unavailable }
+                            ?.mapNotNull { it.originalUri }
+                            ?.forEach { source ->
+                                copySource(source, NativeBackupFormat.VIDEO_MEDIA_PREFIX, null)
+                            }
+
+                        if (message.images.isNotEmpty()) {
+                            val oldToNewImageIndex = mutableMapOf<Int, Int>()
+                            archivedImagesByMessage[message.id] = buildList {
+                                message.images.forEachIndexed { oldIndex, source ->
+                                    copySource(
+                                        source,
+                                        NativeBackupFormat.IMAGE_MEDIA_PREFIX,
+                                        referencedMedia,
+                                    )?.let { entry ->
+                                        oldToNewImageIndex[oldIndex] = size
+                                        add(entry)
+                                        imagesExported++
+                                    }
+                                }
+                            }
+                            attachmentMetaByMessage[message.id] =
+                                NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(
+                                    raw = message.attachmentMeta,
+                                    originalImageSources = message.images,
+                                    oldToNewImageIndex = oldToNewImageIndex,
+                                    archiveEntryForSource = trackedLookup(referencedMedia),
+                                    onMissingResource = { missingResourceCount++ },
+                                )
+                        } else if (message.attachmentMeta != null) {
+                            attachmentMetaByMessage[message.id] =
+                                NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(
+                                    raw = message.attachmentMeta,
+                                    originalImageSources = emptyList(),
+                                    oldToNewImageIndex = emptyMap(),
+                                    archiveEntryForSource = trackedLookup(referencedMedia),
+                                    onMissingResource = { missingResourceCount++ },
+                                )
+                        }
+
+                        NativeBackupMediaPolicy.toolImagePaths(message.toolCallJson).forEach { source ->
+                            if (copySource(source, NativeBackupFormat.IMAGE_MEDIA_PREFIX, null) != null) {
+                                imagesExported++
+                            }
                         }
                     }
                 }
-                messageImages[message.id] = archivedImages
-                messageAttachmentMeta[message.id] =
-                    NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(
-                        raw = message.attachmentMeta,
-                        originalImageSources = message.images,
-                        oldToNewImageIndex = oldToNewImageIndex,
-                        archiveEntryForSource = { source ->
-                            sourceToArchiveEntry[mediaSourceKey(source)]
-                        },
-                        onMissingResource = { missingResourceCount++ },
-                    )
-            } else if (message.attachmentMeta != null) {
-                messageAttachmentMeta[message.id] =
-                    NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(
-                        raw = message.attachmentMeta,
-                        originalImageSources = emptyList(),
-                        oldToNewImageIndex = emptyMap(),
-                        archiveEntryForSource = { source ->
-                            sourceToArchiveEntry[mediaSourceKey(source)]
-                        },
-                        onMissingResource = { missingResourceCount++ },
-                    )
             }
 
-            NativeBackupMediaPolicy.toolImagePaths(message.toolCallJson).forEach { source ->
-                if (copySource(source, NativeBackupFormat.IMAGE_MEDIA_PREFIX) != null) {
-                    copiedImageCount++
+            // Second pass: assemble the entry from streamed, rewritten records.
+            var conversationJson: String? = null
+            val runs = mutableListOf<String>()
+            val loops = mutableListOf<String>()
+            spoolReader.readRecords(conversation.slice) { type, raw ->
+                when (type) {
+                    SNAPSHOT_CONVERSATION -> {
+                        val entity = Json.decodeFromString<ExportChatEntity>(raw)
+                        conversationJson = Json.encodeToString(
+                            entity.copy(
+                                draftAttachments = archivedDraftAttachments
+                                    ?: entity.draftAttachments,
+                            ),
+                        )
+                    }
+                    SNAPSHOT_RUN -> runs += raw
+                    SNAPSHOT_LOOP -> loops += raw
                 }
             }
-        }
-
-        forEachSnapshotRecord(spool, SNAPSHOT_CONVERSATION) { raw ->
-            val conversation = Json.decodeFromString<ExportChatEntity>(raw)
-            if (conversation.id in unchangedConversationIds) return@forEachSnapshotRecord
-            val attachments = conversation.draftAttachments?.let { encoded ->
-                runCatching {
-                    Json.decodeFromString<List<SelectedAttachment>>(encoded)
-                }.getOrNull()
-            } ?: return@forEachSnapshotRecord
-            val archived = NativeBackupMediaPolicy.rewriteDraftAttachmentsForExport(
-                attachments = attachments,
-                archiveEntryForSource = { source ->
-                    copySource(source, NativeBackupFormat.DRAFT_MEDIA_PREFIX)
-                },
-                onMissingResource = { missingResourceCount++ },
-            )
-            draftAttachments[conversation.id] = archived
-                .takeIf(List<SelectedAttachment>::isNotEmpty)
-                ?.let { Json.encodeToString(it) }
-        }
-
-        return MediaExportPlan(
-            messageImages = messageImages,
-            messageAttachmentMeta = messageAttachmentMeta,
-            draftAttachments = draftAttachments,
-            sourceToArchiveEntry = sourceToArchiveEntry,
-            copiedImageCount = copiedImageCount,
-            missingResourceCount = missingResourceCount,
-        )
-    }
-
-    /** Writes the captured Room snapshot without performing any further database reads. */
-    private suspend fun writeConversationArchive(
-        zip: ZipArchiveOutputStream,
-        spool: File,
-        mediaPlan: MediaExportPlan,
-        baseline: NativeBackupV5Baseline?,
-        unchangedConversationIds: Set<String>,
-    ) {
-        val conversations = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        val runs = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        val messages = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        val tasks = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        val loops = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        forEachSnapshotRecord(spool, SNAPSHOT_CONVERSATION) { raw ->
-            val conversation = Json.decodeFromString<ExportChatEntity>(raw)
-            conversations += Json.parseToJsonElement(
-                Json.encodeToString(
-                    conversation.copy(
-                        draftAttachments = mediaPlan.draftAttachments[conversation.id],
-                    ),
-                ),
-            ).jsonObject
-        }
-        forEachSnapshotRecord(spool, SNAPSHOT_RUN) { runs += Json.parseToJsonElement(it).jsonObject }
-        forEachSnapshotRecord(spool, SNAPSHOT_MESSAGE) { raw ->
-            val message = Json.decodeFromString<ExportMessageEntity>(raw)
-            messages += Json.parseToJsonElement(
-                Json.encodeToString(
-                    message.copy(
-                        images = mediaPlan.messageImages[message.id] ?: emptyList(),
-                        toolCallJson = NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
-                            raw = message.toolCallJson,
-                            archiveEntryForSource = { source ->
-                                mediaPlan.sourceToArchiveEntry[mediaSourceKey(source)]
+            val messages = spoolReader.recordIterator(conversation.slice, SNAPSHOT_MESSAGE)
+                .asSequence()
+                .map { raw ->
+                    val message = Json.decodeFromString<ExportMessageEntity>(raw)
+                    Json.encodeToString(
+                        message.copy(
+                            images = archivedImagesByMessage[message.id] ?: emptyList(),
+                            toolCallJson = NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
+                                raw = message.toolCallJson,
+                                archiveEntryForSource = trackedLookup(referencedMedia),
+                            ),
+                            attachmentMeta = if (message.id in attachmentMetaByMessage) {
+                                attachmentMetaByMessage[message.id]
+                            } else {
+                                message.attachmentMeta
                             },
                         ),
-                        attachmentMeta = mediaPlan.messageAttachmentMeta[message.id],
-                    ),
-                ),
-            ).jsonObject
+                    )
+                }
+                .iterator()
+            indexEntries += NativeBackupV5Writer.writeConversationEntry(
+                zip = zip,
+                conversationId = conversation.id,
+                dataChangedAt = conversation.dataChangedAt,
+                conversationJson = requireNotNull(conversationJson),
+                runs = runs.iterator(),
+                messages = messages,
+                loops = loops.iterator(),
+                mediaEntries = referencedMedia,
+            )
         }
-        forEachSnapshotRecord(spool, SNAPSHOT_TASK) { tasks += Json.parseToJsonElement(it).jsonObject }
-        forEachSnapshotRecord(spool, SNAPSHOT_LOOP) { loops += Json.parseToJsonElement(it).jsonObject }
-        NativeBackupV5Writer.write(
-            zip, conversations, runs, messages, tasks, loops, baseline, unchangedConversationIds,
+
+        NativeBackupV5Writer.writeTasksEntry(
+            zip = zip,
+            tasks = spoolReader.recordIterator(spool.index.taskSlices),
+        )
+        NativeBackupV5Writer.writeConversationIndex(zip, indexEntries)
+        return ExportResult(
+            imagesExported = imagesExported,
+            missingResourceCount = missingResourceCount,
         )
     }
 
@@ -591,25 +612,17 @@ class DataExporter(
 
                 // Conversations
                 if (conversationSpool != null) {
-                    val currentWatermarks = linkedMapOf<String, Long>()
-                    forEachSnapshotRecord(conversationSpool, SNAPSHOT_CONVERSATION) { raw ->
-                        val conversation = Json.decodeFromString<ExportChatEntity>(raw)
-                        currentWatermarks[conversation.id] = conversation.dataChangedAt
-                    }
-                    val unchangedConversationIds =
-                        baseline?.unchangedConversationIds(currentWatermarks).orEmpty()
-                    val mediaPlan = buildMediaExportPlan(
-                        zip, conversationSpool, unchangedConversationIds,
-                    )
-                    imagesExportedTotal += mediaPlan.copiedImageCount
-                    missingResourceCount += mediaPlan.missingResourceCount
-                    writeConversationArchive(
+                    val unchangedConversationIds = baseline
+                        ?.unchangedConversationIds(conversationSpool.index.watermarks)
+                        .orEmpty()
+                    val archiveResult = writeConversationArchive(
                         zip = zip,
                         spool = conversationSpool,
-                        mediaPlan = mediaPlan,
                         baseline = baseline,
                         unchangedConversationIds = unchangedConversationIds,
                     )
+                    imagesExportedTotal += archiveResult.imagesExported
+                    missingResourceCount += archiveResult.missingResourceCount
                     step()
                 }
 
@@ -686,9 +699,9 @@ class DataExporter(
                 step()
             }
 
-            zip.finish()
-            zip.flush()
-        }
+                zip.finish()
+                zip.flush()
+            }
 
             onProgress(1f)
             ExportResult(

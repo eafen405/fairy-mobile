@@ -1,43 +1,49 @@
 package com.newoether.agora.data
-
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipInputStream
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
-
 class NativeBackupV5WriterTest {
     @Test
-    fun writesConversationEntriesIndexTasksAndMediaReferences() {
+    fun streamsConversationEntriesIndexTasksAndMediaReferences() {
         val bytes = ByteArrayOutputStream().also { sink ->
             ZipArchiveOutputStream(sink).use { zip ->
-                NativeBackupV5Writer.write(
+                val one = NativeBackupV5Writer.writeConversationEntry(
                     zip = zip,
-                    conversations = listOf(
-                        json("id" to "one", "dataChangedAt" to 11L),
-                        json("id" to "two", "dataChangedAt" to 22L),
-                    ),
-                    runs = listOf(json("id" to "run-one", "conversationId" to "one")),
+                    conversationId = "one",
+                    dataChangedAt = 11L,
+                    conversationJson = """{"id":"one","dataChangedAt":11}""",
+                    runs = listOf("""{"id":"run-one","conversationId":"one"}""").iterator(),
                     messages = listOf(
-                        json(
-                            "id" to "message-one",
-                            "conversationId" to "one",
-                            "image" to "media/images/image-one.png",
-                        ),
-                    ),
-                    tasks = listOf(json("id" to "task-one")),
-                    loops = listOf(json("conversationId" to "two")),
+                        """{"id":"message-one","conversationId":"one",""" +
+                            """"image":"media/images/image-one.png"}""",
+                    ).iterator(),
+                    loops = emptyList<String>().iterator(),
+                    mediaEntries = setOf("media/images/image-one.png"),
                 )
+                val two = NativeBackupV5Writer.writeConversationEntry(
+                    zip = zip,
+                    conversationId = "two",
+                    dataChangedAt = 22L,
+                    conversationJson = """{"id":"two","dataChangedAt":22}""",
+                    runs = emptyList<String>().iterator(),
+                    messages = emptyList<String>().iterator(),
+                    loops = listOf("""{"conversationId":"two"}""").iterator(),
+                    mediaEntries = emptySet(),
+                )
+                NativeBackupV5Writer.writeTasksEntry(
+                    zip = zip,
+                    tasks = listOf("""{"id":"task-one"}""").iterator(),
+                )
+                NativeBackupV5Writer.writeConversationIndex(zip, listOf(one, two))
             }
         }.toByteArray()
-
         val entries = readEntries(bytes)
         val oneEntry = NativeBackupFormat.conversationEntry("one")
         val twoEntry = NativeBackupFormat.conversationEntry("two")
@@ -46,13 +52,19 @@ class NativeBackupV5WriterTest {
             entries.keys,
         )
         assertFalse(entries.containsKey(NativeBackupFormat.CONVERSATIONS_ENTRY))
-        assertTrue(entries.getValue(oneEntry).contains("run-one"))
-        assertTrue(entries.getValue(oneEntry).contains("message-one"))
-        assertTrue(entries.getValue(oneEntry).contains("media/images/image-one.png"))
+        assertEquals(
+            """{"conversations":[{"id":"one","dataChangedAt":11}],"runs":[""" +
+                """{"id":"run-one","conversationId":"one"}],"messages":[""" +
+                """{"id":"message-one","conversationId":"one","image":"media/images/image-one.png"}"""+
+                """],"loops":[]}""",
+            entries.getValue(oneEntry),
+        )
         assertFalse(entries.getValue(oneEntry).contains("\"two\""))
-        assertTrue(entries.getValue(twoEntry).contains("\"loops\""))
-        assertTrue(entries.getValue(NativeBackupFormat.TASKS_ENTRY).contains("task-one"))
-
+        assertTrue(entries.getValue(twoEntry).contains(""""loops":[{"conversationId":"two"}]"""))
+        assertEquals(
+            """{"tasks":[{"id":"task-one"}]}""",
+            entries.getValue(NativeBackupFormat.TASKS_ENTRY),
+        )
         val index = Json.decodeFromString<NativeConversationIndex>(
             entries.getValue(NativeBackupFormat.CONVERSATION_INDEX_ENTRY),
         )
@@ -61,12 +73,12 @@ class NativeBackupV5WriterTest {
         assertEquals(listOf("media/images/image-one.png"), index.conversations.first().mediaEntries)
         assertTrue(index.conversations.last().mediaEntries.isEmpty())
     }
-
     @Test
     fun emptySnapshotWritesOnlyEmptyIndexAndTasks() {
         val bytes = ByteArrayOutputStream().also { sink ->
             ZipArchiveOutputStream(sink).use { zip ->
-                NativeBackupV5Writer.write(zip, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+                NativeBackupV5Writer.writeTasksEntry(zip, emptyList<String>().iterator())
+                NativeBackupV5Writer.writeConversationIndex(zip, emptyList())
             }
         }.toByteArray()
         val entries = readEntries(bytes)
@@ -81,17 +93,6 @@ class NativeBackupV5WriterTest {
             ).conversations,
         )
     }
-
-    private fun json(vararg values: Pair<String, Any>) = buildJsonObject {
-        values.forEach { (key, value) ->
-            when (value) {
-                is String -> put(key, value)
-                is Long -> put(key, value)
-                else -> error("Unsupported test value: $value")
-            }
-        }
-    }
-
     private fun readEntries(bytes: ByteArray): Map<String, String> = buildMap {
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             var entry = zip.nextEntry

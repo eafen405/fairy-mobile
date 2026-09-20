@@ -1,7 +1,8 @@
 # Import and Export Contract
 
 Status: authoritative product, persistence, and compatibility contract, updated 2026-09-20 for the
-version 5 conversation-granular archive and incremental automatic backups.
+version 5 conversation-granular archive and incremental automatic backups, with export assembly
+streaming the spool one conversation at a time after the v5 materialization OOM regression.
 
 This document owns native `.agora` archives, portable settings, import strategies, secret transport,
 and automatic-backup compatibility. Public manuals describe the user workflow; this contract defines
@@ -66,7 +67,9 @@ than becoming resources.
 A conversation export reads conversation settings before entering the database, then opens an
 independent `ChatDatabase` instance and captures Conversations, Runs, paged Messages, Tasks, Loops,
 and every raw media reference into a temporary typed JSONL spool inside one DEFERRED read
-transaction. The independent instance uses dedicated background-priority executors and never
+transaction. While capture runs, the spool writer records a byte-range slice for every conversation
+plus one slice per task block, so archive assembly later revisits stored records through random
+access instead of re-scanning the spool or re-materializing the graph. The independent instance uses dedicated background-priority executors and never
 occupies the process Room transaction executor, connection pool, or executors. Under WAL, foreground
 generation may continue committing atomic checkpoints: a checkpoint committed before the export
 snapshot is established is included, later checkpoints are excluded, and no partial transaction is
@@ -85,6 +88,16 @@ exported conversation with its `dataChangedAt` watermark, its `conv/items/<hex-i
 and the media entries it references. Each item entry holds that conversation's own
 `conversations`, `runs`, `messages`, and `loops` arrays. Tasks are conversation-independent and live
 once in `conv/tasks.json`.
+
+Export assembles the archive by streaming the spool rather than materializing it. The spool index
+holds only slice offsets and per-conversation `dataChangedAt` watermarks; the archive writer revisits
+one conversation at a time, reading its slices through random access, copying media, and emitting
+that conversation's item entry before moving on. Run and loop rows pass through verbatim; message
+rows are decoded, archive-path rewritten, and re-encoded lazily as their entry is written. Export
+memory therefore stays bounded by a single spool record, the media-reference dedup map, and slice
+metadata, never by the size of the database or of any single conversation. Baseline raw copies use
+the same per-conversation flow: an unchanged conversation's item entry and media entries are copied
+byte-for-byte from the baseline archive without touching the spool.
 
 Automatic backups reuse the most recent valid `Agora_backup_*.agora` file as an optional baseline. A
 conversation whose `dataChangedAt` watermark is unchanged is raw-copied byte-for-byte from the

@@ -61,15 +61,17 @@ class ConversationExportSnapshotReaderTest {
         val exportedRuns = mutableListOf<RunEntity>()
         val exportedMessages = mutableListOf<MessageEntity>()
         val export = async(Dispatchers.IO) {
-            ConversationExportSnapshotReader(context).readSnapshot(
-                onConversation = { snapshot ->
-                    snapshotEstablished.complete(Unit)
-                    continueSnapshot.await()
-                    exportedRuns += snapshot.runs
-                    exportedMessages += snapshot.messages
-                },
-                onTask = {},
-            )
+            ConversationExportSnapshotReader(context).readSnapshot { record ->
+                when (record) {
+                    is SnapshotRecord.Run -> {
+                        snapshotEstablished.complete(Unit)
+                        continueSnapshot.await()
+                        exportedRuns += record.entity
+                    }
+                    is SnapshotRecord.Message -> exportedMessages += record.entity
+                    else -> Unit
+                }
+            }
         }
 
         snapshotEstablished.await()
