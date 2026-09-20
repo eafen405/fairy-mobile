@@ -62,6 +62,14 @@ android {
     val releaseSigning = if (hasKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".screenshots"
+            versionNameSuffix = "-screenshots"
+            ndk {
+                abiFilters.clear()
+                abiFilters += "x86_64"
+            }
+        }
         release {
             signingConfig = releaseSigning
             isMinifyEnabled = false

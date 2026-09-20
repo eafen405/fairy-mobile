@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -62,6 +63,7 @@ internal val SettingsTitleBottomInset = 70.dp   // big title's top-left, measure
 internal val SettingsTitleAreaHeight = 90.dp    // big-title header room; taller = longer rise
 internal val SettingsTitleExpandedFont = 33.sp
 internal val SettingsTitleCollapsedFont = 22.sp
+internal val SettingsContentMaxWidth = 840.dp
 
 /** Gentle ease applied to the title's scale + horizontal tuck only — its vertical rise stays
  *  glued 1:1 to the scrolling header, so the shrink-and-dock follows a curve, not dead-linear. */
@@ -120,7 +122,11 @@ internal fun CollapsingSettingsTitleBar(
 
         val expandedY = statusBarTop + SettingsBarHeight + titleAreaHeight - SettingsTitleBottomInset
         val titleY = expandedY - titleTravel * fraction   // linear 1:1 with scroll → docks at expandedY − travel
-        val titleX = 24.dp + (70.dp - 24.dp) * eased       // eased shrink-and-tuck beside the back arrow
+        val titleX = if (LocalSettingsPaneBackButtonVisible.current) {
+            24.dp + (70.dp - 24.dp) * eased
+        } else {
+            16.dp
+        }
 
         // Opaque bar (incl. the status-bar strip) hides list content scrolling underneath it.
         Box(
@@ -129,11 +135,13 @@ internal fun CollapsingSettingsTitleBar(
                 .height(statusBarTop + SettingsBarHeight)
                 .background(MaterialTheme.colorScheme.background)
         )
-        CircularBackButton(
-            onClick = onBack,
-            contentDescription = backDescription,
-            modifier = Modifier.padding(start = 16.dp, top = statusBarTop + 12.dp)
-        )
+        if (LocalSettingsPaneBackButtonVisible.current) {
+            CircularBackButton(
+                onClick = onBack,
+                contentDescription = backDescription,
+                modifier = Modifier.padding(start = 16.dp, top = statusBarTop + 12.dp)
+            )
+        }
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -193,7 +201,10 @@ fun CollapsingSettingsScaffold(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .widthIn(max = SettingsContentMaxWidth)
+                .fillMaxWidth()
                 .navigationBarsPadding()
                 .imePadding()
                 .verticalScroll(scrollState)
@@ -262,7 +273,10 @@ fun CollapsingSettingsLazyScaffold(
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .widthIn(max = SettingsContentMaxWidth)
+                .fillMaxWidth()
                 .navigationBarsPadding()
                 .imePadding()
                 .clearFocusOnTap()

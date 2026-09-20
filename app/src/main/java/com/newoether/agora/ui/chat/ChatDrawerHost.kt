@@ -144,6 +144,9 @@ internal class ChatDrawerState internal constructor(
     suspend fun forceClosed(motionPolicy: AgoraMotionPolicy) {
         animateTo(DrawerValue.Closed, motionPolicy)
     }
+    suspend fun openImmediately() {
+        if (drawerEnabled) anchoredState.snapTo(DrawerValue.Open)
+    }
 
     private suspend fun animateTo(target: DrawerValue, motionPolicy: AgoraMotionPolicy) {
         if (target == DrawerValue.Open && !drawerEnabled) return

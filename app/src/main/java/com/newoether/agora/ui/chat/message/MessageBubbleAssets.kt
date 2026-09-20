@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.heading
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.newoether.agora.ui.components.LatexImageTransformer
 import com.newoether.agora.ui.components.isDisplayLatexLink
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
@@ -389,9 +391,10 @@ internal fun rememberChatMarkdownAssets(
     // identical instead of sending thought/code tails through an unfaded fallback renderer.
     val thoughtMarkdownComponents = customMarkdownComponents
 
-    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick) {
+    val latexTextSize = with(LocalDensity.current) { 22.sp.toPx() }
+    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize) {
         LatexImageTransformer(
-            textSize = 56f,
+            textSize = latexTextSize,
             color = textColor.toArgb(),
             inlineImages = inlineImages,
             onMediaClick = onMediaClick,

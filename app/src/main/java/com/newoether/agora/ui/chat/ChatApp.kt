@@ -63,13 +63,13 @@ fun ChatApp(
     initialComposerFocusReady: Boolean = true,
     onNavigateBack: (() -> Unit)? = null,
     drawerEnabled: Boolean = true,
+    openDrawerOnStart: Boolean = false, initialScrollToTop: Boolean = false,
     onOpenSettings: () -> Unit,
     onOpenTasks: (String?) -> Unit = {},
     onOpenRemote: () -> Unit = {},
     onMediaClick: (List<String>, Int) -> Unit,
     onFileContentClick: ((String, String) -> Unit)? = null,
-    onPdfPagesClick: ((List<String>, Int) -> Unit)? = null,
-    onPdfPreviewSelect: ((List<String>, Int) -> Unit)? = null,
+    onPdfPagesClick: ((List<String>, Int) -> Unit)? = null, onPdfPreviewSelect: ((List<String>, Int) -> Unit)? = null,
     pdfViewerSelection: Set<Int> = emptySet(),
     onTogglePdfSelection: ((Int) -> Unit)? = null,
     onInitPdfSelection: ((Set<Int>) -> Unit)? = null,
@@ -84,6 +84,9 @@ fun ChatApp(
     val motionPolicy = LocalAgoraMotionPolicy.current
     ConversationShareEffect(viewModel, context)
     val drawerState = rememberChatDrawerState()
+    LaunchedEffect(openDrawerOnStart, drawerEnabled) {
+        if (openDrawerOnStart && drawerEnabled) drawerState.openImmediately()
+    }
     val conversations by viewModel.conversations.collectAsState()
     // Defer value reads to the narrow composition regions that actually render messages. The
     // State objects themselves are stable, so stream snapshots no longer recompose all ChatApp.
@@ -230,6 +233,7 @@ fun ChatApp(
         density = density,
     )
     val listState = scrollCoordinator.listState
+    ScreenshotInitialScrollEffect(initialScrollToTop, currentConversationId, loadedMessagesConversationId, listState)
     val absoluteBottomScrollPhase = scrollCoordinator.absoluteBottomScrollPhase
     val isNearAbsoluteBottom = scrollCoordinator.isNearAbsoluteBottom
     val isWithinAbsoluteBottomAttachThreshold =
@@ -495,7 +499,9 @@ fun ChatApp(
                                 authoritativeMessages = StableMessageList(displayMessagesState.value),
                                 allMessages = StableMessageList(allMessagesState.value),
                                 conversationId = currentConversationId,
-                                modifier = Modifier.fillMaxSize().gradientBlur(
+                                modifier = Modifier.align(Alignment.Center)
+                                    .fillMaxHeight().widthIn(max = 840.dp).fillMaxWidth()
+                                    .gradientBlur(
                                     blurAtTopDp = if (blurEffectsEnabled) 8f else 0f,
                                     blurAtBottomDp = 0f,
                                     fadeHeightDp = 40f,
@@ -671,6 +677,7 @@ fun ChatApp(
 
             com.newoether.agora.ui.chat.bottombar.ChatComposerSurface(
                 modifier = Modifier.align(Alignment.BottomCenter),
+                contentMaxWidth = 840.dp,
                 isExpanded = isExpanded,
                 outerSpacerHeightPx = outerSpacerHeightPx,
                 onBarHeightChanged = { bottomBarHeightPx = it },

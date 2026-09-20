@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.data.SettingsManager
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
+        const val EXTRA_SCREENSHOT_DESTINATION = "com.newoether.agora.extra.SCREENSHOT_DESTINATION"
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -109,6 +111,21 @@ class MainActivity : ComponentActivity() {
             val databaseStartupState = agoraApplication.awaitDatabaseStartup()
             val needsErrorDialog = databaseStartupState is DatabaseStartupState.Blocked
             withContext(Dispatchers.IO) {
+                intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION)?.let { destination ->
+                    runCatching {
+                        Class.forName("com.newoether.agora.screenshot.ScreenshotFixture")
+                            .getMethod("seed", AgoraApplication::class.java, String::class.java)
+                            .invoke(null, agoraApplication, destination)
+                    }.onFailure { error ->
+                        if (error !is ClassNotFoundException) {
+                            com.newoether.agora.util.DebugLog.e(
+                                "MainActivity",
+                                "Screenshot fixture failed",
+                                error,
+                            )
+                        }
+                    }
+                }
                 runCatching {
                     settingsManager.initializeFirstInstallDefaults(
                         locale = java.util.Locale.getDefault()
@@ -232,6 +249,7 @@ class MainActivity : ComponentActivity() {
                                 onNotificationConversationConsumed = { expectedId ->
                                     consumeNotificationTarget(notificationConversationId, expectedId)
                                 },
+                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
                             )
                         }
                     }
@@ -275,6 +293,7 @@ fun MainNavigation(
     settingsManager: SettingsManager,
     notificationConversationId: kotlinx.coroutines.flow.StateFlow<String?>,
     onNotificationConversationConsumed: (String) -> Unit,
+    screenshotDestination: String? = null,
 ) {
     val appContext = LocalContext.current.applicationContext
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -283,7 +302,7 @@ fun MainNavigation(
         appContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
         PackageManager.PERMISSION_GRANTED
     var initialComposerFocusReady by remember {
-        mutableStateOf(!shouldRequestNotificationPermission)
+        mutableStateOf(screenshotDestination == null && !shouldRequestNotificationPermission)
     }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -296,7 +315,12 @@ fun MainNavigation(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable {
+        mutableStateOf(screenshotDestination?.startsWith("settings") == true)
+    }
+    LaunchedEffect(screenshotDestination) {
+        if (screenshotDestination?.startsWith("settings") == true) showSettings = true
+    }
     var showTasks by rememberSaveable { mutableStateOf(false) }
     var showRemote by rememberSaveable { mutableStateOf(false) }
     val topLevelPresentation = remember {
@@ -457,6 +481,8 @@ fun MainNavigation(
                         }
                     },
                 drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
+                openDrawerOnStart = screenshotDestination == "drawer",
+                initialScrollToTop = screenshotDestination == "chat",
                 onOpenSettings = {
                     topLevelPresentation.present(TopLevelPresentation.SETTINGS)
                     showSettings = true
@@ -509,7 +535,7 @@ fun MainNavigation(
             )
 
             SettingsOverlayHost(
-                visible = showSettings,
+                visible = showSettings && screenshotDestination?.startsWith("settings") != true,
                 onDismiss = { showSettings = false },
                 onExitFinished = {
                     topLevelPresentation.release(TopLevelPresentation.SETTINGS)
@@ -519,10 +545,27 @@ fun MainNavigation(
                     viewModel = viewModel,
                     onBack = {
                         showSettings = false
-                    }
+                    },
+                    initialCategory = screenshotDestination
+                        ?.substringAfter("settings:", "")
+                        ?.ifBlank { null },
                 )
             }
 
+            if (screenshotDestination?.startsWith("settings") == true) {
+                Surface(
+                    modifier = Modifier.fillMaxSize().zIndex(2f),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        onBack = {},
+                        initialCategory = screenshotDestination
+                            .substringAfter("settings:", "")
+                            .ifBlank { null },
+                    )
+                }
+            }
             SettingsOverlayHost(
                 visible = showTasks,
                 onDismiss = {
