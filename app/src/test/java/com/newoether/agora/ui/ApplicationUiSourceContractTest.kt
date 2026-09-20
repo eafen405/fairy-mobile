@@ -651,7 +651,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(twoPane.contains("label = \"settingsCategory\""))
         assertTrue(twoPane.contains("animateColorAsState("))
         assertTrue(twoPane.contains("label = \"settingsNavigationContainer\""))
-        assertTrue(twoPane.contains("Spacer(Modifier.height(4.dp))"))
+        assertTrue(twoPane.contains("Spacer(Modifier.height(3.dp))"))
         assertTrue(twoPane.contains(".clipToBounds()"))
         assertTrue(twoPane.contains(
             "CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides false)"
