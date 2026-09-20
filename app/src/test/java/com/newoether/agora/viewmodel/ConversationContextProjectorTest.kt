@@ -41,6 +41,7 @@ class ConversationContextProjectorTest {
             )
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 221
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -119,6 +120,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 137
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -162,6 +164,7 @@ class ConversationContextProjectorTest {
         every {
             generationManager.fixedContextTokenCost(snapshot.config, snapshot.context)
         } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -199,6 +202,7 @@ class ConversationContextProjectorTest {
         every {
             generationManager.fixedContextTokenCost(snapshot.config, snapshot.context)
         } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -240,6 +244,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -297,6 +302,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -371,6 +377,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot(any(), "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -449,6 +456,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,
@@ -504,6 +512,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         val projector = ConversationContextProjector(
             conversations = conversations,
             requestBuilder = requestBuilder,

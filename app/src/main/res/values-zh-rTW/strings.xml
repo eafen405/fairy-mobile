@@ -602,6 +602,8 @@
     <string name="shell_confirm_deny">拒絕</string>
     <string name="shell_confirm_setting">確認遠端 Shell 操作</string>
     <string name="shell_confirm_setting_desc">在助手於遠端 SSH/Conch 伺服器上執行命令或寫入檔案前詢問</string>
+    <string name="shell_confirm_notification_channel">命令審批</string>
+    <string name="shell_confirm_notification_desc">Agora 於背景執行時，請求你允許或拒絕遠端命令</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora 意外退出</string>

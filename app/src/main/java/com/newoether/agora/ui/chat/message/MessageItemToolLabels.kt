@@ -126,16 +126,7 @@ internal fun toolSummary(presentation: ToolPresentation): String {
     }
     val subject = presentation.subject
     return when (presentation.state) {
-        ToolPresentationState.FAILED -> when {
-            presentation.kind == ToolKind.SHELL_EXECUTE &&
-                presentation.exitCode != null &&
-                presentation.exitCode != 0 -> stringResource(
-                    R.string.tool_shell_returned_exit_code,
-                    presentation.exitCode,
-                )
-            else -> presentation.errorMessage?.take(160)
-                ?: stringResource(R.string.tool_call_failed)
-        }
+        ToolPresentationState.FAILED -> failedSummary(presentation, subject)
         ToolPresentationState.STOPPED -> stringResource(R.string.tool_execution_stopped)
         ToolPresentationState.BACKGROUND_RUNNING -> {
             val job = presentation.jobId ?: subject
@@ -179,11 +170,27 @@ private fun runningSummary(
         R.string.tool_progress_removing,
     )
     ToolKind.MEMORY_UPDATE_ACTIVE -> stringResource(R.string.tool_updating_active)
-    ToolKind.SKILL_LIST -> stringResource(R.string.tool_list_skills)
-    ToolKind.SKILL_READ -> stringResource(R.string.tool_read_skill)
-    ToolKind.SKILL_CREATE -> stringResource(R.string.tool_create_skill)
-    ToolKind.SKILL_EDIT -> stringResource(R.string.tool_edit_skill)
-    ToolKind.SKILL_DELETE -> stringResource(R.string.tool_delete_skill)
+    ToolKind.SKILL_LIST -> stringResource(R.string.tool_listing_skills)
+    ToolKind.SKILL_READ -> optionalSubjectSummary(
+        subject,
+        R.string.tool_reading_skill_subject,
+        R.string.tool_progress_reading,
+    )
+    ToolKind.SKILL_CREATE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_creating_skill_subject,
+        R.string.tool_progress_creating,
+    )
+    ToolKind.SKILL_EDIT -> optionalSubjectSummary(
+        subject,
+        R.string.tool_editing_skill_subject,
+        R.string.tool_progress_editing,
+    )
+    ToolKind.SKILL_DELETE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_deleting_skill_subject,
+        R.string.tool_progress_deleting,
+    )
     ToolKind.WEB_SEARCH -> optionalSubjectSummary(
         subject,
         R.string.tool_searching_web,
@@ -284,6 +291,13 @@ internal sealed interface ShellPresentationStatus {
     data class Background(val jobId: String?) : ShellPresentationStatus
     data object Stopped : ShellPresentationStatus
     data class Exit(val code: Int?) : ShellPresentationStatus
+
+    /**
+     * A shell call that never produced a usable terminal result: connection loss, server error, or
+     * a rejected command. `code` stays null for transport failures, `message` carries the server
+     * text when there is one.
+     */
+    data class Failed(val code: Int?, val message: String?) : ShellPresentationStatus
 }
 
 internal fun shellPresentationStatus(presentation: ToolPresentation): ShellPresentationStatus =
@@ -292,6 +306,9 @@ internal fun shellPresentationStatus(presentation: ToolPresentation): ShellPrese
             ShellPresentationStatus.Background(presentation.jobId)
         presentation.isActive -> ShellPresentationStatus.Executing
         presentation.state == ToolPresentationState.STOPPED -> ShellPresentationStatus.Stopped
+        // A failed call must not fall through to the exit-code branch and read as "completed".
+        presentation.state == ToolPresentationState.FAILED ->
+            ShellPresentationStatus.Failed(presentation.exitCode, presentation.errorMessage)
         else -> ShellPresentationStatus.Exit(presentation.exitCode)
     }
 
@@ -306,10 +323,21 @@ internal fun shellToolSummary(presentation: ToolPresentation): String =
         is ShellPresentationStatus.Background ->
             stringResource(R.string.tool_background_job_running_default)
         ShellPresentationStatus.Stopped -> stringResource(R.string.tool_state_stopped)
+        is ShellPresentationStatus.Failed -> shellFailureSummary(status)
         is ShellPresentationStatus.Exit -> status.code?.let { code ->
             stringResource(R.string.tool_shell_returned_code, code)
         } ?: stringResource(R.string.tool_shell_execution_completed)
     }
+
+@Composable
+private fun shellFailureSummary(status: ShellPresentationStatus.Failed): String {
+    val detail = status.message?.takeIf { it.isNotBlank() }?.take(160)
+    return when {
+        detail != null -> stringResource(R.string.tool_shell_failed_with_reason, detail)
+        status.code != null -> stringResource(R.string.tool_shell_returned_exit_code, status.code)
+        else -> stringResource(R.string.tool_shell_failed)
+    }
+}
 
 @Composable
 internal fun shellExecutionSummary(presentation: ToolPresentation): String =
@@ -318,6 +346,9 @@ internal fun shellExecutionSummary(presentation: ToolPresentation): String =
         is ShellPresentationStatus.Background ->
             stringResource(R.string.tool_background_job_running_default)
         ShellPresentationStatus.Stopped -> stringResource(R.string.tool_state_stopped)
+        is ShellPresentationStatus.Failed -> status.code?.let { code ->
+            stringResource(R.string.tool_shell_detail_returned_code, code)
+        } ?: stringResource(R.string.tool_state_failed)
         is ShellPresentationStatus.Exit -> status.code?.let { code ->
             stringResource(R.string.tool_shell_detail_returned_code, code)
         } ?: stringResource(R.string.tool_shell_detail_executed)
@@ -344,7 +375,8 @@ private fun emptySummary(
     presentation: ToolPresentation,
     subject: String?,
 ): String = when (presentation.kind) {
-    ToolKind.MEMORY_LIST -> stringResource(R.string.tool_lookup_default)
+    ToolKind.MEMORY_LIST -> stringResource(R.string.tool_no_memories)
+    ToolKind.SKILL_LIST -> stringResource(R.string.tool_no_skills)
     ToolKind.WEB_SEARCH -> optionalSubjectSummary(
         subject,
         R.string.tool_web_search_no_result,
@@ -356,7 +388,7 @@ private fun emptySummary(
         R.string.tool_conversation_search_no_result_default,
     )
     ToolKind.CONVERSATION_LIST -> stringResource(R.string.tool_listed_no_conversations)
-    ToolKind.SHELL_LIST -> stringResource(R.string.tool_shell_list_done)
+    ToolKind.SHELL_LIST -> stringResource(R.string.tool_no_shells)
     ToolKind.SHELL_EXECUTE -> shellExecutionSummary(presentation)
     ToolKind.SHELL_JOB_LIST -> stringResource(R.string.tool_no_shell_jobs)
     ToolKind.FILE_READ -> optionalSubjectSummary(
@@ -366,7 +398,7 @@ private fun emptySummary(
     )
     ToolKind.FILE_GLOB -> stringResource(R.string.tool_found_no_files)
     ToolKind.FILE_GREP -> stringResource(R.string.tool_found_no_matches)
-    ToolKind.TASK_LIST -> stringResource(R.string.tool_listed_tasks)
+    ToolKind.TASK_LIST -> stringResource(R.string.tool_no_tasks)
     else -> completedSummary(presentation, subject)
 }
 
@@ -375,15 +407,32 @@ private fun completedSummary(
     presentation: ToolPresentation,
     subject: String?,
 ): String = when (presentation.kind) {
-    ToolKind.MEMORY_LIST -> stringResource(
-        R.string.tool_lookup_count,
-        presentation.count ?: 0,
+    ToolKind.MEMORY_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_lookup_count, it)
+    } ?: stringResource(R.string.tool_listed_memories_default)
+    ToolKind.SKILL_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_listed_skills, it)
+    } ?: stringResource(R.string.tool_listed_skills_default)
+    ToolKind.SKILL_READ -> optionalSubjectSummary(
+        subject,
+        R.string.tool_read_skill_done,
+        R.string.tool_read_skill_done_default,
     )
-    ToolKind.SKILL_LIST -> stringResource(R.string.tool_list_skills)
-    ToolKind.SKILL_READ -> stringResource(R.string.tool_read_skill)
-    ToolKind.SKILL_CREATE -> stringResource(R.string.tool_create_skill)
-    ToolKind.SKILL_EDIT -> stringResource(R.string.tool_edit_skill)
-    ToolKind.SKILL_DELETE -> stringResource(R.string.tool_delete_skill)
+    ToolKind.SKILL_CREATE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_created_skill,
+        R.string.tool_created_skill_default,
+    )
+    ToolKind.SKILL_EDIT -> optionalSubjectSummary(
+        subject,
+        R.string.tool_edited_skill,
+        R.string.tool_edited_skill_default,
+    )
+    ToolKind.SKILL_DELETE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_deleted_skill,
+        R.string.tool_deleted_skill_default,
+    )
     ToolKind.MEMORY_READ -> optionalSubjectSummary(
         subject,
         R.string.tool_read_memory_name,
@@ -415,37 +464,38 @@ private fun completedSummary(
         R.string.tool_web_fetch_done,
         R.string.tool_web_fetch_done_default,
     )
-    ToolKind.CONVERSATION_SEARCH -> if (subject == null) {
-        stringResource(
+    ToolKind.CONVERSATION_SEARCH -> when {
+        presentation.count == null -> stringResource(R.string.tool_conversation_search_done_no_count)
+        subject == null -> stringResource(
             R.string.tool_conversation_search_done_default,
-            presentation.count ?: 0,
+            presentation.count,
         )
-    } else {
-        stringResource(
+        else -> stringResource(
             R.string.tool_conversation_search_done_for,
-            presentation.count ?: 0,
+            presentation.count,
             subject,
         )
     }
-    ToolKind.CONVERSATION_LIST -> stringResource(
-        R.string.tool_listed_conversations,
-        presentation.count ?: 0,
-    )
+    ToolKind.CONVERSATION_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_listed_conversations, it)
+    } ?: stringResource(R.string.tool_listed_conversations_default)
     ToolKind.CONVERSATION_READ -> optionalSubjectSummary(
         subject,
         R.string.tool_read_conversation_done,
         R.string.tool_read_conversation_done_default,
     )
-    ToolKind.SHELL_LIST -> stringResource(
-        R.string.tool_shell_list_count,
-        presentation.count ?: 0,
-    )
+    ToolKind.SHELL_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_shell_list_count, it)
+    } ?: stringResource(R.string.tool_listed_shells_default)
     ToolKind.SHELL_EXECUTE -> shellExecutionSummary(presentation)
-    ToolKind.SHELL_JOB_LIST -> stringResource(
-        R.string.tool_shell_job_count,
-        presentation.count ?: 0,
+    ToolKind.SHELL_JOB_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_shell_job_count, it)
+    } ?: stringResource(R.string.tool_listed_shell_jobs_default)
+    ToolKind.SHELL_JOB_WAIT -> optionalSubjectSummary(
+        presentation.jobId ?: subject,
+        R.string.tool_waited_shell_job,
+        R.string.tool_waited_shell_job_default,
     )
-    ToolKind.SHELL_JOB_WAIT -> shellToolSummary(presentation)
     ToolKind.SHELL_JOB_GET -> optionalSubjectSummary(
         presentation.jobId ?: subject,
         R.string.tool_shell_job_status,
@@ -471,19 +521,81 @@ private fun completedSummary(
         R.string.tool_edited_file,
         R.string.tool_edited_file_default,
     )
-    ToolKind.FILE_GLOB -> stringResource(R.string.tool_found_files, presentation.count ?: 0)
-    ToolKind.FILE_GREP -> stringResource(R.string.tool_searched_file, presentation.count ?: 0)
+    ToolKind.FILE_GLOB -> presentation.count?.let {
+        stringResource(R.string.tool_found_files, it)
+    } ?: stringResource(R.string.tool_found_files_default)
+    ToolKind.FILE_GREP -> presentation.count?.let {
+        stringResource(R.string.tool_searched_file, it)
+    } ?: stringResource(R.string.tool_found_matches_default)
     ToolKind.IMAGE_VIEW -> optionalSubjectSummary(
         subject,
         R.string.tool_viewed_image,
         R.string.tool_viewed_image_default,
     )
     ToolKind.IMAGE_GENERATE -> stringResource(R.string.tool_generated_image)
-    ToolKind.TASK_CREATE -> stringResource(R.string.tool_created_task)
-    ToolKind.TASK_LIST -> stringResource(R.string.tool_listed_tasks)
-    ToolKind.TASK_DELETE -> stringResource(R.string.tool_deleted_task)
+    ToolKind.TASK_CREATE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_created_task_subject,
+        R.string.tool_created_task,
+    )
+    ToolKind.TASK_LIST -> presentation.count?.let {
+        stringResource(R.string.tool_listed_task_count, it)
+    } ?: stringResource(R.string.tool_listed_tasks)
+    ToolKind.TASK_DELETE -> optionalSubjectSummary(
+        subject,
+        R.string.tool_deleted_task_subject,
+        R.string.tool_deleted_task,
+    )
     ToolKind.LOOP_START -> stringResource(R.string.tool_started_loop)
     ToolKind.LOOP_STOP -> stringResource(R.string.tool_stopped_loop)
     ToolKind.MCP,
     ToolKind.UNKNOWN -> stringResource(R.string.tool_done)
+}
+
+@Composable
+private fun failedSummary(
+    presentation: ToolPresentation,
+    subject: String?,
+): String {
+    val reason = presentation.errorMessage?.takeIf { it.isNotBlank() }?.take(160)
+    val target = subject?.takeIf { it.isNotBlank() }
+    return when (presentation.kind) {
+        ToolKind.MEMORY_READ, ToolKind.SKILL_READ, ToolKind.CONVERSATION_READ, ToolKind.FILE_READ ->
+            target?.let { stringResource(R.string.tool_failed_to_read, it) }
+                ?: stringResource(R.string.tool_read_failed_default)
+        ToolKind.MEMORY_CREATE, ToolKind.SKILL_CREATE, ToolKind.TASK_CREATE ->
+            target?.let { stringResource(R.string.tool_failed_to_create, it) }
+                ?: stringResource(R.string.tool_create_failed_default)
+        ToolKind.MEMORY_EDIT, ToolKind.SKILL_EDIT, ToolKind.FILE_EDIT,
+        ToolKind.MEMORY_UPDATE_ACTIVE ->
+            target?.let { stringResource(R.string.tool_failed_to_update, it) }
+                ?: stringResource(R.string.tool_update_failed_default)
+        ToolKind.MEMORY_DELETE, ToolKind.SKILL_DELETE, ToolKind.TASK_DELETE ->
+            target?.let { stringResource(R.string.tool_failed_to_delete, it) }
+                ?: stringResource(R.string.tool_delete_failed_default)
+        ToolKind.FILE_WRITE -> target?.let { stringResource(R.string.tool_failed_to_write, it) }
+            ?: stringResource(R.string.tool_write_failed_default)
+        ToolKind.WEB_SEARCH, ToolKind.CONVERSATION_SEARCH, ToolKind.FILE_GREP ->
+            target?.let { stringResource(R.string.tool_failed_to_search, it) }
+                ?: stringResource(R.string.tool_search_failed)
+        ToolKind.WEB_FETCH -> target?.let { stringResource(R.string.tool_failed_to_fetch, it) }
+            ?: stringResource(R.string.tool_web_fetch_failed)
+        ToolKind.FILE_GLOB -> target?.let { stringResource(R.string.tool_failed_to_find, it) }
+            ?: stringResource(R.string.tool_find_failed_default)
+        ToolKind.IMAGE_VIEW -> target?.let { stringResource(R.string.tool_failed_to_view, it) }
+            ?: stringResource(R.string.tool_view_failed_default)
+        ToolKind.IMAGE_GENERATE -> stringResource(R.string.tool_image_generation_failed)
+        ToolKind.SHELL_EXECUTE -> reason?.let {
+            stringResource(R.string.tool_shell_failed_with_reason, it)
+        } ?: stringResource(R.string.tool_shell_failed)
+        ToolKind.SHELL_JOB_GET, ToolKind.SHELL_JOB_WAIT ->
+            stringResource(R.string.tool_shell_job_read_failed)
+        ToolKind.SHELL_JOB_STOP -> stringResource(R.string.tool_shell_job_stop_failed)
+        ToolKind.MEMORY_LIST, ToolKind.SKILL_LIST, ToolKind.CONVERSATION_LIST,
+        ToolKind.SHELL_LIST, ToolKind.SHELL_JOB_LIST, ToolKind.TASK_LIST ->
+            stringResource(R.string.tool_list_failed_default)
+        ToolKind.LOOP_START -> stringResource(R.string.tool_loop_start_failed)
+        ToolKind.LOOP_STOP -> stringResource(R.string.tool_loop_stop_failed)
+        ToolKind.MCP, ToolKind.UNKNOWN -> reason ?: stringResource(R.string.tool_call_failed)
+    }
 }

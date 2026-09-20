@@ -170,6 +170,7 @@ internal fun automaticCompactNeeded(
     generationErrorFormatter: (String) -> String,
     includeStoredTranscriptions: Boolean = false,
     fixedTokenCost: Int = 0,
+    includeAssistantReasoning: Boolean = false,
     userPrepend: String? = null,
     userPostpend: String? = null,
 ): Boolean {
@@ -191,6 +192,7 @@ internal fun automaticCompactNeeded(
         contextLimit = contextLimit,
         retainLogicalMessages = retainLogicalMessages,
         fixedTokenCost = fixedTokenCost,
+        includeAssistantReasoning = includeAssistantReasoning,
         userPrepend = userPrepend,
         userPostpend = userPostpend,
         // Transcription-enabled models receive descriptions instead of raw images at dispatch;
@@ -204,6 +206,7 @@ internal fun automaticCompactNeeded(
     contextLimit: Int,
     retainLogicalMessages: Int,
     fixedTokenCost: Int = 0,
+    includeAssistantReasoning: Boolean = false,
     userPrepend: String? = null,
     userPostpend: String? = null,
     includeImages: Boolean = true,
@@ -225,6 +228,7 @@ internal fun automaticCompactNeeded(
             ),
             contextLimit.coerceAtLeast(1),
             fixedTokenCost = fixedTokenCost,
+            includeAssistantReasoning = includeAssistantReasoning,
         ).estimatedTokenCount >=
         contextLimit.coerceAtLeast(1)
 }
@@ -259,6 +263,7 @@ internal class ContextCompactor(
             contextLimit = threshold,
             retainLogicalMessages = config.request.retainLogicalMessages,
             fixedTokenCost = config.fixedTokenCost,
+            includeAssistantReasoning = config.includeAssistantReasoning,
             userPrepend = config.userPrepend,
             userPostpend = config.userPostpend,
             includeImages = !config.generationContext.imageTranscriptionEnabled,

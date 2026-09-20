@@ -121,6 +121,8 @@ internal data class AutomaticCompactConfig(
     val userPostpend: String? = null,
     /** Filled by the effect owner that has the exact frozen tool-definition set. */
     val fixedTokenCost: Int = 0,
+    /** Main request, not Compact-model, replay policy for ordinary assistant reasoning. */
+    val includeAssistantReasoning: Boolean = false,
 )
 
 /** Request-shape snapshot used only for exact context accounting; no Provider access is required. */

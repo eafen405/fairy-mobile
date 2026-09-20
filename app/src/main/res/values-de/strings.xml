@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">Ablehnen</string>
     <string name="shell_confirm_setting">Remote-Shell-Aktionen bestätigen</string>
     <string name="shell_confirm_setting_desc">Nachfragen, bevor der Assistent Befehle ausführt oder Dateien auf Remote-SSH-/Conch-Servern schreibt</string>
+    <string name="shell_confirm_notification_channel">Befehlsgenehmigung</string>
+    <string name="shell_confirm_notification_desc">Fragt an, einen Remote-Befehl zu erlauben oder abzulehnen, während Agora im Hintergrund ist</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora wurde unerwartet beendet</string>

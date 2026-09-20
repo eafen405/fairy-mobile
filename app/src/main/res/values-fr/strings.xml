@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">Refuser</string>
     <string name="shell_confirm_setting">Confirmer les actions du shell distant</string>
     <string name="shell_confirm_setting_desc">Demander avant que l\'assistant n\'exécute des commandes ou n\'écrive des fichiers sur des serveurs SSH/Conch distants</string>
+    <string name="shell_confirm_notification_channel">Approbation des commandes</string>
+    <string name="shell_confirm_notification_desc">Demande à autoriser ou refuser une commande distante pendant qu\'Agora est en arrière-plan</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora s\'est fermé de façon inattendue</string>

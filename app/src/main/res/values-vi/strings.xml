@@ -569,6 +569,8 @@
     <string name="shell_confirm_deny">Từ chối</string>
     <string name="shell_confirm_setting">Xác nhận các hành động shell từ xa</string>
     <string name="shell_confirm_setting_desc">Hỏi trước khi trợ lý chạy các lệnh hoặc ghi tệp trên các máy chủ SSH/Conch từ xa</string>
+    <string name="shell_confirm_notification_channel">Phê duyệt lệnh</string>
+    <string name="shell_confirm_notification_desc">Yêu cầu cho phép hoặc từ chối lệnh từ xa khi Agora chạy ngầm</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora đã thoát đột ngột</string>

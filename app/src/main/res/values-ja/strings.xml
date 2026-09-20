@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">拒否</string>
     <string name="shell_confirm_setting">リモートシェル操作を確認</string>
     <string name="shell_confirm_setting_desc">アシスタントがリモートの SSH/Conch サーバーでコマンドを実行したりファイルを書き込んだりする前に確認する</string>
+    <string name="shell_confirm_notification_channel">コマンドの承認</string>
+    <string name="shell_confirm_notification_desc">Agora がバックグラウンドにある間に、リモートコマンドを許可または拒否するよう尋ねます</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora が予期せず終了しました</string>

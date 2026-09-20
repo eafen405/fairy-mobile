@@ -30,6 +30,42 @@ import java.util.concurrent.TimeUnit
 
 class GeminiStreamTerminationTest {
     @Test
+    fun flashThinkingOffSendsZeroBudget() {
+        val requests = LinkedBlockingQueue<String>()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/") { exchange ->
+            requests.add(exchange.requestBody.bufferedReader().use { it.readText() })
+            val response = ("data: " + """{"candidates":[{"finishReason":"STOP"}]}""" + "\n\n").toByteArray()
+            exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            exchange.sendResponseHeaders(200, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        server.start()
+        try {
+            runBlocking {
+                withTimeout(5_000L) {
+                    GeminiProvider().generateResponse(
+                        listOf(ChatMessage(text = "hi", participant = Participant.USER)),
+                        ProviderConfig(
+                            apiKey = "test-key",
+                            modelId = "gemini-2.5-flash",
+                            baseUrl = "http://127.0.0.1:${server.address.port}",
+                            thinkingEnabled = false,
+                        ),
+                    ).toList()
+                }
+            }
+            val thinking = Json.parseToJsonElement(checkNotNull(requests.poll(1, TimeUnit.SECONDS)))
+                .jsonObject.getValue("generationConfig").jsonObject
+                .getValue("thinkingConfig").jsonObject
+            assertEquals("0", thinking.getValue("thinkingBudget").jsonPrimitive.content)
+            assertEquals("false", thinking.getValue("includeThoughts").jsonPrimitive.content)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun systemInstructionUsesCanonicalWireNameForTitlesAndOrdinaryChat() {
         val requests = LinkedBlockingQueue<String>()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)

@@ -96,6 +96,34 @@ class GenerationApiPathBuilderTest {
             path.providerConfig.maxContextWindow,
         )
     }
+    @Test
+    fun `deepseek chat with tools enables ordinary reasoning accounting`() = runTest {
+        val repository = mockk<ConversationRepository>(relaxed = true)
+        val user = message("user", null, 0, Participant.USER)
+        suspend fun build(config: GenerationConfig, withTools: Boolean = true) =
+            GenerationApiPathBuilder(
+                conversations = repository,
+                generationErrorFormatter = { it },
+                toolDefinitions = { if (withTools) listOf(toolDefinition()) else emptyList() },
+            ).build(
+                GenerationApiPathRequest(
+                    parentId = user.id,
+                    conversationId = "conversation",
+                    config = config,
+                    context = GenerationContext(),
+                    loadedMessages = listOf(user),
+                ),
+            ).providerConfig.includeAssistantReasoning
+        val deepSeek = generationConfig(Constants.PROVIDER_DEEPSEEK).copy(
+            modelId = "deepseek-chat",
+            thinkingEnabled = true,
+        )
+        assertTrue(build(deepSeek))
+        assertTrue(build(deepSeek.copy(providerName = "Relay")))
+        assertFalse(build(deepSeek, withTools = false))
+        assertFalse(build(deepSeek.copy(responsesApiEnabled = true)))
+        assertFalse(build(deepSeek.copy(thinkingEnabled = false)))
+    }
 
     @Test
     fun `nearest normally completed compact on the parent chain is the context boundary`() = runTest {

@@ -2,6 +2,7 @@
 
 This is a binding part of the [message generation contract](message-generation.md).
 It preserves the requirements of section 8.7; scope and authority are unchanged.
+Tool lifecycle wording and state semantics are defined by [tool-presentation.md](tool-presentation.md).
 
 Ordinary answer Markdown, Thinking Bottom Sheet Markdown, and Compact Bottom Sheet Markdown use one
 shared streaming Markdown message UI implementation. That implementation owns the existing

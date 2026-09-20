@@ -637,7 +637,6 @@ internal class ChatScrollCoordinator internal constructor(
                     canScrollForward = listState.canScrollForward,
                     sentinelIndex = sentinel?.index,
                     sentinelKey = sentinel?.key,
-                    lastTurnHydrated = hydrationRegistry.containsAll(lastTurnMessageIds),
                 )
                 if (sample.needsScroll) {
                     listState.scrollToItem(sample.targetIndex)

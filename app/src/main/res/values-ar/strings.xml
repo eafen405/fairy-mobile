@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">رفض</string>
     <string name="shell_confirm_setting">تأكيد إجراءات الصدفة البعيدة</string>
     <string name="shell_confirm_setting_desc">الطلب قبل أن يشغّل المساعد أوامر أو يكتب ملفات على خوادم SSH/Conch البعيدة</string>
+    <string name="shell_confirm_notification_channel">الموافقة على الأوامر</string>
+    <string name="shell_confirm_notification_desc">يطلب السماح بأمر عن بُعد أو رفضه عندما يكون Agora في الخلفية</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">أُغلق Agora بشكل غير متوقع</string>

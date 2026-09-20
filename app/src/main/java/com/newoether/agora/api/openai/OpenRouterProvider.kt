@@ -22,7 +22,7 @@ class OpenRouterProvider : BaseOpenAiProvider() {
                 effort = if (!config.thinkingBudgetEnabled) ThinkingLevels.openRouterEffort(config.thinkingLevel) else null,
                 maxTokens = config.thinkingBudgetTokens.takeIf { config.thinkingBudgetEnabled }
             )
-        } else null
+        } else OpenAiReasoning(enabled = false)
         return request.copy(
             reasoning = reasoning,
             plugins = if (config.googleSearchEnabled) listOf(OpenAiPlugin(id = "web")) else null

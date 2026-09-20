@@ -92,12 +92,16 @@ fun contextWindowUsage(
     messages: List<ChatMessage>,
     tokenBudget: Int,
     fixedTokenCost: Int = 0,
+    includeAssistantReasoning: Boolean = false,
 ): ContextWindowUsage {
     val safeBudget = tokenBudget.coerceAtLeast(1)
     val canonical = canonicalContextMessages(messages)
     return ContextWindowUsage(
         estimatedTokenCount = (
-            ContextTokenEstimator.estimate(canonical).toLong() +
+            ContextTokenEstimator.estimate(
+                canonical,
+                includeAssistantReasoning = includeAssistantReasoning,
+            ).toLong() +
                 fixedTokenCost.coerceAtLeast(0).toLong()
             ).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
         tokenBudget = safeBudget,
@@ -112,11 +116,16 @@ fun contextWindowRetainedMessageIds(
     messages: List<ChatMessage>,
     tokenBudget: Int,
     fixedTokenCost: Int = 0,
+    includeAssistantReasoning: Boolean = false,
 ): Set<String> {
     if (messages.isEmpty()) return emptySet()
     val compacted = applyNearestContextCompact(messages)
     val messageBudget = (tokenBudget - fixedTokenCost.coerceAtLeast(0)).coerceAtLeast(1)
-    val retained = limitContext(canonicalContextMessages(messages), messageBudget)
+    val retained = limitContext(
+        canonicalContextMessages(messages),
+        messageBudget,
+        includeAssistantReasoning = includeAssistantReasoning,
+    )
     val firstRetainedId = retained.firstOrNull()?.id ?: return emptySet()
     val sourceAnchorId = firstRetainedId.removePrefix("context_summary_")
     val originalSourceIndex = messages.indexOfFirst { it.id == sourceAnchorId }

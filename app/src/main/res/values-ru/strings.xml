@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">Отклонить</string>
     <string name="shell_confirm_setting">Подтверждать действия удалённой оболочки</string>
     <string name="shell_confirm_setting_desc">Спрашивать перед тем, как ассистент выполнит команды или запишет файлы на удалённых серверах SSH/Conch</string>
+    <string name="shell_confirm_notification_channel">Подтверждение команд</string>
+    <string name="shell_confirm_notification_desc">Запрашивает разрешение или запрет удалённой команды, пока Agora в фоновом режиме</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora неожиданно завершилась</string>

@@ -151,6 +151,7 @@ interface ChatDao :
         SET selectedBranchesJson = :selectedBranchesJson,
             selectedRunBranchesJson = :selectedRunBranchesJson,
             modelId = :modelId,
+            dataChangedAt = :at,
             lastUpdated = CASE
                 WHEN :touchConversationOnAdmission THEN :at
                 ELSE lastUpdated

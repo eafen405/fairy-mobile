@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.ui.chat.message.ChatMarkdownCodeBlock
 import com.newoether.agora.ui.settings.RatingForm
@@ -118,13 +119,16 @@ internal fun MainApplicationDialogs(
         )
     }
 
-    // Remote shell action confirmation gate
+    // Remote shell action confirmation gate. Allow / Deny are the only ways to answer it: the
+    // request is a security boundary, so neither an outside tap nor Back may imply an answer, and
+    // the same prompt is re-surfaced as a notification while the app is backgrounded.
     val pendingShellCommand by viewModel.shellConfirmation.pendingShellCommand.collectAsState()
     pendingShellCommand?.let { pending ->
         var alwaysAllow by remember(pending) { mutableStateOf(false) }
         AlertDialog(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = { viewModel.shellConfirmation.resolve(allow = false) },
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             icon = { Icon(Icons.Default.Terminal, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary) },
             title = { Text(stringResource(R.string.shell_confirm_title, pending.server), fontWeight = FontWeight.Bold) },
             text = {
@@ -149,13 +153,13 @@ internal fun MainApplicationDialogs(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.shellConfirmation.resolve(allow = true, alwaysAllowServer = alwaysAllow) }) {
+                TextButton(onClick = { viewModel.shellConfirmation.resolve(pending.id, allow = true, alwaysAllowServer = alwaysAllow) }) {
                     Text(stringResource(R.string.shell_confirm_allow))
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = { viewModel.shellConfirmation.resolve(allow = false) },
+                    onClick = { viewModel.shellConfirmation.resolve(pending.id, allow = false) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text(stringResource(R.string.shell_confirm_deny)) }
             }

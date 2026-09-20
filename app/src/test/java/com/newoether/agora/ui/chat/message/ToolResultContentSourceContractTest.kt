@@ -1,6 +1,8 @@
 package com.newoether.agora.ui.chat.message
 
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -200,19 +202,98 @@ class ToolResultContentSourceContractTest {
     }
 
     @Test
-    fun `Completed wait for job uses the shell exit summary`() {
+    fun `Completed wait for job keeps its own action summary`() {
         val source = source(locateMainSourceRoot(), "MessageItemToolLabels.kt")
         val completedSummary = source
             .substringAfter("private fun completedSummary(")
 
-        assertTrue(
-            completedSummary.contains(
-                "ToolKind.SHELL_JOB_WAIT -> shellToolSummary(presentation)",
-            ),
-        )
-        assertFalse(completedSummary.contains("tool_waited_shell_job"))
+        assertTrue(completedSummary.contains("ToolKind.SHELL_JOB_WAIT -> optionalSubjectSummary("))
+        assertTrue(completedSummary.contains("R.string.tool_waited_shell_job,"))
+        assertTrue(completedSummary.contains("R.string.tool_waited_shell_job_default,"))
+        assertFalse(completedSummary.contains("ToolKind.SHELL_JOB_WAIT -> shellToolSummary(presentation)"))
     }
 
+    @Test
+    fun `Background summary does not expose the job id`() {
+        val source = source(locateMainSourceRoot(), "MessageItemToolLabels.kt")
+        val shellSummary = source
+            .substringAfter("internal fun shellToolSummary(")
+            .substringBefore("private fun shellFailureSummary")
+        assertTrue(shellSummary.contains("R.string.tool_background_job_running_default"))
+        assertFalse(shellSummary.contains("status.jobId"))
+        assertFalse(shellSummary.contains("tool_background_job_running,"))
+    }
+
+    @Test
+    fun `Tool presentation resources keep locale key and placeholder parity`() {
+        val resourceRoot = locateResourceRoot()
+        val directories = listOf(
+            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
+            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh", "values-zh-rTW",
+        )
+        val resources = directories.associateWith { directory ->
+            val file = File(resourceRoot, "$directory/tool_presentation_strings.xml")
+            assertTrue("Missing $directory tool presentation resources", file.isFile)
+            parseStrings(file)
+        }
+        val defaults = resources.getValue("values")
+        resources.forEach { (directory, values) ->
+            assertEquals("$directory keys", defaults.keys, values.keys)
+            defaults.forEach { (key, defaultValue) ->
+                assertEquals(
+                    "$directory $key placeholders",
+                    placeholders(defaultValue),
+                    placeholders(values.getValue(key)),
+                )
+            }
+            values.filterKeys { key ->
+                key.startsWith("tool_progress_") ||
+                    key.endsWith("ing_skill_subject") ||
+                    key == "tool_listing_skills"
+            }.forEach { (key, value) ->
+                assertFalse("$directory $key uses ASCII ellipsis", value.contains("..."))
+            }
+        }
+    }
+    @Test
+    fun `Completed summaries never fabricate unknown counts`() {
+        val source = source(locateMainSourceRoot(), "MessageItemToolLabels.kt")
+            .substringAfter("private fun completedSummary(")
+            .substringBefore("private fun failedSummary(")
+        assertFalse(source.contains("?: 0"))
+        listOf(
+            "tool_listed_memories_default",
+            "tool_conversation_search_done_no_count",
+            "tool_listed_conversations_default",
+            "tool_listed_shells_default",
+            "tool_listed_shell_jobs_default",
+            "tool_found_files_default",
+            "tool_found_matches_default",
+        ).forEach { key -> assertTrue("Missing unknown-count fallback $key", source.contains(key)) }
+    }
+    private fun parseStrings(file: File): Map<String, String> {
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
+        val nodes = document.getElementsByTagName("string")
+        return buildMap {
+            repeat(nodes.length) { index ->
+                val node = nodes.item(index)
+                put(node.attributes.getNamedItem("name").nodeValue, node.textContent)
+            }
+        }
+    }
+    private fun placeholders(value: String): Set<String> =
+        Regex("""%\d+\$[a-zA-Z]""").findAll(value).map { it.value }.toSet()
+    private fun locateResourceRoot(): File {
+        var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        repeat(8) {
+            listOf(
+                File(directory, "app/src/main/res"),
+                File(directory, "src/main/res"),
+            ).firstOrNull(File::isDirectory)?.let { return it }
+            directory = directory.parentFile ?: error("Reached filesystem root")
+        }
+        error("Unable to locate the main resource directory")
+    }
     private fun source(root: File, name: String): String =
         File(root, "com/newoether/agora/ui/chat/message/$name")
             .readText()

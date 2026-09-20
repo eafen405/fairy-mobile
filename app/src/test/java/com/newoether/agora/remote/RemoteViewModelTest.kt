@@ -442,7 +442,8 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         vm.selectDevice(null)
         created.complete(RemoteSession("new", "New", "/host/default", 1)); runCurrent()
         assertNull(vm.state.value.session)
-        assertEquals(RemoteDelivery.REJECTED, vm.state.value.attempts[owner]?.delivery)
+        assertEquals(RemoteDelivery.ACCEPTED, vm.state.value.attempts[owner]?.delivery)
+        assertTrue(vm.state.value.sessionOwners.any { (key, value) -> key.endsWith("/new") && value == owner })
         assertEquals("hello", vm.state.value.drafts[owner])
         coVerify(exactly = 1) { client.create(any(), any(), any(), any()) }
         coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }

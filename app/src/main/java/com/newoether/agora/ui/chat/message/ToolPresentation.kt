@@ -116,36 +116,48 @@ internal object ToolPresentationResolver {
         val background = resultEnvelope.boolean("background") == true ||
             resultObject.string("state").equals("running", ignoreCase = true) &&
             (resultObject.string("job_id") ?: resultEnvelope.string("job_id")) != null
-        val nonZeroShellExit = kind == ToolKind.SHELL_EXECUTE &&
-            exitCode != null &&
-            exitCode != 0
         val count = semanticCount(kind, resultObject)
             ?: tolerantSemanticCount(kind, segment.toolStructuredResult ?: segment.toolResult)
-        val semanticEmpty = isSemanticEmpty(
+        // Failure semantics are authoritative. A Conch error envelope, an explicit `failed` flag, a
+        // plain "Error ..." tool result, or a FAILED wire state must never render as an empty or
+        // completed card just because the payload has no readable content field. The one exception
+        // is a provider-declared empty result (`no_results`), which is an explicit success even when
+        // the protocol row carries a terminal FAILED state.
+        val declaredEmpty = errorCode == "no_results"
+        val failureCode = errorCode?.takeIf { it.isNotBlank() && !declaredEmpty }
+        val failedFlag = resultObject.boolean("failed") == true ||
+            resultEnvelope.boolean("failed") == true
+        val textFailure = segment.toolResult
+            ?.takeIf { it.startsWith("Error", ignoreCase = true) }
+        val wireFailure = explicitState == ToolPresentationState.FAILED
+        val failed = !declaredEmpty &&
+            (failureCode != null || failedFlag || textFailure != null || wireFailure)
+        val semanticEmpty = !failed && isSemanticEmpty(
             kind = kind,
             rawResult = segment.toolResult.orEmpty(),
             result = resultObject,
             count = count,
             errorCode = errorCode,
         )
-        val error = if (errorCode != null && !semanticEmpty) {
-            resultObject.string("message")
-                ?.takeIf { it.isNotBlank() }
-                ?: errorCode.replace('_', ' ')
+        val error = if (!failed) {
+            null
         } else {
-            segment.toolResult
-                ?.takeIf { it.startsWith("Error", ignoreCase = true) }
+            failureCode?.let { code ->
+                (resultObject.string("message") ?: resultEnvelope.string("message"))
+                    ?.takeIf { it.isNotBlank() }
+                    ?: code.replace('_', ' ')
+            } ?: textFailure ?: (resultObject.string("message") ?: resultEnvelope.string("message"))
+                ?.takeIf { it.isNotBlank() }
         }
         val state = when {
             segment.toolResult == null -> explicitState ?: run {
                 if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
                 else ToolPresentationState.RUNNING
             }
+            failed -> ToolPresentationState.FAILED
             semanticEmpty -> ToolPresentationState.EMPTY
-            error != null -> ToolPresentationState.FAILED
             background -> ToolPresentationState.BACKGROUND_RUNNING
             explicitState == ToolPresentationState.STOPPED -> ToolPresentationState.STOPPED
-            nonZeroShellExit -> ToolPresentationState.FAILED
             else -> explicitState ?: ToolPresentationState.COMPLETED
         }
         return ToolPresentation(

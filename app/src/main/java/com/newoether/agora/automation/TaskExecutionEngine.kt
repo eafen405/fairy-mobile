@@ -233,7 +233,7 @@ class TaskExecutionEngine(
         customProviders = { settings.customProviders.value },
     ).also {
         // Foreground Task/Loop executions share the exact same prompt and session trust state as
-        // Chat. ShellConfirmationController itself fails fast when no Activity is visible.
+        // Chat, including the notification-backed wait when no Activity is visible.
         it.onConfirmShellCommand = shellConfirmation::confirm
         it.onMessagePersisted = ragManager::indexMessageForRag
     }

@@ -17,14 +17,31 @@ import kotlin.math.ceil
  */
 object ContextTokenEstimator {
     private const val MESSAGE_OVERHEAD = 8
-    private const val IMAGE_ESTIMATE = 1_024
+
+    /**
+     * Byte-proportional image cost. Providers tokenize visual tiles, not bytes, so the byte
+     * divisor is a deliberately coarse proxy that keeps a thumbnail well below a full-resolution
+     * photo while staying model independent. `768` bytes per token puts a 768 KiB image at the
+     * historical 1024-token figure, and the bounds keep one image between a quarter and one and a
+     * half of that figure.
+     */
+    private const val IMAGE_BYTES_PER_TOKEN = 768L
+    private const val MIN_IMAGE_TOKENS = 256L
+    private const val MAX_IMAGE_TOKENS = 1_536L
+
+    /** Fallback for images whose durable metadata does not record a byte size. */
+    private const val UNKNOWN_IMAGE_TOKENS = 1_024L
     private const val TOOL_CALL_OVERHEAD = 16
     private const val SAFETY_NUMERATOR = 11L
     private const val SAFETY_DENOMINATOR = 10L
 
-    fun estimate(messages: List<ChatMessage>): Int {
+    fun estimate(
+        messages: List<ChatMessage>,
+        includeAssistantReasoning: Boolean = false,
+    ): Int {
         val raw = messages.fold(0L) { total, message ->
-            (total + estimateMessageRaw(message)).coerceAtMost(Int.MAX_VALUE.toLong())
+            (total + estimateMessageRaw(message, includeAssistantReasoning))
+                .coerceAtMost(Int.MAX_VALUE.toLong())
         }
         return applySafetyMargin(raw)
     }
@@ -68,15 +85,27 @@ object ContextTokenEstimator {
 
     internal fun estimateText(text: String): Int = applySafetyMargin(estimateTextRaw(text))
 
-    private fun estimateMessageRaw(message: ChatMessage): Long {
+    private fun estimateMessageRaw(
+        message: ChatMessage,
+        includeAssistantReasoning: Boolean,
+    ): Long {
         val isToolProtocol = message.id.startsWith(Constants.TOOL_MSG_PREFIX) ||
             message.id.startsWith(Constants.RESULT_MSG_PREFIX)
         // Provider adapters serialize tool protocol payload from segments/toolCall and ignore the
         // mirrored Room text field. Counting both made result-heavy contexts look up to 2x larger.
         var total = MESSAGE_OVERHEAD.toLong() +
             if (isToolProtocol) 0L else estimateTextRaw(message.text)
+        // Only user-role images reach a provider: every adapter (OpenAI-compatible, Anthropic,
+        // Gemini, Ollama, local) serializes images for user rows and drops them elsewhere, so
+        // tool-result images stay display-only and are deliberately not counted here.
         if (!isToolProtocol && message.participant == Participant.USER) {
-            total += message.images.size.toLong() * IMAGE_ESTIMATE
+            total += imageTokensTotal(message)
+        }
+        if (!isToolProtocol && includeAssistantReasoning && message.participant != Participant.USER) {
+            message.segments.orEmpty()
+                .asSequence()
+                .filter { it.type == "thought" }
+                .forEach { segment -> total += estimateTextRaw(segment.content) }
         }
         if (isToolProtocol) {
             message.segments.orEmpty()
@@ -116,6 +145,44 @@ object ContextTokenEstimator {
         }
         return total
     }
+
+    /** Provider-visible image cost of one message, proportional to each stored image's bytes. */
+    private fun imageTokensTotal(message: ChatMessage): Long {
+        val sizes = imageByteSizes(message)
+        var total = 0L
+        repeat(message.images.size) { index ->
+            total += estimateImageTokens(sizes[index])
+        }
+        return total
+    }
+
+    /**
+     * Byte size per [ChatMessage.images] entry, read from the durable attachment metadata.
+     * One item covers a contiguous image range (`imageIndex` plus `pageCount`), so its bytes are
+     * split evenly across the images it renders. Entries without a recorded size stay unmapped and
+     * fall back to [UNKNOWN_IMAGE_TOKENS].
+     */
+    private fun imageByteSizes(message: ChatMessage): Map<Int, Long> {
+        val items = message.attachmentMeta?.items ?: return emptyMap()
+        return buildMap {
+            items.forEach { item ->
+                if (item.type != "image" && item.type != "pdf" && item.type != "video") return@forEach
+                val start = item.imageIndex ?: return@forEach
+                if (start !in message.images.indices) return@forEach
+                val bytes = item.fileSize?.takeIf { it > 0L } ?: return@forEach
+                val pages = (item.pageCount ?: 1).coerceAtLeast(1)
+                val bytesPerPage = bytes / pages
+                repeat(minOf(pages, message.images.size - start)) { offset ->
+                    put(start + offset, bytesPerPage)
+                }
+            }
+        }
+    }
+
+    internal fun estimateImageTokens(imageBytes: Long?): Long = imageBytes
+        ?.takeIf { it > 0L }
+        ?.let { bytes -> (bytes / IMAGE_BYTES_PER_TOKEN).coerceIn(MIN_IMAGE_TOKENS, MAX_IMAGE_TOKENS) }
+        ?: UNKNOWN_IMAGE_TOKENS
 
     private fun estimateTextRaw(text: String): Long {
         if (text.isEmpty()) return 0L

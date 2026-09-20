@@ -398,7 +398,9 @@ class GeminiProvider(
         }
 
         val thinkingConfig = if (!config.thinkingEnabled) {
-            null
+            if (cleanModelName.contains("gemini-2.5-flash", ignoreCase = true)) {
+                ApiThinkingConfig(includeThoughts = false, thinkingBudget = 0)
+            } else null
         } else when {
             cleanModelName.contains("gemini-3", ignoreCase = true) || cleanModelName.contains("gemini-3.5", ignoreCase = true) -> {
                 ApiThinkingConfig(includeThoughts = true, thinkingLevel = ThinkingLevels.geminiLevel(config.thinkingLevel))

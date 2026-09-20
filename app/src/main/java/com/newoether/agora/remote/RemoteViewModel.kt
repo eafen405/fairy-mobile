@@ -724,13 +724,17 @@ internal class RemoteViewModel(
                         settingsModel.id, snapshot.selectedEffort, snapshot.selectedServiceTier, updateServiceTier = true,
                     ) else RemoteSettings(model = settingsModel.id)
                     val created = client.create(text, attempt.clientId, uploads.map { it.id }, settings)
+                    // Creation includes the first turn, even if its owner is no longer selected.
+                    mutableState.value = state.value.copy(
+                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.id}" to owner),
+                    )
                     if (selected != selectionEpoch || clients[snapshot.deviceId] !== client ||
                         state.value.attempts[owner]?.clientId != attempt.clientId) {
-                        // The creation completed after the user left or edited; this attempt never sends.
+                        // Keep the accepted outcome on the original owner without replacing the selection.
                         if (state.value.attempts[owner]?.clientId == attempt.clientId &&
                             state.value.attempts[owner]?.delivery == RemoteDelivery.SUBMITTING) {
                             mutableState.value = state.value.copy(attempts = state.value.attempts +
-                                (owner to attempt.copy(delivery = RemoteDelivery.REJECTED)))
+                                (owner to attempt.copy(delivery = RemoteDelivery.ACCEPTED)))
                         }
                         return@launch
                     }

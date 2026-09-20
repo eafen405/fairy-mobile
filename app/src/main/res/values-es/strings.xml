@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">Denegar</string>
     <string name="shell_confirm_setting">Confirmar acciones de shell remoto</string>
     <string name="shell_confirm_setting_desc">Preguntar antes de que el asistente ejecute comandos o escriba archivos en servidores SSH/Conch remotos</string>
+    <string name="shell_confirm_notification_channel">Aprobación de comandos</string>
+    <string name="shell_confirm_notification_desc">Pide permitir o denegar un comando remoto mientras Agora está en segundo plano</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora se cerró inesperadamente</string>

@@ -6,7 +6,11 @@ import com.newoether.agora.api.GenerationError
 import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.api.StreamEvent
+import com.newoether.agora.api.ToolDefinition
+import com.newoether.agora.api.ToolFunction
+import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.DebugLog
 import com.sun.net.httpserver.HttpServer
@@ -24,6 +28,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -31,6 +36,23 @@ import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
 
 class OpenAiCompatibleGenerationParameterForwardingTest {
+    @Test
+    fun openRouterOffSendsExplicitDisable() = withServer { server ->
+        val body = server.capture(OpenRouterProvider(), config(server, "test-model").copy(
+            thinkingEnabled = false,
+        ))
+        assertFalse(body["reasoning"]!!.jsonObject["enabled"]!!.jsonPrimitive.boolean)
+    }
+
+    @Test
+    fun chatForwardsConfiguredServiceTier() = withServer { server ->
+        val body = server.capture(OpenAiProvider(), config(server, "gpt-4o").copy(
+            thinkingEnabled = false,
+            openAiServiceTier = "priority",
+        ))
+        assertEquals("priority", body["service_tier"]!!.jsonPrimitive.content)
+    }
+
     @Before
     fun disableAndroidLoggingForJvmNetworkTests() {
         val context = mockk<Context>()
@@ -123,6 +145,101 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
         assertStandardParameters(body)
     }
 
+    @Test
+    fun deepSeekForwardsThinkingToggleAndMappedEffort() = withServer { server ->
+        val enabled = server.capture(
+            DeepSeekProvider(),
+            config(server, "deepseek-v4").copy(thinkingLevel = "medium"),
+        )
+        assertEquals("enabled", enabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("high", enabled["reasoning_effort"]!!.jsonPrimitive.content)
+        assertStandardParameters(enabled)
+
+        withServer { offServer ->
+            val disabled = offServer.capture(
+                DeepSeekProvider(),
+                config(offServer, "deepseek-v4").copy(thinkingEnabled = false),
+            )
+            assertEquals("disabled", disabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+            assertFalse(disabled.containsKey("reasoning_effort"))
+        }
+    }
+
+    @Test
+    fun deepSeekEffortMappingMatchesOfficialTable() {
+        assertEquals("low", deepSeekReasoningEffort("minimal"))
+        assertEquals("low", deepSeekReasoningEffort("low"))
+        assertEquals("high", deepSeekReasoningEffort("medium"))
+        assertEquals("high", deepSeekReasoningEffort("high"))
+        assertEquals("high", deepSeekReasoningEffort("xhigh"))
+        assertEquals("max", deepSeekReasoningEffort("max"))
+        assertEquals("high", deepSeekReasoningEffort("balanced"))
+        assertNull(deepSeekReasoningEffort("none"))
+    }
+
+    @Test
+    fun otherOpenAiCompatibleProvidersNeverSendDeepSeekThinkingField() = withServer { server ->
+        val qwenBody = server.capture(QwenProvider(), config(server, "qwen-plus"))
+        assertFalse(qwenBody.containsKey("thinking"))
+
+        withServer { relayServer ->
+            val relayBody = relayServer.capture(
+                CustomOpenAiProvider("Relay", relayServer.baseUrl),
+                config(relayServer, "llama-3.3-70b"),
+            )
+            assertFalse(relayBody.containsKey("thinking"))
+        }
+    }
+
+    @Test
+    fun customEndpointSendsThinkingFieldsForRelayedDeepSeekModels() = withServer { server ->
+        val enabled = server.capture(
+            CustomOpenAiProvider("Relay", server.baseUrl),
+            config(server, "DeepSeek/DeepSeek-V4").copy(thinkingLevel = "xhigh"),
+        )
+        assertEquals("enabled", enabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("high", enabled["reasoning_effort"]!!.jsonPrimitive.content)
+        assertStandardParameters(enabled)
+
+        withServer { offServer ->
+            val disabled = offServer.capture(
+                CustomOpenAiProvider("Relay", offServer.baseUrl),
+                config(offServer, "deepseek-chat").copy(thinkingEnabled = false),
+            )
+            assertEquals("disabled", disabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+            assertFalse(disabled.containsKey("reasoning_effort"))
+        }
+    }
+
+    @Test
+    fun deepSeekReplaysOrdinaryReasoningOnlyForToolEnabledChat() = withServer { server ->
+        val messages = listOf(
+            ChatMessage(text = "question", participant = Participant.USER),
+            ChatMessage(
+                text = "answer",
+                participant = Participant.MODEL,
+                segments = listOf(MessageSegment(type = "thought", content = "stored reasoning")),
+            ),
+            ChatMessage(text = "follow up", participant = Participant.USER),
+        )
+        val enabled = server.capture(
+            DeepSeekProvider(),
+            config(server, "deepseek-v4").copy(
+                tools = listOf(toolDefinition()),
+                includeAssistantReasoning = true,
+            ),
+            messages,
+        )
+        assertTrue(enabled.toString().contains("stored reasoning"))
+        withServer { plainServer ->
+            val plain = plainServer.capture(
+                DeepSeekProvider(),
+                config(plainServer, "deepseek-v4"),
+                messages,
+            )
+            assertFalse(plain.toString().contains("stored reasoning"))
+        }
+    }
     private fun assertStandardParameters(body: JsonObject) {
         assertEquals(0.7f, body["temperature"]!!.jsonPrimitive.float)
         assertEquals(777, body["max_tokens"]!!.jsonPrimitive.int)
@@ -148,21 +265,35 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
         if (checkParameters) assertStandardParameters(body)
     }
 
-    private fun collect(provider: LlmProvider, config: ProviderConfig): List<StreamEvent> =
+    private fun collect(
+        provider: LlmProvider,
+        config: ProviderConfig,
+        messages: List<ChatMessage> =
+            listOf(ChatMessage(text = "hello", participant = Participant.USER)),
+    ): List<StreamEvent> =
         runBlocking {
             withTimeout(2_000L) {
-                provider.generateResponse(
-                    listOf(ChatMessage(text = "hello", participant = Participant.USER)),
-                    config,
-                ).toList()
+                provider.generateResponse(messages, config).toList()
             }
         }
 
-    private fun RecordingServer.capture(provider: LlmProvider, config: ProviderConfig): JsonObject {
-        val events = collect(provider, config)
+    private fun RecordingServer.capture(
+        provider: LlmProvider,
+        config: ProviderConfig,
+        messages: List<ChatMessage> =
+            listOf(ChatMessage(text = "hello", participant = Participant.USER)),
+    ): JsonObject {
+        val events = collect(provider, config, messages)
         assertTrue(events.none { it is StreamEvent.Error })
         return singleBody()
     }
+    private fun toolDefinition() = ToolDefinition(
+        function = ToolFunction(
+            name = "fixture_tool",
+            description = "Fixture",
+            parameters = ToolParameters(properties = emptyMap()),
+        ),
+    )
 
     private fun config(server: RecordingServer, model: String) = ProviderConfig(
         apiKey = "",

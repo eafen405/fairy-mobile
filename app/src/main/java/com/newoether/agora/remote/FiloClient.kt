@@ -92,6 +92,9 @@ internal class FiloClient(
     private val token: String,
     private val calls: Call.Factory = OkHttpClient.Builder()
         .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false)
+        // Conch closes idle connections at 120s, so pooled ones must expire earlier. Without this
+        // the encrypted path reuses a dead socket and the POST cannot be replayed safely.
+        .connectionPool(okhttp3.ConnectionPool(5, 45, TimeUnit.SECONDS))
         .addInterceptor(com.newoether.agora.util.ConchEncryptedHttp(token))
         .callTimeout(30, TimeUnit.SECONDS).build(),
     mutationTimeoutMillis: Long = 210_000,

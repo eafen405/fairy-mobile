@@ -88,7 +88,11 @@ private fun canonicalContextMessages(
 }
 
 /** Full fail-closed message preparation pipeline shared by every provider. */
-fun prepareMessages(messages: List<ChatMessage>, contextTokenBudget: Int): List<ChatMessage> {
+fun prepareMessages(
+    messages: List<ChatMessage>,
+    contextTokenBudget: Int,
+    includeAssistantReasoning: Boolean = false,
+): List<ChatMessage> {
     val previous = messages.getOrNull(messages.lastIndex - 1)
     val prompt = messages.lastOrNull()?.takeIf {
         it.id == "$API_INITIAL_USER_ID_PREFIX${previous?.id.orEmpty()}" &&
@@ -106,6 +110,7 @@ fun prepareMessages(messages: List<ChatMessage>, contextTokenBudget: Int): List<
                     appendContinuationForApi = appendContinuationForApi,
                 ),
                 contextTokenBudget,
+                includeAssistantReasoning = includeAssistantReasoning,
             )
         )
     ) + listOfNotNull(prompt)

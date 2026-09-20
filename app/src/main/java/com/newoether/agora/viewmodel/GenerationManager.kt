@@ -116,6 +116,18 @@ class GenerationManager(
         googleSearchEnabled = config.googleSearchEnabled,
         openAiWebSearchEnabled = config.openAiWebSearchEnabled,
     )
+    internal fun includesAssistantReasoning(
+        config: GenerationConfig,
+        context: GenerationContext,
+    ): Boolean =
+        !config.responsesApiEnabled &&
+            config.thinkingEnabled &&
+            (
+                config.providerName == Constants.PROVIDER_DEEPSEEK ||
+                    com.newoether.agora.api.openai.isDeepSeekModel(config.modelId)
+                ) &&
+            !config.lowContextModeEnabled &&
+            toolExecutor.definitions(context).isNotEmpty()
 
     internal suspend fun resolvedFixedContextTokenCost(
         config: GenerationConfig,
@@ -135,6 +147,7 @@ class GenerationManager(
             openAiWebSearchEnabled = config.openAiWebSearchEnabled,
             tools = definitions,
             includeImages = !context.imageTranscriptionEnabled,
+            includeAssistantReasoning = includesAssistantReasoning(config, context),
             requestResolver = resolver,
         )
         val resolvedRequest = providerConfig.resolveRequest(emptyList())

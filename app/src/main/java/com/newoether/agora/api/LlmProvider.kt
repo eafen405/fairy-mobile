@@ -93,7 +93,11 @@ fun interface ProviderRequestResolver {
 suspend fun ProviderConfig.resolveRequest(messages: List<ChatMessage>): ProviderRequestInput =
     requestResolver?.resolve(messages, this)
         ?: ProviderRequestInput(
-            messages = prepareMessages(messages, maxContextWindow),
+            messages = prepareMessages(
+                messages,
+                maxContextWindow,
+                includeAssistantReasoning = includeAssistantReasoning,
+            ),
             systemPrompt = systemPrompt,
         )
 
@@ -119,6 +123,8 @@ data class ProviderConfig(
     val userPrepend: String? = null,
     val userPostpend: String? = null,
     val includeImages: Boolean = true,
+    /** Counts and retains ordinary assistant thought segments that this request serializes. */
+    val includeAssistantReasoning: Boolean = false,
     val temperature: Float? = null,
     val maxTokens: Int? = null,
     val topP: Float? = null,
@@ -167,6 +173,7 @@ data class OpenAiChatRequest(
     @SerialName("stream_options") val streamOptions: OpenAiStreamOptions? = null,
     val tools: List<ToolDefinition>? = null,
     @SerialName("reasoning_effort") val reasoningEffort: String? = null,
+    @SerialName("thinking") val thinking: OpenAiThinking? = null,
     @SerialName("enable_thinking") val enableThinking: Boolean? = null,
     @SerialName("thinking_budget") val thinkingBudget: Int? = null,
     val reasoning: OpenAiReasoning? = null,
@@ -183,6 +190,12 @@ data class OpenAiChatRequest(
 @Serializable
 data class OpenAiPlugin(
     val id: String
+)
+
+/** DeepSeek thinking toggle: `{"thinking": {"type": "enabled" | "disabled"}}`. */
+@Serializable
+data class OpenAiThinking(
+    val type: String,
 )
 
 @Serializable

@@ -461,7 +461,11 @@ internal class MessageGenerationController(
                     val compact = compactController.startAutomaticBeforeSend(
                         conversationId = target.conversationId,
                         contextLimit = snapshot.config.maxContextWindow,
-                        config = snapshot.automaticCompact.copy(fixedTokenCost = fixedTokenCost),
+                        config = snapshot.automaticCompact.copy(
+                            fixedTokenCost = fixedTokenCost,
+                            includeAssistantReasoning = generationManagerProvider()
+                                .includesAssistantReasoning(snapshot.config, snapshot.context),
+                        ),
                         state = state,
                     )
                 ) {

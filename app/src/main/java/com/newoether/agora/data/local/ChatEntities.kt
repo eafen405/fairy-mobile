@@ -105,6 +105,9 @@ data class ChatEntity(
     @PrimaryKey val id: String,
     val title: String,
     val lastUpdated: Long = System.currentTimeMillis(),
+    /** Durable data-change watermark for incremental backup; unlike [lastUpdated], it is
+     * touched on every write that changes exported content (conversations/runs/messages). */
+    val dataChangedAt: Long = 0L,
     val selectedBranchesJson: String? = null,
     val systemPromptId: String? = null,
     val modelId: String? = null,

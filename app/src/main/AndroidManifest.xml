@@ -83,6 +83,11 @@
             android:name=".automation.AutomationAlarmReceiver"
             android:exported="false" />
 
+        <!-- Applies a shell-confirmation decision made on a notification; internal only. -->
+        <receiver
+            android:name=".service.ShellConfirmationReceiver"
+            android:exported="false" />
+
         <!-- Re-arms task alarms after reboot / app update. -->
         <receiver
             android:name=".service.BootReceiver"

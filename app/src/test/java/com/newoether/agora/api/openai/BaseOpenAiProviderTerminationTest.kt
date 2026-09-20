@@ -581,7 +581,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
         val body = WIRE_JSON.parseToJsonElement(server.requests.single().body).jsonObject
         assertTrue(body.containsKey("messages"))
         assertFalse(body.containsKey("input"))
-        assertFalse(body.containsKey("service_tier"))
+        assertEquals("fast", body["service_tier"]!!.jsonPrimitive.content)
         assertTrue(events.none { it is StreamEvent.Error })
     }
 

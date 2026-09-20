@@ -26,6 +26,7 @@ import com.newoether.agora.tool.McpToolProvider
 import com.newoether.agora.mcp.McpRegistry
 import com.newoether.agora.sandbox.SandboxManagerFactory
 import com.newoether.agora.service.MaintenanceDebtWorker
+import com.newoether.agora.service.ShellConfirmationNotifier
 import com.newoether.agora.service.TaskWorker
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.viewmodel.ChatViewModelFactory
@@ -137,7 +138,11 @@ class AppContainer(
 
     /** One process-wide confirmation queue shared by Chat, Task, and Loop generation. */
     val shellConfirmationController: ShellConfirmationController by lazy {
-        ShellConfirmationController(settingsRepository)
+        ShellConfirmationController(settingsRepository).also {
+            // Observe from the moment the queue exists: a background automation run must be able
+            // to offer its decision on the notification shade without any Activity having started.
+            ShellConfirmationNotifier.start(appScope, appContext, it)
+        }
     }
 
     // ── Generation singletons (process-scoped) ────────────────

@@ -560,6 +560,8 @@
     <string name="shell_confirm_deny">Negar</string>
     <string name="shell_confirm_setting">Confirmar ações de shell remoto</string>
     <string name="shell_confirm_setting_desc">Perguntar antes de o assistente executar comandos ou gravar arquivos em servidores SSH/Conch remotos</string>
+    <string name="shell_confirm_notification_channel">Aprovação de comandos</string>
+    <string name="shell_confirm_notification_desc">Pede para permitir ou negar um comando remoto enquanto o Agora está em segundo plano</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">O Agora fechou inesperadamente</string>

@@ -58,6 +58,7 @@
     <string name="task_status_unknown">等待中</string>
     <string name="task_running_notification">正在运行计划任务…</string>
     <string name="loop_running_notification">正在运行会话循环…</string>
+    <string name="auto_backup_running_notification">正在备份数据…</string>
     <string name="loop_running">循环执行中…</string>
     <string name="loop_next_in">下次 %1$s 后</string>
     <string name="loop_cycle">第 %1$d/%2$d 轮</string>

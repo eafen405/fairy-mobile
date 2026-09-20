@@ -39,7 +39,14 @@ class CustomOpenAiProvider(
             modelId = config.modelId,
             thinkingEnabled = config.thinkingEnabled,
             thinkingLevel = config.thinkingLevel,
-        ) ?: return request
-        return request.copy(reasoningEffort = effort)
+        )
+        if (effort != null) return request.copy(reasoningEffort = effort)
+        // A relayed DeepSeek model needs the same thinking fields as the built-in provider.
+        if (isDeepSeekModel(config.modelId)) return request.withDeepSeekThinking(config)
+        return request
     }
+
+    /** Same rule as the built-in provider: a relayed DeepSeek model replays chain of thought. */
+    override fun forwardsAssistantReasoningContent(config: ProviderConfig): Boolean =
+        config.includeAssistantReasoning
 }

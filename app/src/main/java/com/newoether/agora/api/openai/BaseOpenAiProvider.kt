@@ -55,6 +55,13 @@ abstract class BaseOpenAiProvider : LlmProvider {
     protected open fun transformSystemPrompt(prompt: String?): String? = prompt
 
     /**
+     * Replay each assistant turn's stored chain of thought as `reasoning_content`. DeepSeek
+     * thinking mode answers a tools request with 400 unless every earlier turn carries it; other
+     * providers ignore the field, so the default is off.
+     */
+    protected open fun forwardsAssistantReasoningContent(config: ProviderConfig): Boolean = false
+
+    /**
      * Parse one OpenAI-compatible delta into native thought and raw answer events.
      * Provider-neutral inline marker recovery is owned by ProviderStreamNormalizer.
      */
@@ -143,6 +150,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         messages = apiMessages,
                         stream = true,
                         streamOptions = OpenAiStreamOptions(includeUsage = true),
+                        serviceTier = config.openAiServiceTier,
                         tools = config.tools,
                         temperature = config.temperature,
                         maxTokens = config.maxTokens,
@@ -188,6 +196,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         systemPrompt = transformSystemPrompt(resolvedRequest.systemPrompt),
                         includeImages = config.includeImages,
                         base64Files = base64Files,
+                        forwardAssistantReasoning = forwardsAssistantReasoningContent(config),
                     )
                     val (requestBodyJson, streamingRequest) = buildRequestBody(
                         apiMessages,
