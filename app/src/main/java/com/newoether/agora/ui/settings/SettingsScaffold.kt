@@ -96,8 +96,8 @@ internal fun CollapsingSettingsTitleBar(
     val textMeasurer = rememberTextMeasurer()
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        // The expanded title runs from a 24dp start inset; keep a 16dp end margin.
-        val availableTitleWidth = (maxWidth - 24.dp - 16.dp).coerceAtLeast(0.dp)
+        // Expanded titles align with the shared 16dp content inset.
+        val availableTitleWidth = (maxWidth - 16.dp - 16.dp).coerceAtLeast(0.dp)
 
         // Auto-fit the expanded font: shrink from 33sp until even long translations
         // (Spanish/French/Russian page names, etc.) fit on one line — down to a 20sp floor.
@@ -123,7 +123,7 @@ internal fun CollapsingSettingsTitleBar(
         val expandedY = statusBarTop + SettingsBarHeight + titleAreaHeight - SettingsTitleBottomInset
         val titleY = expandedY - titleTravel * fraction   // linear 1:1 with scroll → docks at expandedY − travel
         val titleX = if (LocalSettingsPaneBackButtonVisible.current) {
-            24.dp + (70.dp - 24.dp) * eased
+            16.dp + (70.dp - 16.dp) * eased
         } else {
             16.dp
         }

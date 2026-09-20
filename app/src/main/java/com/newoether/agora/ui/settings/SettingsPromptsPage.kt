@@ -95,30 +95,32 @@ fun SettingsPromptsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         forward = editingEntry != null
     ) { currentEntry ->
         if (currentEntry != null) {
-            SystemPromptEditorPage(
-                entry = currentEntry,
-                onSave = { title, systemItems, userItems, assistantItems ->
-                    if (systemPrompts.any { it.id == currentEntry.id }) {
-                        viewModel.settings.updateSystemPrompt(
-                            currentEntry.id,
-                            title,
-                            systemItems,
-                            userItems,
-                            assistantItems,
-                        )
-                    } else {
-                        viewModel.settings.addSystemPrompt(
-                            title,
-                            systemItems,
-                            userItems,
-                            assistantItems,
-                        )
-                    }
-                    editingEntry = null
-                },
-                onBack = { editingEntry = null },
-                showDocFab = showDocFab
-            )
+            SettingsSecondaryPane {
+                SystemPromptEditorPage(
+                    entry = currentEntry,
+                    onSave = { title, systemItems, userItems, assistantItems ->
+                        if (systemPrompts.any { it.id == currentEntry.id }) {
+                            viewModel.settings.updateSystemPrompt(
+                                currentEntry.id,
+                                title,
+                                systemItems,
+                                userItems,
+                                assistantItems,
+                            )
+                        } else {
+                            viewModel.settings.addSystemPrompt(
+                                title,
+                                systemItems,
+                                userItems,
+                                assistantItems,
+                            )
+                        }
+                        editingEntry = null
+                    },
+                    onBack = { editingEntry = null },
+                    showDocFab = showDocFab,
+                )
+            }
         } else {
             PromptList(
                 systemPrompts = systemPrompts,

@@ -600,6 +600,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         val home = sourceFile(
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsScreen.kt",
         )
+        val twoPane = sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/settings/SettingsTwoPane.kt",
+        )
         val shell = sourceFile(
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsShellPage.kt",
         )
@@ -608,8 +611,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         )
 
         assertFalse(home.contains("KeyboardArrowRight"))
-        assertTrue(home.contains(".clickable { selectedCategory = cat.key }"))
-        assertTrue(home.contains("Column(modifier = Modifier.weight(1f))"))
+        assertTrue(home.contains("onCategorySelected = { selectedCategory = it }"))
+        assertTrue(twoPane.contains(".clickable { onCategorySelected(category.key) }"))
+        assertTrue(twoPane.contains("Column(modifier = Modifier.weight(1f))"))
 
         val sandbox = shell
             .substringAfter("private fun SandboxSection(")
@@ -626,6 +630,44 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             "modifier = Modifier.clickable { selectedProvider = Constants.PROVIDER_LOCAL }"
         ))
         assertFalse(provider.contains("Spacer(modifier = Modifier.width(4.dp))"))
+    }
+
+    @Test
+    fun `wide Settings navigation preserves user scroll and nested back behavior`() {
+        val twoPane = sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/settings/SettingsTwoPane.kt",
+        )
+        val scaffold = sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/settings/SettingsScaffold.kt",
+        )
+        val main = sourceFile("app/src/main/java/com/newoether/agora/MainActivity.kt")
+        val screenshotScript = sourceFile("scripts/generate-screenshots.ps1")
+
+        assertFalse(twoPane.contains("scrollToItem("))
+        assertFalse(twoPane.contains("rememberLazyListState"))
+        assertTrue(twoPane.contains("private val SettingsNavigationPaneWidth = 400.dp"))
+        assertTrue(twoPane.contains(".widthIn(max = SettingsContentMaxWidth)"))
+        assertTrue(twoPane.contains(
+            "CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides false)"
+        ))
+        assertTrue(scaffold.contains("if (LocalSettingsPaneBackButtonVisible.current)"))
+        val titlePosition = scaffold
+            .substringAfter("val titleX =")
+            .substringBefore("// Opaque bar")
+        assertTrue(titlePosition.contains("16.dp + (70.dp - 16.dp) * eased"))
+        assertTrue(titlePosition.contains("16.dp"))
+        val providerPage = sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/settings/SettingsProviderPage.kt",
+        )
+        assertTrue(providerPage.contains("SettingsSecondaryPane {"))
+        assertTrue(main.contains("onBack = { showScreenshotSettings = false }"))
+        assertTrue(screenshotScript.contains("} finally {"))
+        assertTrue(screenshotScript.contains(
+            "Restore-GlobalSetting \$setting \$savedAnimationSettings[\$setting]"
+        ))
+        assertTrue(screenshotScript.contains("\"window_animation_scale\""))
+        assertTrue(screenshotScript.contains("\"transition_animation_scale\""))
+        assertTrue(screenshotScript.contains("\"animator_duration_scale\""))
     }
 
     @Test

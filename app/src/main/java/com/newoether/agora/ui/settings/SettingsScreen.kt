@@ -45,6 +45,11 @@ import com.newoether.agora.viewmodel.ChatViewModel
 val LocalSettingsGroupSpacing = staticCompositionLocalOf { false }
 internal val LocalSettingsPaneBackButtonVisible = staticCompositionLocalOf { true }
 
+@Composable
+internal fun SettingsSecondaryPane(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides true, content = content)
+}
+
 /** Settings page content container: uniform 24dp spacing between groups (and any other elements),
  *  with zero trailing after the last element. */
 @Composable

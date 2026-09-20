@@ -22,8 +22,16 @@ $assets = Join-Path $repo "assets"
 $apk = Join-Path $repo "app\build\outputs\apk\play\debug\app-play-debug.apk"
 
 function Invoke-Adb([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments) {
-    & $adb -s $Serial @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "adb failed: $($Arguments -join ' ')" }
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = & $adb -s $Serial @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($exitCode -ne 0) { throw "adb failed: $($Arguments -join ' ')`n$($output -join "`n")" }
+    return $output
 }
 
 function Wait-ForBoot {
@@ -41,6 +49,16 @@ function Wait-ForBoot {
     if ($state -ne "device" -or $boot -ne "1") { throw "Emulator did not boot" }
 }
 
+function Get-GlobalSetting([string]$Name) {
+    return ((& $adb -s $Serial shell settings get global $Name) | Out-String).Trim()
+}
+function Restore-GlobalSetting([string]$Name, [string]$Value) {
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -eq "null") {
+        Invoke-Adb shell settings delete global $Name | Out-Null
+    } else {
+        Invoke-Adb shell settings put global $Name $Value | Out-Null
+    }
+}
 function Set-CaptureProfile([string]$Profile) {
     if ($Profile -eq "phone") {
         Invoke-Adb shell wm size 1216x2400 | Out-Null
@@ -76,6 +94,20 @@ function Capture-Screenshot(
         }
     }
 
+    if ($Profile -eq "tablet") {
+        $navigationSwipes = switch ($Destination) {
+            "settings:shell" { 1 }
+            "settings:memory" { 2 }
+            "settings:datacontrol" { 2 }
+            default { 0 }
+        }
+        if ($navigationSwipes -gt 0) {
+            1..$navigationSwipes | ForEach-Object {
+                Invoke-Adb shell input swipe 400 1400 400 420 500 | Out-Null
+                Start-Sleep -Milliseconds 800
+            }
+        }
+    }
     # ESC hides an IME without dismissing the drawer or a settings destination.
     Invoke-Adb shell input keyevent 111 | Out-Null
     Start-Sleep -Milliseconds 600
@@ -123,45 +155,56 @@ if (-not $connected) {
     ) | Out-Null
 }
 Wait-ForBoot
-
-Invoke-Adb shell settings put system accelerometer_rotation 0 | Out-Null
-Invoke-Adb shell settings put secure stylus_handwriting_enabled 0 | Out-Null
-Invoke-Adb shell settings put secure stylus_pointer_icon_enabled 0 | Out-Null
-Invoke-Adb shell settings put global window_animation_scale 0 | Out-Null
-Invoke-Adb shell settings put global transition_animation_scale 0 | Out-Null
-Invoke-Adb shell settings put global animator_duration_scale 0 | Out-Null
-Invoke-Adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural | Out-Null
-Invoke-Adb shell cmd overlay enable com.android.internal.systemui.navbar.transparent | Out-Null
-Invoke-Adb install -r -t $apk | Out-Null
-Invoke-Adb shell pm clear $package | Out-Null
-Invoke-Adb shell pm grant $package android.permission.POST_NOTIFICATIONS | Out-Null
-
-$destinations = @(
-    "chat",
-    "drawer",
-    "settings",
-    "settings:shell",
-    "settings:memory",
-    "settings:datacontrol"
+$animationSettings = @(
+    "window_animation_scale",
+    "transition_animation_scale",
+    "animator_duration_scale"
 )
-$profiles = @(
-    @{ Name = "phone"; Output = $phoneOutput },
-    @{ Name = "tablet"; Output = $tabletOutput }
-) | Where-Object { $Profile -eq "all" -or $_.Name -eq $Profile }
-
-foreach ($profile in $profiles) {
-    Set-CaptureProfile -Profile $profile.Name
-    for ($index = 0; $index -lt $destinations.Count; $index++) {
-        Capture-Screenshot `
-            -Index ($index + 1) `
-            -Destination $destinations[$index] `
-            -Profile $profile.Name `
-            -OutputDirectory $profile.Output
+$savedAnimationSettings = @{}
+foreach ($setting in $animationSettings) {
+    $savedAnimationSettings[$setting] = Get-GlobalSetting $setting
+}
+try {
+    Invoke-Adb shell settings put system accelerometer_rotation 0 | Out-Null
+    Invoke-Adb shell settings put secure stylus_handwriting_enabled 0 | Out-Null
+    Invoke-Adb shell settings put secure stylus_pointer_icon_enabled 0 | Out-Null
+    foreach ($setting in $animationSettings) {
+        Invoke-Adb shell settings put global $setting 0 | Out-Null
+    }
+    Invoke-Adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural | Out-Null
+    Invoke-Adb shell cmd overlay enable com.android.internal.systemui.navbar.transparent | Out-Null
+    Invoke-Adb install -r -t $apk | Out-Null
+    Invoke-Adb shell pm clear $package | Out-Null
+    Invoke-Adb shell pm grant $package android.permission.POST_NOTIFICATIONS | Out-Null
+    $destinations = @(
+        "chat",
+        "drawer",
+        "settings",
+        "settings:shell",
+        "settings:memory",
+        "settings:datacontrol"
+    )
+    $profiles = @(
+        @{ Name = "phone"; Output = $phoneOutput },
+        @{ Name = "tablet"; Output = $tabletOutput }
+    ) | Where-Object { $Profile -eq "all" -or $_.Name -eq $Profile }
+    foreach ($captureProfile in $profiles) {
+        Set-CaptureProfile -Profile $captureProfile.Name
+        for ($index = 0; $index -lt $destinations.Count; $index++) {
+            Capture-Screenshot `
+                -Index ($index + 1) `
+                -Destination $destinations[$index] `
+                -Profile $captureProfile.Name `
+                -OutputDirectory $captureProfile.Output
+        }
+    }
+    1..3 | ForEach-Object {
+        Copy-Item (Join-Path $phoneOutput "screenshot_$_.jpg") (Join-Path $assets "screenshot_$_.jpg") -Force
+    }
+    $generatedProfiles = ($profiles | ForEach-Object Name) -join ", "
+    Write-Host "Generated six screenshots for: $generatedProfiles. Synchronized README screenshots 1-3 from the phone set."
+} finally {
+    foreach ($setting in $animationSettings) {
+        Restore-GlobalSetting $setting $savedAnimationSettings[$setting]
     }
 }
-
-1..3 | ForEach-Object {
-    Copy-Item (Join-Path $phoneOutput "screenshot_$_.jpg") (Join-Path $assets "screenshot_$_.jpg") -Force
-}
-
-Write-Host "Generated six phone screenshots, six ten-inch tablet screenshots, and synchronized README screenshots 1-3."

@@ -59,15 +59,17 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         forward = showSandboxMgmt
     ) { isMgmt ->
         if (isMgmt && viewModel.sandboxManager != null) {
-            key(sandboxEntryCount) {
-                SettingsSandboxPage(
-                    sandboxManager = viewModel.sandboxManager!!,
-                    onBack = { showSandboxMgmt = false },
-                    showDocFab = showDocFab,
-                    sharedStorageEnabled = sandboxSharedStorageEnabled,
-                    onSharedStorageEnabledChange =
-                        viewModel.settings::setSandboxSharedStorageEnabled,
-                )
+            SettingsSecondaryPane {
+                key(sandboxEntryCount) {
+                    SettingsSandboxPage(
+                        sandboxManager = viewModel.sandboxManager!!,
+                        onBack = { showSandboxMgmt = false },
+                        showDocFab = showDocFab,
+                        sharedStorageEnabled = sandboxSharedStorageEnabled,
+                        onSharedStorageEnabledChange =
+                            viewModel.settings::setSandboxSharedStorageEnabled,
+                    )
+                }
             }
         } else {
             val scrollState = rememberScrollState()

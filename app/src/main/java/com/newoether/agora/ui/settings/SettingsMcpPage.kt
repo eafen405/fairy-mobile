@@ -102,23 +102,25 @@ fun SettingsMcpPage(
         forward = editorRoute != null,
     ) { route ->
         if (route != null) {
-            val target = route.initial
-            McpServerEditor(
-                initial = target,
-                snapshot = snapshots[target.id],
-                isNew = route.isNew,
-                onBack = { editorRoute = null },
-                onSave = { saved ->
-                    if (route.isNew) {
-                        viewModel.settings.addMcpServer(saved)
-                    } else {
-                        viewModel.settings.updateMcpServer(saved)
-                    }
-                    editorRoute = null
-                },
-                onRefresh = { viewModel.refreshMcpServer(target.id) },
-                showDocFab = showDocFab,
-            )
+            SettingsSecondaryPane {
+                val target = route.initial
+                McpServerEditor(
+                    initial = target,
+                    snapshot = snapshots[target.id],
+                    isNew = route.isNew,
+                    onBack = { editorRoute = null },
+                    onSave = { saved ->
+                        if (route.isNew) {
+                            viewModel.settings.addMcpServer(saved)
+                        } else {
+                            viewModel.settings.updateMcpServer(saved)
+                        }
+                        editorRoute = null
+                    },
+                    onRefresh = { viewModel.refreshMcpServer(target.id) },
+                    showDocFab = showDocFab,
+                )
+            }
         } else {
             val scrollState = rememberScrollState()
             CollapsingSettingsScaffold(

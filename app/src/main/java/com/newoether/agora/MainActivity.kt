@@ -318,8 +318,14 @@ fun MainNavigation(
     var showSettings by rememberSaveable {
         mutableStateOf(screenshotDestination?.startsWith("settings") == true)
     }
+    var showScreenshotSettings by rememberSaveable(screenshotDestination) {
+        mutableStateOf(screenshotDestination?.startsWith("settings") == true)
+    }
     LaunchedEffect(screenshotDestination) {
-        if (screenshotDestination?.startsWith("settings") == true) showSettings = true
+        if (screenshotDestination?.startsWith("settings") == true) {
+            showSettings = true
+            showScreenshotSettings = true
+        }
     }
     var showTasks by rememberSaveable { mutableStateOf(false) }
     var showRemote by rememberSaveable { mutableStateOf(false) }
@@ -552,14 +558,14 @@ fun MainNavigation(
                 )
             }
 
-            if (screenshotDestination?.startsWith("settings") == true) {
+            if (showScreenshotSettings && screenshotDestination?.startsWith("settings") == true) {
                 Surface(
                     modifier = Modifier.fillMaxSize().zIndex(2f),
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     SettingsScreen(
                         viewModel = viewModel,
-                        onBack = {},
+                        onBack = { showScreenshotSettings = false },
                         initialCategory = screenshotDestination
                             .substringAfter("settings:", "")
                             .ifBlank { null },

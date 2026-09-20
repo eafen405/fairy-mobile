@@ -243,7 +243,9 @@ internal class ChatOverlaySourceContractTest : UiSourceContractFixture() {
 
         assertFalse(activityStartup.contains("requestPermissions("))
         assertTrue(onboardingBranch.substringAfter("false -> {").contains("MainNavigation("))
-        assertTrue(mainNavigation.contains("mutableStateOf(!shouldRequestNotificationPermission)"))
+        assertTrue(mainNavigation.contains(
+            "mutableStateOf(screenshotDestination == null && !shouldRequestNotificationPermission)"
+        ))
         assertTrue(permissionLauncher.contains("initialComposerFocusReady = true"))
         assertTrue(permissionEffect.contains("AgoraForegroundService.createChannels(appContext)"))
         assertTrue(permissionEffect.contains("notificationPermissionLauncher.launch("))
