@@ -1,6 +1,7 @@
 package com.newoether.agora.ui.chat
 
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -80,7 +81,7 @@ private fun rememberIsVideoMedia(url: String): Boolean? {
     val resolved by produceState<Boolean?>(initialValue = null, url) {
         value = withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.getType(Uri.parse(url))?.startsWith("video/") == true
+                context.contentResolver.getType(url.toUri())?.startsWith("video/") == true
             } catch (_: Exception) {
                 false
             }

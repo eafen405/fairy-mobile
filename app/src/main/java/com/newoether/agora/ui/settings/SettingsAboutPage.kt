@@ -3,6 +3,7 @@ package com.newoether.agora.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -61,7 +62,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val focusManager = LocalFocusManager.current
 
     fun openUrl(url: String) {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     }
 
     fun onVersionTapped() {

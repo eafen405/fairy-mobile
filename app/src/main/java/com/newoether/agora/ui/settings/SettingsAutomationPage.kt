@@ -89,7 +89,6 @@ fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
         val canLaunchDirectRequest =
             !batteryOptimizationIgnored &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 context.packageManager.checkPermission(
                     Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                     context.packageName,

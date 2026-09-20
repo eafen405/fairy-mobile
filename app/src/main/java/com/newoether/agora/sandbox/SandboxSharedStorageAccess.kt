@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
@@ -24,7 +25,7 @@ object SandboxSharedStorageAccess {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         return Intent(
             Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-            Uri.parse("package:${context.packageName}"),
+            "package:${context.packageName}".toUri(),
         ).takeIf { it.resolveActivity(context.packageManager) != null }
             ?: Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
                 .takeIf { it.resolveActivity(context.packageManager) != null }

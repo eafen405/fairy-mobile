@@ -1,6 +1,7 @@
 package com.newoether.agora.ui.chat
 
 import android.net.Uri
+import androidx.core.net.toUri
 import android.view.LayoutInflater
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -84,7 +85,7 @@ fun VideoPlayer(
 
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
+            setMediaItem(MediaItem.fromUri(uri.toUri()))
             prepare()
             playWhenReady = false
         }

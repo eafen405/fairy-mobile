@@ -2,6 +2,7 @@ package com.newoether.agora.data
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import com.newoether.agora.automation.LoopPolicy
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.SelectedAttachment
@@ -168,7 +169,7 @@ class DataExporter(
     )
 
     private fun openImageStream(imgUri: String): java.io.InputStream? {
-        val uri = Uri.parse(imgUri)
+        val uri = imgUri.toUri()
         // Handle content:// and file:// URIs
         if (uri.scheme == "content" || uri.scheme == "file") {
             return try { context.contentResolver.openInputStream(uri) } catch (_: Exception) { null }

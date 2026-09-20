@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.common
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.view.HapticFeedbackConstants
@@ -113,7 +114,7 @@ internal class PlatformAgoraHaptics(
         if (!answeringTextureRequested || !isAllowed() || answeringTextureActive) return
         val vibrator = vibrator?.takeIf { it.hasVibrator() } ?: return
         answeringTextureActive = true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl()) {
+        if (vibrator.hasAmplitudeControl()) {
             // Keep the continuous answering texture, but at a low duty cycle. Starting each cycle
             // with silence prevents a resume from producing an immediate burst after a discrete
             // tap, while the unequal pair avoids a mechanical metronome feel.
@@ -163,6 +164,7 @@ internal class PlatformAgoraHaptics(
     }
 }
 
+@SuppressLint("InlinedApi") // Constant haptic ids inline at compile time; sdkInt selects the behavior.
 internal fun selectionFeedbackForSdk(sdkInt: Int): Int =
     if (sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         HapticFeedbackConstants.SEGMENT_TICK
@@ -170,6 +172,7 @@ internal fun selectionFeedbackForSdk(sdkInt: Int): Int =
         HapticFeedbackConstants.CLOCK_TICK
     }
 
+@SuppressLint("InlinedApi") // Constant haptic ids inline at compile time; sdkInt selects the behavior.
 internal fun toggleFeedbackForSdk(sdkInt: Int, isOn: Boolean): Int =
     if (sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         if (isOn) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.TOGGLE_OFF
@@ -177,6 +180,7 @@ internal fun toggleFeedbackForSdk(sdkInt: Int, isOn: Boolean): Int =
         HapticFeedbackConstants.CLOCK_TICK
     }
 
+@SuppressLint("InlinedApi") // Constant haptic ids inline at compile time; sdkInt selects the behavior.
 internal fun confirmFeedbackForSdk(sdkInt: Int): Int =
     if (sdkInt >= Build.VERSION_CODES.R) {
         HapticFeedbackConstants.CONFIRM
@@ -184,6 +188,7 @@ internal fun confirmFeedbackForSdk(sdkInt: Int): Int =
         HapticFeedbackConstants.VIRTUAL_KEY
     }
 
+@SuppressLint("InlinedApi") // Constant haptic ids inline at compile time; sdkInt selects the behavior.
 internal fun rejectFeedbackForSdk(sdkInt: Int): Int =
     if (sdkInt >= Build.VERSION_CODES.R) {
         HapticFeedbackConstants.REJECT
