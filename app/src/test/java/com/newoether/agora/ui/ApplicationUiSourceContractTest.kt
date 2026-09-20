@@ -647,15 +647,25 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertFalse(twoPane.contains("rememberLazyListState"))
         assertTrue(twoPane.contains("private val SettingsNavigationPaneWidth = 400.dp"))
         assertTrue(twoPane.contains(".widthIn(max = SettingsContentMaxWidth)"))
+        assertTrue(twoPane.contains("Crossfade("))
+        assertTrue(twoPane.contains("label = \"settingsCategory\""))
+        assertTrue(twoPane.contains("animateColorAsState("))
+        assertTrue(twoPane.contains("label = \"settingsNavigationContainer\""))
+        assertTrue(twoPane.contains("Spacer(Modifier.height(4.dp))"))
+        assertTrue(twoPane.contains(".clipToBounds()"))
         assertTrue(twoPane.contains(
             "CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides false)"
         ))
         assertTrue(scaffold.contains("if (LocalSettingsPaneBackButtonVisible.current)"))
+        assertTrue(scaffold.contains(".widthIn(max = SettingsContentMaxWidth)"))
+        assertTrue(scaffold.contains(".align(Alignment.TopCenter)"))
         val titlePosition = scaffold
             .substringAfter("val titleX =")
             .substringBefore("// Opaque bar")
-        assertTrue(titlePosition.contains("16.dp + (70.dp - 16.dp) * eased"))
-        assertTrue(titlePosition.contains("16.dp"))
+        assertTrue(titlePosition.contains("24.dp + (70.dp - 24.dp) * eased"))
+        assertTrue(titlePosition.contains("24.dp"))
+        assertTrue(scaffold.contains(".padding(horizontal = 24.dp)"))
+        assertTrue(scaffold.contains("contentHorizontalPadding: Dp = 24.dp"))
         val providerPage = sourceFile(
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsProviderPage.kt",
         )

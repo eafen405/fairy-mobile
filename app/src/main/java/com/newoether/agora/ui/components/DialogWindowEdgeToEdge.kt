@@ -6,7 +6,10 @@ import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
+
+internal val BottomSheetMaxWidth = 640.dp
 
 /**
  * Restores edge-to-edge / transparent navigation bar inside a Compose dialog window

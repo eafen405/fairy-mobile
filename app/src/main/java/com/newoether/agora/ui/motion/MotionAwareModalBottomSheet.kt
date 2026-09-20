@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import com.newoether.agora.ui.components.BottomSheetMaxWidth
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 
 /**
@@ -47,7 +49,7 @@ fun MotionAwareModalBottomSheet(
     if (LocalAgoraMotionPolicy.current.allowSpatialTransitions) {
         MaterialModalBottomSheet(
             onDismissRequest = onDismissRequest,
-            modifier = modifier,
+            modifier = modifier.widthIn(max = BottomSheetMaxWidth),
             sheetState = sheetState,
             shape = shape,
             containerColor = containerColor,
@@ -92,6 +94,7 @@ fun MotionAwareModalBottomSheet(
                 modifier = modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .widthIn(max = BottomSheetMaxWidth)
                     // Register the stationary sheet itself as the top hit target. Children still
                     // receive their events, while taps on blank sheet space cannot fall through
                     // to the dismissing scrim behind it.

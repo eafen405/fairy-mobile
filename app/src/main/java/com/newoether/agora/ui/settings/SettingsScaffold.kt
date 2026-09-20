@@ -95,9 +95,22 @@ internal fun CollapsingSettingsTitleBar(
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        // Expanded titles align with the shared 16dp content inset.
-        val availableTitleWidth = (maxWidth - 16.dp - 16.dp).coerceAtLeast(0.dp)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Opaque bar (incl. the status-bar strip) hides list content scrolling underneath it.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(statusBarTop + SettingsBarHeight)
+                .background(MaterialTheme.colorScheme.background)
+        )
+        BoxWithConstraints(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = SettingsContentMaxWidth)
+                .fillMaxWidth(),
+        ) {
+            // Expanded titles align with the shared 24dp content inset.
+            val availableTitleWidth = (maxWidth - 24.dp - 16.dp).coerceAtLeast(0.dp)
 
         // Auto-fit the expanded font: shrink from 33sp until even long translations
         // (Spanish/French/Russian page names, etc.) fit on one line — down to a 20sp floor.
@@ -123,18 +136,11 @@ internal fun CollapsingSettingsTitleBar(
         val expandedY = statusBarTop + SettingsBarHeight + titleAreaHeight - SettingsTitleBottomInset
         val titleY = expandedY - titleTravel * fraction   // linear 1:1 with scroll → docks at expandedY − travel
         val titleX = if (LocalSettingsPaneBackButtonVisible.current) {
-            16.dp + (70.dp - 16.dp) * eased
+            24.dp + (70.dp - 24.dp) * eased
         } else {
-            16.dp
+            24.dp
         }
 
-        // Opaque bar (incl. the status-bar strip) hides list content scrolling underneath it.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(statusBarTop + SettingsBarHeight)
-                .background(MaterialTheme.colorScheme.background)
-        )
         if (LocalSettingsPaneBackButtonVisible.current) {
             CircularBackButton(
                 onClick = onBack,
@@ -169,6 +175,7 @@ internal fun CollapsingSettingsTitleBar(
                     transformOrigin = TransformOrigin(if (isRtl) 1f else 0f, 0f)
                 }
         )
+        }
     }
 }
 
@@ -209,7 +216,7 @@ fun CollapsingSettingsScaffold(
                 .imePadding()
                 .verticalScroll(scrollState)
                 .clearFocusOnTap()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
             Spacer(modifier = Modifier.height(statusBarTop + SettingsBarHeight + titleAreaHeight))
             content()
@@ -249,7 +256,7 @@ fun CollapsingSettingsLazyScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
-    contentHorizontalPadding: Dp = 16.dp,
+    contentHorizontalPadding: Dp = 24.dp,
     contentBottomPadding: Dp = 32.dp,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},

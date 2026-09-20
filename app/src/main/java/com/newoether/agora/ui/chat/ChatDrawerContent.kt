@@ -394,6 +394,33 @@ internal fun ChatDrawerContent(
                                         mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
                                     }
                                     val density = LocalDensity.current
+                                    val selectionContainerColor by animateColorAsState(
+                                        targetValue = if (isSelected) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                        animationSpec = tween(durationMillis = 250),
+                                        label = "drawerConversationSelectionContainer",
+                                    )
+                                    val selectionContentColor by animateColorAsState(
+                                        targetValue = if (isSelected) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                        animationSpec = tween(durationMillis = 250),
+                                        label = "drawerConversationSelectionContent",
+                                    )
+                                    val selectionIndicatorColor by animateColorAsState(
+                                        targetValue = if (isSelected) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        },
+                                        animationSpec = tween(durationMillis = 250),
+                                        label = "drawerConversationSelectionIndicator",
+                                    )
 
                                     Box(
                                         modifier = Modifier.animateItem(
@@ -450,11 +477,7 @@ internal fun ChatDrawerContent(
                                                         showMenu = true
                                                     }
                                                 ),
-                                            color = if (isSelected) {
-                                                MaterialTheme.colorScheme.secondaryContainer
-                                            } else {
-                                                Color.Transparent
-                                            },
+                                            color = selectionContainerColor,
                                             shape = CircleShape
                                         ) {
                                             Row(
@@ -477,11 +500,7 @@ internal fun ChatDrawerContent(
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
                                                         style = MaterialTheme.typography.bodyLarge,
-                                                        color = if (isSelected) {
-                                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                                        } else {
-                                                            MaterialTheme.colorScheme.onSurface
-                                                        },
+                                                        color = selectionContentColor,
                                                     )
                                                 }
                                                 Spacer(modifier = Modifier.width(8.dp))
@@ -499,11 +518,7 @@ internal fun ChatDrawerContent(
                                                         CircularProgressIndicator(
                                                             modifier = Modifier.size(18.dp),
                                                             strokeWidth = 2.dp,
-                                                            color = if (isSelected) {
-                                                                MaterialTheme.colorScheme.onSecondaryContainer
-                                                            } else {
-                                                                MaterialTheme.colorScheme.primary
-                                                            },
+                                                            color = selectionIndicatorColor,
                                                         )
                                                     }
                                                     androidx.compose.animation.AnimatedVisibility(

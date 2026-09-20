@@ -29,6 +29,28 @@ class ChatDrawerContentTest {
         assertTrue(group.indexOf("onOpenTasks()") < group.indexOf("onOpenRemote()"))
     }
     @Test
+    fun conversationSelectionColorsCrossfadeWithoutChangingRowGeometry() {
+        val root = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) {
+            it.parentFile
+        }.first { File(it, "app/src/main/java").isDirectory }
+        val source = File(root,
+            "app/src/main/java/com/newoether/agora/ui/chat/ChatDrawerContent.kt").readText()
+
+        listOf(
+            "drawerConversationSelectionContainer",
+            "drawerConversationSelectionContent",
+            "drawerConversationSelectionIndicator",
+        ).forEach { label ->
+            assertTrue(source.contains("label = \"$label\""))
+        }
+        assertTrue(source.contains("animationSpec = tween(durationMillis = 250)"))
+        assertTrue(source.contains("color = selectionContainerColor"))
+        assertTrue(source.contains("color = selectionContentColor"))
+        assertTrue(source.contains("color = selectionIndicatorColor"))
+        assertTrue(source.contains(".height(44.dp)"))
+    }
+
+    @Test
     fun generationIndicatorHasPriorityOverUnread() {
         assertEquals(
             DrawerConversationIndicator.GENERATING,

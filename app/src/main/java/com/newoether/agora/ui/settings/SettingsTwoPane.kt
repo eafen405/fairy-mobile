@@ -1,5 +1,8 @@
 package com.newoether.agora.ui.settings
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,9 +29,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -80,14 +85,21 @@ internal fun SettingsTwoPaneScreen(
                 modifier = Modifier
                     .fillMaxHeight()
                     .widthIn(max = SettingsContentMaxWidth)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .clipToBounds(),
             ) {
                 CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides false) {
-                    SettingsDestination(
-                        category = selectedCategory,
-                        viewModel = viewModel,
-                        onBack = onBack,
-                    )
+                    Crossfade(
+                        targetState = selectedCategory,
+                        animationSpec = tween(durationMillis = 250),
+                        label = "settingsCategory",
+                    ) { category ->
+                        SettingsDestination(
+                            category = category,
+                            viewModel = viewModel,
+                            onBack = onBack,
+                        )
+                    }
                 }
             }
         }
@@ -162,11 +174,42 @@ private fun SettingsNavigationItem(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(24.dp)
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        Color.Transparent
-    }
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 250),
+        label = "settingsNavigationContainer",
+    )
+    val primaryContentColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = tween(durationMillis = 250),
+        label = "settingsNavigationPrimaryContent",
+    )
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.primary
+        },
+        animationSpec = tween(durationMillis = 250),
+        label = "settingsNavigationIcon",
+    )
+    val supportingContentColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(durationMillis = 250),
+        label = "settingsNavigationSupportingContent",
+    )
     Surface(
         color = containerColor,
         shape = shape,
@@ -184,16 +227,14 @@ private fun SettingsNavigationItem(
                     painter = painterResource(category.iconRes),
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.primary,
+                    tint = iconColor,
                 )
             } else {
                 Icon(
                     imageVector = checkNotNull(category.icon),
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.primary,
+                    tint = iconColor,
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -202,17 +243,13 @@ private fun SettingsNavigationItem(
                     text = stringResource(category.titleRes),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = primaryContentColor,
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = stringResource(category.descriptionRes),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = supportingContentColor,
                     maxLines = 1,
                 )
             }
