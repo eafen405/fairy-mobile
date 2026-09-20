@@ -113,6 +113,11 @@ class AutoBackupManager(
             val file = File(dir, filename)
             val tmpFile = File(dir, "$filename.tmp")
             cleanupTarget = tmpFile
+            val baselineFile = dir.listFiles { candidate ->
+                candidate.isFile &&
+                    candidate.name.startsWith("Agora_backup_") &&
+                    candidate.name.endsWith(".agora")
+            }?.maxByOrNull(File::lastModified)
 
             val categoryKeys = settingsManager.autoBackupCategories.safeRead("conversations,memories,system_prompts,settings")
                 .split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
@@ -137,6 +142,7 @@ class AutoBackupManager(
                 uri = Uri.fromFile(tmpFile),
                 categories = categories,
                 includeApiKeys = includeApiKeys,
+                baselineFile = baselineFile,
                 onProgress = {}
             )
 

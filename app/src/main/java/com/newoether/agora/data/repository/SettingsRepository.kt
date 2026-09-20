@@ -58,7 +58,8 @@ import kotlinx.coroutines.withContext
  */
 class SettingsRepository(
     private val settingsManager: SettingsManager,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val touchConversationData: suspend (String) -> Unit = {},
 ) {
     /** One latch per eagerly-shared DataStore flow; populated completely during construction. */
     private val initialLoadSignals = mutableListOf<CompletableDeferred<Unit>>()
@@ -576,6 +577,7 @@ class SettingsRepository(
                     conversationId = write.conversationId,
                     settings = write.settings,
                 )
+                touchConversationData(write.conversationId)
                 conversationSettingsState.complete(write, persisted)
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -92,8 +92,11 @@ interface ChatDao :
     @Upsert
     suspend fun upsertConversation(conversation: ChatEntity)
 
-    @Query("UPDATE conversations SET title = :title WHERE id = :conversationId")
-    suspend fun updateConversationTitle(conversationId: String, title: String): Int
+    @Query("UPDATE conversations SET dataChangedAt = :at WHERE id = :conversationId")
+    suspend fun touchConversationData(conversationId: String, at: Long): Int
+
+    @Query("UPDATE conversations SET title = :title, dataChangedAt = :at WHERE id = :conversationId")
+    suspend fun updateConversationTitle(conversationId: String, title: String, at: Long): Int
 
     @Query(
         """
@@ -122,7 +125,7 @@ interface ChatDao :
     @Query(
         """
         UPDATE conversations
-        SET title = :newTitle
+        SET title = :newTitle, dataChangedAt = :at
         WHERE id = :conversationId AND title = :expectedTitle
         """
     )
@@ -130,6 +133,7 @@ interface ChatDao :
         conversationId: String,
         expectedTitle: String,
         newTitle: String,
+        at: Long,
     ): Int
 
     @Upsert
@@ -498,6 +502,9 @@ interface ChatDao :
         val messageUpdated = updateMessageCheckpoint(checkpoint) == 1
         val runUpdated = terminalizeLiveRun(runId, status, reason, at) == 1
         val completed = messageUpdated && runUpdated
+        if (completed) {
+            check(touchConversationData(conversationId, at) == 1)
+        }
         if (completed && markConversationUnread) {
             setConversationUnreadGeneration(conversationId, true)
         }
@@ -511,17 +518,20 @@ interface ChatDao :
     @Transaction
     suspend fun finishStoppedGeneration(
         checkpoints: List<MessageStreamCheckpoint>,
+        conversationId: String,
         runId: String?,
         at: Long,
     ): Boolean {
         checkpoints.forEach { updateMessageCheckpoint(it) }
         if (runId != null) stopInFlightModelMessages(runId)
-        return runId == null || terminalizeLiveRun(
+        val completed = runId == null || terminalizeLiveRun(
             runId,
             RunStatus.STOPPED,
             RunEndReason.USER_STOPPED,
             at,
         ) == 1
+        if (completed) check(touchConversationData(conversationId, at) == 1)
+        return completed
     }
 
     /**
@@ -621,7 +631,19 @@ interface ChatDao :
             }
         }
         changedRows += stopStuckMessagesForConversation(conversationId)
+        if (changedRows > 0) check(touchConversationData(conversationId, at) == 1)
         return changedRows
+    }
+
+    @Transaction
+    suspend fun updateConversationMessageCheckpoint(
+        conversationId: String,
+        checkpoint: MessageStreamCheckpoint,
+        at: Long,
+    ): Boolean {
+        val updated = updateMessageCheckpoint(checkpoint) == 1
+        if (updated) check(touchConversationData(conversationId, at) == 1)
+        return updated
     }
 
     @Update(entity = MessageEntity::class)
@@ -666,8 +688,8 @@ interface ChatDao :
     @Query("SELECT * FROM messages WHERE id IN (:ids)")
     suspend fun getMessagesByIds(ids: List<String>): List<MessageEntity>
 
-    @Query("UPDATE conversations SET draftText = :text, draftAttachments = :attachments WHERE id = :id")
-    suspend fun updateDraft(id: String, text: String, attachments: String?)
+    @Query("UPDATE conversations SET draftText = :text, draftAttachments = :attachments, dataChangedAt = :at WHERE id = :id")
+    suspend fun updateDraft(id: String, text: String, attachments: String?, at: Long)
 
     // Bulk export/import
     @Query("SELECT * FROM conversations")
@@ -703,6 +725,13 @@ interface ChatDao :
         """
     )
     suspend fun getMessagesPage(afterId: String?, limit: Int): List<MessageEntity>
+    @Query("SELECT * FROM messages WHERE conversationId = :conversationId " +
+        "AND (:afterId IS NULL OR id > :afterId) ORDER BY id LIMIT :limit")
+    suspend fun getConversationMessagesPage(
+        conversationId: String,
+        afterId: String?,
+        limit: Int,
+    ): List<MessageEntity>
 
     @Query("DELETE FROM conversations")
     suspend fun deleteAllConversations()

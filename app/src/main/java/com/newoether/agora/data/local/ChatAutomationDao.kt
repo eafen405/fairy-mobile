@@ -126,4 +126,6 @@ interface ChatAutomationDao {
 
     @Query("SELECT * FROM loops")
     suspend fun getAllLoopsList(): List<LoopEntity>
+    @Query("SELECT * FROM loops WHERE conversationId = :conversationId")
+    suspend fun getLoopsForConversationSnapshot(conversationId: String): List<LoopEntity>
 }

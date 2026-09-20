@@ -50,6 +50,7 @@ class ChatDaoRunRecoveryTest {
         coVerify(exactly = 1) { dao.getConversation(CONVERSATION_ID) }
         coVerify(exactly = 1) { dao.getLiveRun(CONVERSATION_ID) }
         coVerify(exactly = 1) { dao.stopStuckMessagesForConversation(CONVERSATION_ID) }
+        coVerify(exactly = 1) { dao.touchConversationData(CONVERSATION_ID, 99L) }
         coVerify(exactly = 0) { dao.getAllConversationsList() }
     }
 
@@ -87,6 +88,7 @@ class ChatDaoRunRecoveryTest {
             )
         } returns 1
         coEvery { dao.stopStuckMessagesForConversation(CONVERSATION_ID) } returns 2
+        coEvery { dao.touchConversationData(CONVERSATION_ID, 99L) } returns 1
 
         assertEquals(3, dao.recoverConversationRuntime(CONVERSATION_ID, 99L))
 
@@ -95,6 +97,7 @@ class ChatDaoRunRecoveryTest {
         coVerify(exactly = 0) { dao.getLiveRun(OTHER_CONVERSATION_ID) }
         coVerify(exactly = 0) { dao.stopStuckMessagesForConversation(OTHER_CONVERSATION_ID) }
         coVerify(exactly = 0) { dao.getAllConversationsList() }
+        coVerify(exactly = 1) { dao.touchConversationData(CONVERSATION_ID, 99L) }
     }
 
     @Test
@@ -170,6 +173,7 @@ class ChatDaoRunRecoveryTest {
         )
         coEvery { dao.getLiveRun(CONVERSATION_ID) } returns run
         coEvery { dao.stopStuckMessagesForConversation(CONVERSATION_ID) } returns 0
+        coEvery { dao.touchConversationData(CONVERSATION_ID, any()) } returns 1
     }
 
     private fun liveRun(status: RunStatus) = RunEntity(

@@ -220,14 +220,18 @@ class DataImporter(
                 val settingsPresent = archive.has(NativeBackupFormat.SETTINGS_ENTRY)
                 val apiKeysPresent = archive.has(NativeBackupFormat.SECRETS_ENTRY)
 
-                archive.stream(NativeBackupFormat.CONVERSATIONS_ENTRY)?.use { stream ->
-                    try {
-                        val counts = conversationGraphImporter.countConversationGraph(stream)
+                try {
+                    NativeConversationGraphSource.open(
+                        archive = archive,
+                        version = manifest.version,
+                        cacheDir = context.cacheDir,
+                    ).use { graphSource ->
+                        val counts = conversationGraphImporter.countConversationGraph(graphSource.open())
                         conversationCount = counts.conversations
                         taskCount = counts.tasks
                         loopCount = counts.loops
-                    } catch (e: Exception) { DebugLog.e("DataImporter", "Failed to parse conversations.json", e) }
-                }
+                    }
+                } catch (e: Exception) { DebugLog.e("DataImporter", "Failed to parse conversation graph", e) }
 
                 archive[NativeBackupFormat.SYSTEM_PROMPTS_ENTRY]?.let { json ->
                     try {
@@ -433,8 +437,12 @@ class DataImporter(
                         conversationSettingsTransfers.completePendingImport()
                         val media = conversationMediaRestorer.restoreConversationMedia(opened)
                         restoredMedia = media
-                        val headers = opened.stream(NativeBackupFormat.CONVERSATIONS_ENTRY)
-                            ?.use { stream ->
+                        NativeConversationGraphSource.open(
+                            archive = opened,
+                            version = manifest.version,
+                            cacheDir = context.cacheDir,
+                        ).use { graphSource ->
+                            val headers = graphSource.open().use { stream ->
                                 conversationGraphImporter.readConversationGraphHeaders(
                                     stream = stream,
                                     strategy = convDecision,
@@ -442,30 +450,30 @@ class DataImporter(
                                     resolveSystemPromptId = promptImport::resolve,
                                 )
                             }
-                            ?: error("${NativeBackupFormat.CONVERSATIONS_ENTRY} is missing")
-                        val semanticSnapshot = semanticModelSnapshot(
-                            activeModelId = settingsManager.activeEmbeddingModelId.first(),
-                            configuredModelIds = settingsManager.embeddingModels.first().map { it.id },
-                        )
-                        val settingsTransferId = conversationGraphImporter.importConversationGraph(
-                            archive = opened,
-                            strategy = convDecision,
-                            headers = headers,
-                            restoredMedia = media,
-                            archiveVersion = manifest.version,
-                            semanticSnapshot = semanticSnapshot,
-                        )
-                        graphCommitted = true
-                        conversationsImported = headers.conversations.size
-                        tasksImported = headers.tasks.size
-                        loopsImported = headers.loops.size
-                        try {
-                            conversationSettingsTransfers.completeImport(settingsTransferId)
-                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                            throw cancelled
-                        } catch (error: Exception) {
-                            errors += "Conversation settings: " +
-                                (error.localizedMessage ?: "Deferred until next startup")
+                            val semanticSnapshot = semanticModelSnapshot(
+                                activeModelId = settingsManager.activeEmbeddingModelId.first(),
+                                configuredModelIds = settingsManager.embeddingModels.first().map { it.id },
+                            )
+                            val settingsTransferId = conversationGraphImporter.importConversationGraph(
+                                graphSource = graphSource,
+                                strategy = convDecision,
+                                headers = headers,
+                                restoredMedia = media,
+                                archiveVersion = manifest.version,
+                                semanticSnapshot = semanticSnapshot,
+                            )
+                            graphCommitted = true
+                            conversationsImported = headers.conversations.size
+                            tasksImported = headers.tasks.size
+                            loopsImported = headers.loops.size
+                            try {
+                                conversationSettingsTransfers.completeImport(settingsTransferId)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                errors += "Conversation settings: " +
+                                    (error.localizedMessage ?: "Deferred until next startup")
+                            }
                         }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         if (!graphCommitted) {

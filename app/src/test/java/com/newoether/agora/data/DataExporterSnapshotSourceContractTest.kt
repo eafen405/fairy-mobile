@@ -23,10 +23,10 @@ class DataExporterSnapshotSourceContractTest {
             "connection.withTransaction(Transactor.SQLiteTransactionType.DEFERRED)",
         )
         val conversations = reader.indexOf("snapshotDao.getAllConversationsList()")
+        val messages = reader.indexOf("snapshotDao.getConversationMessagesPage(")
         val runs = reader.indexOf("snapshotDao.getRunsForConversationSnapshot(conversation.id)")
-        val messages = reader.indexOf("snapshotDao.getMessagesPage(afterMessageId, MESSAGE_PAGE_SIZE)")
         val tasks = reader.indexOf("snapshotDao.getAllTasksList()")
-        val loops = reader.indexOf("snapshotDao.getAllLoopsList()")
+        val loops = reader.indexOf("snapshotDao.getLoopsForConversationSnapshot(conversation.id)")
 
         assertTrue(transaction >= 0)
         assertTrue(reader.contains("queryExecutor = snapshotExecutor"))
@@ -35,16 +35,17 @@ class DataExporterSnapshotSourceContractTest {
         assertTrue(reader.contains("finally {\n            snapshotDatabase.close()"))
         assertTrue(reader.contains("snapshotExecutor.shutdown()"))
         assertTrue(conversations > transaction)
-        assertTrue(runs > conversations)
-        assertTrue(messages > runs)
-        assertTrue(tasks > messages)
-        assertTrue(loops > tasks)
+        assertTrue(messages > conversations)
+        assertTrue(runs > messages)
+        assertTrue(loops > runs)
+        assertTrue(tasks > loops)
         assertTrue(capture.contains("conversationSettings = conversationSettings[conversation.id]"))
         assertTrue(capture.contains("draftAttachments = conversation.draftAttachments"))
         assertTrue(capture.contains("images = message.images"))
         assertTrue(capture.contains("toolCallJson = message.toolCallJson"))
         assertTrue(capture.contains("attachmentMeta = message.attachmentMeta"))
 
+        assertTrue(reader.contains("messages += page"))
         assertTrue(reader.contains("afterMessageId = page.last().id"))
         assertTrue(reader.contains("if (page.size < MESSAGE_PAGE_SIZE) break"))
         assertFalse(exporter.contains("database.withTransaction"))
@@ -72,7 +73,7 @@ class DataExporterSnapshotSourceContractTest {
             "captureConversationSnapshot(settingsManager.conversationSettings.first())",
         )
         val destinationOpen = export.indexOf("context.contentResolver.openOutputStream(uri)")
-        val mediaCopy = export.indexOf("buildMediaExportPlan(zip, conversationSpool)")
+        val mediaCopy = export.indexOf("buildMediaExportPlan(")
         val archiveWrite = export.indexOf("writeConversationArchive(")
         assertTrue(captureCall >= 0)
         assertTrue(destinationOpen > captureCall)
@@ -114,11 +115,13 @@ class DataExporterSnapshotSourceContractTest {
         )
         assertTrue(capture.contains("catch (error: Throwable)"))
         assertTrue(capture.contains("spool.delete()\n            throw error"))
-        assertTrue(exporter.contains("finally {\n            conversationSpool?.delete()"))
+        val cleanup = exporter.substringAfterLast("finally {").substringBefore("\n        }")
+        assertTrue(cleanup.contains("baseline?.close()"))
+        assertTrue(cleanup.contains("conversationSpool?.delete()"))
         assertTrue(
             Regex("currentCoroutineContext\\(\\)\\.ensureActive\\(\\)")
                 .findAll(exporter + reader)
-                .count() >= 5,
+                .count() >= 4,
         )
     }
 

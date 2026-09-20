@@ -587,16 +587,16 @@ internal class NativeConversationGraphImporter(
     }
 
     suspend fun importConversationGraph(
-        archive: NativeBackupArchive,
+        graphSource: NativeConversationGraphSource,
         strategy: ImportStrategy,
         headers: ConversationGraphHeaders,
         restoredMedia: RestoredMedia,
         archiveVersion: Int,
         semanticSnapshot: SemanticModelSnapshot,
     ): String {
-        val plannedRunGraph = archive.stream(NativeBackupFormat.CONVERSATIONS_ENTRY)?.use { stream ->
+        val plannedRunGraph = graphSource.open().use { stream ->
             planNativeRunGraph(stream, headers)
-        } ?: error("${NativeBackupFormat.CONVERSATIONS_ENTRY} is missing")
+        }
         val importedConversationIds = headers.conversations.mapTo(mutableSetOf()) { it.id }
         val importedSettings = headers.conversationSettings.filterKeys(importedConversationIds::contains)
         val settingsTransfer = ConversationSettingsImportTransferEntity(
@@ -639,7 +639,7 @@ internal class NativeConversationGraphImporter(
             for (run in plannedRunGraph.runs) {
                 if (chatDao.getRun(run.id) == null) chatDao.insertRun(run)
             }
-            archive.stream(NativeBackupFormat.CONVERSATIONS_ENTRY)?.use { stream ->
+            graphSource.open().use { stream ->
                 importMessagesFromGraph(
                     stream = stream,
                     strategy = strategy,
@@ -651,7 +651,7 @@ internal class NativeConversationGraphImporter(
                     messageParentOverrides = plannedRunGraph.messageParentOverrides,
                     archiveVersion = archiveVersion,
                 )
-            } ?: error("${NativeBackupFormat.CONVERSATIONS_ENTRY} is missing")
+            }
             headers.loops.forEach { chatDao.upsertLoop(it) }
             importedSettings.keys.forEach { conversationId ->
                 chatDao.deleteConversationSettingsTransfer(conversationId)

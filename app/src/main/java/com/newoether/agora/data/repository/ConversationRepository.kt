@@ -134,18 +134,24 @@ class ConversationRepository(
 
     suspend fun createConversation(title: String, systemPromptId: String? = null, modelId: String? = null): String {
         val id = java.util.UUID.randomUUID().toString()
-        chatDao.upsertConversation(ChatEntity(id = id, title = title, systemPromptId = systemPromptId, modelId = modelId))
+        val now = System.currentTimeMillis()
+        chatDao.upsertConversation(
+            ChatEntity(
+                id = id, title = title, lastUpdated = now, dataChangedAt = now,
+                systemPromptId = systemPromptId, modelId = modelId,
+            )
+        )
         return id
     }
 
     suspend fun upsertConversation(entity: ChatEntity) = withSemanticTransaction(
         conversationId = entity.id,
     ) {
-        chatDao.upsertConversation(entity)
+        chatDao.upsertConversation(entity.copy(dataChangedAt = System.currentTimeMillis()))
     }
 
     suspend fun updateConversationTitle(id: String, title: String): Boolean =
-        chatDao.updateConversationTitle(id, title) == 1
+        chatDao.updateConversationTitle(id, title, System.currentTimeMillis()) == 1
 
     suspend fun setConversationUnreadGeneration(
         id: String,
@@ -166,7 +172,15 @@ class ConversationRepository(
         id: String,
         expectedTitle: String,
         newTitle: String,
-    ): Boolean = chatDao.updateConversationTitleIfUnchanged(id, expectedTitle, newTitle) == 1
+    ): Boolean = chatDao.updateConversationTitleIfUnchanged(
+        id,
+        expectedTitle,
+        newTitle,
+        System.currentTimeMillis(),
+    ) == 1
+
+    suspend fun touchConversationData(conversationId: String): Boolean =
+        chatDao.touchConversationData(conversationId, System.currentTimeMillis()) == 1
 
     suspend fun deleteConversation(id: String) {
         var scheduled = false
@@ -233,7 +247,10 @@ class ConversationRepository(
     suspend fun upsertMessage(entity: MessageEntity) {
         require(entity.runId.isNotBlank()) { "Message ${entity.id} has no Run" }
         require(entity.runSequence >= 0) { "Message ${entity.id} has no Run sequence" }
-        withSemanticTransaction(listOf(entity.id)) { chatDao.upsertMessage(entity) }
+        withSemanticTransaction(listOf(entity.id)) {
+            chatDao.upsertMessage(entity)
+            check(chatDao.touchConversationData(entity.conversationId, System.currentTimeMillis()) == 1)
+        }
     }
 
     suspend fun createRunWithMessages(
@@ -326,7 +343,18 @@ class ConversationRepository(
         expectedPass: Int,
     ): ToolRoundCommit {
         require(messages.isNotEmpty() && messages.all { it.runId.isNotBlank() })
-        return chatDao.appendToolRoundToRun(messages, expectedPass)
+        return withSemanticTransaction(messages.map(MessageEntity::id)) {
+            chatDao.appendToolRoundToRun(messages, expectedPass).also { commit ->
+                if (commit.inserted) {
+                    check(
+                        chatDao.touchConversationData(
+                            messages.first().conversationId,
+                            System.currentTimeMillis(),
+                        ) == 1,
+                    )
+                }
+            }
+        }
     }
 
     suspend fun recoverConversationRuntime(
@@ -389,21 +417,36 @@ class ConversationRepository(
         chatDao.getLiveRun(conversationId)
 
     suspend fun requestRunStop(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        chatDao.markRunStopping(runId, at) == 1
+        withSemanticTransaction(updatedAt = at) {
+            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+            val changed = chatDao.markRunStopping(runId, at) == 1
+            if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
+            changed
+        }
 
     suspend fun finishRunStopped(
         runId: String,
         reason: RunEndReason = RunEndReason.USER_STOPPED,
         at: Long = System.currentTimeMillis(),
-    ): Boolean = chatDao.terminalizeLiveRun(runId, RunStatus.STOPPED, reason, at) == 1
+    ): Boolean = withSemanticTransaction(updatedAt = at) {
+        val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+        val changed = chatDao.terminalizeLiveRun(runId, RunStatus.STOPPED, reason, at) == 1
+        if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
+        changed
+    }
 
     suspend fun failRun(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        chatDao.terminalizeLiveRun(
-            runId,
-            RunStatus.FAILED,
-            RunEndReason.PROVIDER_ERROR,
-            at,
-        ) == 1
+        withSemanticTransaction(updatedAt = at) {
+            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+            val changed = chatDao.terminalizeLiveRun(
+                runId,
+                RunStatus.FAILED,
+                RunEndReason.PROVIDER_ERROR,
+                at,
+            ) == 1
+            if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
+            changed
+        }
 
     /**
      * Persist the mutable portion of an in-flight model message without creating a missing row.
@@ -411,7 +454,12 @@ class ConversationRepository(
      */
     suspend fun updateStreamingMessageCheckpoint(message: ChatMessage): Boolean =
         withSemanticTransaction(listOf(message.id)) {
-            chatDao.updateMessageCheckpoint(message.toStreamCheckpoint()) > 0
+            val stored = chatDao.getMessage(message.id) ?: return@withSemanticTransaction false
+            chatDao.updateConversationMessageCheckpoint(
+                conversationId = stored.conversationId,
+                checkpoint = message.toStreamCheckpoint(),
+                at = System.currentTimeMillis(),
+            )
         }
 
     /** Atomically persists a terminal model snapshot and terminalizes its Run. */
@@ -455,6 +503,7 @@ class ConversationRepository(
                 checkpoints = messages.map {
                     it.copy(status = MessageStatus.STOPPED).toStreamCheckpoint()
                 },
+                conversationId = conversationId,
                 runId = runId,
                 at = at,
             )
@@ -643,7 +692,12 @@ class ConversationRepository(
             val previousRaw = chatDao.getConversation(conversationId)?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             val replacement = draftAttachments.decodeSelectedAttachments()
-            chatDao.updateDraft(conversationId, draftText, draftAttachments)
+            chatDao.updateDraft(
+                conversationId,
+                draftText,
+                draftAttachments,
+                System.currentTimeMillis(),
+            )
             if (reclaimRemovedAttachments) {
                 scheduled = when {
                     previousRaw == null -> false
