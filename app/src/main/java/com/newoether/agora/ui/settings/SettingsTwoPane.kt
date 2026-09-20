@@ -115,7 +115,7 @@ private fun SettingsNavigationPane(
     modifier: Modifier = Modifier,
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Column(modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)) {
+    Column(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -245,10 +245,10 @@ private fun SettingsNavigationItem(
                     fontWeight = FontWeight.Medium,
                     color = primaryContentColor,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
                     text = stringResource(category.descriptionRes),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = supportingContentColor,
                     maxLines = 1,
                 )
