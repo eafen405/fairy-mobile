@@ -55,6 +55,10 @@ internal object PortableSettingsArchive {
         putNullableString("contextCompactModel", sm.contextCompactModel.first())
         put("contextCompactPrompt", JsonPrimitive(sm.contextCompactPrompt.first()))
         put("contextCompactRetainCount", JsonPrimitive(sm.contextCompactRetainCount.first()))
+        put(
+            "contextCompactPreserveSystemPrompt",
+            JsonPrimitive(sm.contextCompactPreserveSystemPrompt.first()),
+        )
         put("contextCompactThresholdPercent", JsonPrimitive(sm.contextCompactThresholdPercent.first()))
         put("codeExecutionEnabled", JsonPrimitive(sm.codeExecutionEnabled.first()))
         put("googleSearchEnabled", JsonPrimitive(sm.googleSearchEnabled.first()))
@@ -256,6 +260,9 @@ internal object PortableSettingsArchive {
         }
         obj.string("contextCompactPrompt")?.let { sm.saveContextCompactPrompt(it) }
         obj.int("contextCompactRetainCount")?.takeIf { it >= 0 }?.let { sm.saveContextCompactRetainCount(it) }
+        obj.boolean("contextCompactPreserveSystemPrompt")?.let {
+            sm.saveContextCompactPreserveSystemPrompt(it)
+        }
         importedContextCompactThresholdPercent(
             obj.int("contextCompactThresholdPercent"),
         )?.let { sm.saveContextCompactThresholdPercent(it) }

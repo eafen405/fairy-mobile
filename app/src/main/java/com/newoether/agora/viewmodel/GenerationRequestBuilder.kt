@@ -231,11 +231,21 @@ class GenerationRequestBuilder(
         } else {
             settings.resolveActiveKey(compactProviderName).orEmpty()
         }
+        val compactPreserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value
+        val compactSystemPrompt = if (compactPreserveSystemPrompt) {
+            resolveStandardSystemPromptForCompact(
+                conversationId = conversationId,
+                conversationOverride = conversationOverride,
+                modelId = compactModel,
+            )
+        } else {
+            settings.contextCompactPrompt.value
+        }
         val (compactGenerationConfig, compactGenerationContext) = buildGenerationPair(
             providerName = compactProviderName,
             modelId = compactModel,
             activeKey = compactKey,
-            resolvedSystemPrompt = settings.contextCompactPrompt.value,
+            resolvedSystemPrompt = compactSystemPrompt,
             resolvedUserPrepend = null,
             resolvedUserPostpend = null,
             effectiveSettings = effectiveSettings,
@@ -250,6 +260,7 @@ class GenerationRequestBuilder(
                 model = compactModel,
                 prompt = settings.contextCompactPrompt.value,
                 retainLogicalMessages = settings.contextCompactRetainCount.value,
+                preserveSystemPrompt = compactPreserveSystemPrompt,
             ),
             providerName = compactProviderName,
             apiKey = compactKey,
@@ -507,6 +518,25 @@ class GenerationRequestBuilder(
         activeSystemPromptId = settings.activeSystemPromptId.value,
         systemPrompts = settings.systemPrompts.value.toList(),
     )
+
+    /**
+     * Preserved-Compact path: resolve the conversation's ordinary system prompt so the
+     * compaction request carries exactly what a normal generation would send for the compact
+     * model. Prompt variables are evaluated at admission; compaction is single-pass, so no
+     * per-provider-pass re-resolution is required.
+     */
+    private suspend fun resolveStandardSystemPromptForCompact(
+        conversationId: String,
+        conversationOverride: ChatEntity?,
+        modelId: String,
+    ): String? {
+        val promptTemplate = capturePromptTemplate(
+            currentId = conversationId,
+            conversationOverride = conversationOverride,
+            promptSettings = capturePromptSettings(),
+        )
+        return resolvePromptTemplate(promptTemplate, modelId).systemPrompt
+    }
 
     data class ResolvedPrompt(
         val systemPrompt: String?,

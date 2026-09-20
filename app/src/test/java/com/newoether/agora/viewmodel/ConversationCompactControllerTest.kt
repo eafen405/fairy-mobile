@@ -120,6 +120,98 @@ class ConversationCompactControllerTest {
     }
 
     @Test
+    fun preservedCompactKeepsCapturedSystemPromptAndPrefixesCompactPromptIntoUserMessage() = runBlocking {
+        val conversations = mockk<ConversationRepository>()
+        val operation = FakeCompactOperation()
+        val manager = mockk<GenerationManager>()
+        val launcher = mockk<StandardGenerationContinuationLauncher>()
+        val requestBuilder = mockk<GenerationRequestBuilder>()
+        val state = ConversationGenerationState("conversation")
+        val source = sourceEntity()
+        val launchRequest = slot<StandardGenerationContinuationRequest>()
+        var compactMessageId: String? = null
+
+        stubSelectedPath(
+            conversations,
+            listOf(source),
+            mapOf(null to source.id),
+        )
+        coEvery {
+            requestBuilder.captureAdmissionSnapshot(
+                conversationId = "conversation",
+                runId = any(),
+                modelId = "provider:model",
+            )
+        } returns testGenerationAdmissionSnapshot(
+            conversationId = "conversation",
+            runId = "compact-preflight-run",
+        )
+        coEvery { manager.buildApiPath(any()) } returns GenerationApiPath(
+            messages = listOf(source.toUi()),
+            providerConfig = mockk<ProviderConfig>(),
+        )
+        every { launcher.launch(capture(launchRequest), state) } answers {
+            val request = firstArg<StandardGenerationContinuationRequest>()
+            compactMessageId = requireNotNull(request.modelMessageId)
+            StandardGenerationContinuationLaunch(
+                job = Job().apply { complete() },
+                modelMessageId = requireNotNull(request.modelMessageId),
+                started = CompletableDeferred(true),
+            )
+        }
+        coEvery { conversations.getMessage(any()) } answers {
+            val requestedId = firstArg<String>()
+            if (requestedId == source.id) {
+                source
+            } else if (requestedId == compactMessageId) {
+                MessageEntity(
+                    id = requireNotNull(compactMessageId),
+                    conversationId = "conversation",
+                    parentId = source.id,
+                    text = "summary",
+                    status = MessageStatus.SUCCESS,
+                    participant = Participant.MODEL,
+                    timestamp = 2L,
+                    modelName = "provider:model",
+                    runId = "compact-run",
+                    runSequence = 0,
+                )
+            } else {
+                null
+            }
+        }
+
+        val result = controller(
+            conversations,
+            operation,
+            requestBuilder,
+            manager,
+            launcher,
+        ).manual(
+            conversationId = "conversation",
+            request = CompactRequest(
+                model = "provider:model",
+                prompt = "compact prompt",
+                retainLogicalMessages = 2,
+                preserveSystemPrompt = true,
+            ),
+            state = state,
+        )
+
+        assertTrue(result is CompactResult.Created)
+        assertEquals(
+            "system",
+            launchRequest.captured.snapshot.config.effectiveSystemPrompt,
+        )
+        assertEquals(
+            "compact prompt\n\n" + BuiltInPrompts.CONTEXT_COMPACT_USER,
+            launchRequest.captured.snapshot.config.initialUserPrompt,
+        )
+        state.dispose()
+        Unit
+    }
+
+    @Test
     fun recompactLaunchesTheSameRowAtTheSameParentWithoutTouchingSuffix() = runBlocking {
         val conversations = mockk<ConversationRepository>()
         val operation = FakeCompactOperation()

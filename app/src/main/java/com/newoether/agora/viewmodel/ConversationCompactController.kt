@@ -224,8 +224,19 @@ internal class ConversationCompactController(
         request: CompactRequest,
     ): GenerationAdmissionSnapshot = copy(
         config = config.copy(
-            effectiveSystemPrompt = request.prompt,
-            initialUserPrompt = BuiltInPrompts.CONTEXT_COMPACT_USER,
+            // Preserved mode keeps the system prompt captured for the compact request (the
+            // conversation's ordinary one) and moves the Compact Prompt to the head of the
+            // user message; legacy mode replaces the system prompt with the Compact Prompt.
+            effectiveSystemPrompt = if (request.preserveSystemPrompt) {
+                config.effectiveSystemPrompt
+            } else {
+                request.prompt
+            },
+            initialUserPrompt = if (request.preserveSystemPrompt) {
+                request.prompt + "\n\n" + BuiltInPrompts.CONTEXT_COMPACT_USER
+            } else {
+                BuiltInPrompts.CONTEXT_COMPACT_USER
+            },
             userPrepend = null,
             userPostpend = null,
             assistantPrepend = null,

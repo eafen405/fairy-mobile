@@ -74,6 +74,38 @@ class GenerationRequestBuilderProviderDisplayTest {
         assertEquals("5m", snapshot.context.transcriptionAnthropicCacheTtl)
     }
     @Test
+    fun `preserve mode resolves the ordinary system prompt for the compact request`() = runTest {
+        val fixture = RequestBuilderFixture(
+            providerName = Constants.PROVIDER_OPENAI,
+            lowContextModeEnabled = false,
+            compactPreserveSystemPrompt = true,
+        )
+
+        val snapshot = fixture.builder.captureAdmissionSnapshot("conversation", "run", fixture.modelId)
+
+        assertTrue(snapshot.automaticCompact.request.preserveSystemPrompt)
+        assertEquals(
+            RequestBuilderFixture.COMPACT_PROMPT,
+            snapshot.automaticCompact.request.prompt,
+        )
+        assertEquals(
+            RequestBuilderFixture.RESOLVED_SYSTEM_PROMPT,
+            snapshot.automaticCompact.generationConfig.effectiveSystemPrompt,
+        )
+    }
+    @Test
+    fun `legacy mode keeps the compact prompt as the compact system prompt`() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+
+        val snapshot = fixture.builder.captureAdmissionSnapshot("conversation", "run", fixture.modelId)
+
+        assertFalse(snapshot.automaticCompact.request.preserveSystemPrompt)
+        assertEquals(
+            RequestBuilderFixture.COMPACT_PROMPT,
+            snapshot.automaticCompact.generationConfig.effectiveSystemPrompt,
+        )
+    }
+    @Test
     fun `conversation tool overrides are reflected immediately in effective settings`() {
         val settings = mockk<SettingsRepository>()
         every { settings.conversationSettings } returns MutableStateFlow(
@@ -311,6 +343,7 @@ class GenerationRequestBuilderProviderDisplayTest {
 private class RequestBuilderFixture(
     providerName: String,
     lowContextModeEnabled: Boolean,
+    compactPreserveSystemPrompt: Boolean = false,
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -389,6 +422,8 @@ private class RequestBuilderFixture(
         every { settings.contextCompactEnabled } returns MutableStateFlow(true)
         every { settings.contextCompactThresholdPercent } returns MutableStateFlow(80)
         every { settings.contextCompactRetainCount } returns MutableStateFlow(8)
+        every { settings.contextCompactPreserveSystemPrompt } returns
+            MutableStateFlow(compactPreserveSystemPrompt)
         every { settings.openAiResponsesApiEnabled } returns MutableStateFlow(false)
         every { settings.anthropicCacheEnabled } returns MutableStateFlow(true)
         every { settings.anthropicCacheTtl } returns MutableStateFlow("1h")

@@ -17,6 +17,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(CONTEXT_COMPACT_MODEL)
     prefs.remove(CONTEXT_COMPACT_PROMPT)
     prefs.remove(CONTEXT_COMPACT_RETAIN_COUNT)
+    prefs.remove(CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT)
     prefs.remove(CONTEXT_COMPACT_THRESHOLD_PERCENT)
     prefs.remove(CODE_EXECUTION_ENABLED)
     prefs.remove(GOOGLE_SEARCH_ENABLED)

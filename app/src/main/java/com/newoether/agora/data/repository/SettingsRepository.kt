@@ -7,6 +7,7 @@ import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.BuiltInPrompts
 import com.newoether.agora.data.DEFAULT_COLOR_SCHEME
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_ENABLED
+import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_RETAIN_COUNT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_THRESHOLD_PERCENT
 import com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR
@@ -129,6 +130,8 @@ class SettingsRepository(
         settingsManager.contextCompactRetainCount,
         DEFAULT_CONTEXT_COMPACT_RETAIN_COUNT,
     )
+    val contextCompactPreserveSystemPrompt: StateFlow<Boolean> =
+        hot(settingsManager.contextCompactPreserveSystemPrompt, DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT)
     val contextCompactThresholdPercent: StateFlow<Int> = hot(
         settingsManager.contextCompactThresholdPercent,
         DEFAULT_CONTEXT_COMPACT_THRESHOLD_PERCENT,
@@ -605,6 +608,8 @@ class SettingsRepository(
     fun setContextCompactModel(model: String?) = scope.launch { settingsManager.saveContextCompactModel(model) }
     fun setContextCompactPrompt(prompt: String) = scope.launch { settingsManager.saveContextCompactPrompt(prompt) }
     fun setContextCompactRetainCount(count: Int) = scope.launch { settingsManager.saveContextCompactRetainCount(count) }
+    fun setContextCompactPreserveSystemPrompt(enabled: Boolean) =
+        scope.launch { settingsManager.saveContextCompactPreserveSystemPrompt(enabled) }
     fun setContextCompactThresholdPercent(percent: Int) = scope.launch {
         settingsManager.saveContextCompactThresholdPercent(percent)
     }

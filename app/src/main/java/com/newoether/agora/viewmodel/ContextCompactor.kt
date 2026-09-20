@@ -20,6 +20,10 @@ data class CompactRequest(
     val prompt: String,
     val retainLogicalMessages: Int,
     val replaceMessageId: String? = null,
+    // When true the request keeps the conversation's ordinary system prompt and moves the
+    // Compact Prompt into the user message. Default false preserves the legacy behaviour for
+    // every construction site that has not opted in explicitly.
+    val preserveSystemPrompt: Boolean = false,
 )
 
 /** Provider-equivalent split input without role coalescing away durable graph ids. */

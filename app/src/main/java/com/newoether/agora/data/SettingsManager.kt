@@ -73,6 +73,10 @@ class SettingsManager(private val context: Context) {
     val contextCompactRetainCount: Flow<Int> = context.dataStore.data.map {
         it[CONTEXT_COMPACT_RETAIN_COUNT] ?: DEFAULT_CONTEXT_COMPACT_RETAIN_COUNT
     }
+    val contextCompactPreserveSystemPrompt: Flow<Boolean> = context.dataStore.data.map {
+        it[CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT]
+            ?: DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT
+    }
     val contextCompactThresholdPercent: Flow<Int> = context.dataStore.data.map {
         it[CONTEXT_COMPACT_THRESHOLD_PERCENT]
             ?.takeIf(CONTEXT_COMPACT_THRESHOLD_PERCENT_RANGE::contains)
@@ -585,6 +589,9 @@ class SettingsManager(private val context: Context) {
     suspend fun saveContextCompactRetainCount(count: Int) {
         require(count >= 0)
         context.dataStore.edit { it[CONTEXT_COMPACT_RETAIN_COUNT] = count }
+    }
+    suspend fun saveContextCompactPreserveSystemPrompt(enabled: Boolean) {
+        context.dataStore.edit { it[CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT] = enabled }
     }
 
     suspend fun saveContextCompactThresholdPercent(percent: Int) {

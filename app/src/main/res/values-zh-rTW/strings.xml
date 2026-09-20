@@ -638,6 +638,8 @@
     <string name="context_compact_model">壓縮模型</string>
     <string name="context_compact_prompt">壓縮提示詞</string>
     <string name="context_compact_prompt_desc">總結指示</string>
+    <string name="context_compact_preserve_system">保留系統提示詞</string>
+    <string name="context_compact_preserve_system_desc">壓縮時使用對話的系統提示詞，壓縮提示詞改為摘要請求的開頭指令</string>
     <string name="context_compact_select_model">選擇壓縮模型</string>
     <string name="context_compact_threshold">自動壓縮閾值</string>
     <string name="context_compact_threshold_desc">估算內容達到所選視窗的此百分比時進行壓縮</string>
