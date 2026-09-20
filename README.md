@@ -34,9 +34,9 @@ Agora is an open-source Android client for using your own model accounts and end
 
 <table>
 <tr>
-<td width="33%"><img src="assets/screenshot_1.jpg" alt="Chat" width="100%"/></td>
-<td width="33%"><img src="assets/screenshot_2.jpg" alt="Tools" width="100%"/></td>
-<td width="33%"><img src="assets/screenshot_3.jpg" alt="Settings" width="100%"/></td>
+<td width="33%"><img src="assets/screenshot_1.jpg?v=20260920" alt="Chat" width="100%"/></td>
+<td width="33%"><img src="assets/screenshot_2.jpg?v=20260920" alt="Tools" width="100%"/></td>
+<td width="33%"><img src="assets/screenshot_3.jpg?v=20260920" alt="Settings" width="100%"/></td>
 </tr>
 </table>
 
