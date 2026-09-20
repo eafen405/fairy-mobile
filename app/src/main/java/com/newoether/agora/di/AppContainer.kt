@@ -128,7 +128,13 @@ class AppContainer(
         TaskRepository(chatDao)
     }
     val settingsRepository: SettingsRepository by lazy {
-        SettingsRepository(settingsManager, appScope).also {
+        SettingsRepository(
+            settingsManager,
+            appScope,
+            touchConversationData = { conversationId ->
+                conversationRepository.touchConversationData(conversationId)
+            },
+        ).also {
             LocalModelRuntime.bindIdleRetention(it.localModelIdleRetentionMinutes, appScope)
         }
     }
