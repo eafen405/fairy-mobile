@@ -399,6 +399,7 @@ fun ChatApp(
                 )
             }
 
+            @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
             Scaffold(
                 containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -462,8 +463,7 @@ fun ChatApp(
                         },
                     )
                 }
-            ) { padding ->
-                Box(modifier = Modifier.fillMaxSize()) {
+            ) { padding -> Box(modifier = Modifier.fillMaxSize()) {
                     val topBarH = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
                     val pivotY =
                         ((windowHeightDp + topBarH.value / 2f - bottomBarHeight.value) / 2f)

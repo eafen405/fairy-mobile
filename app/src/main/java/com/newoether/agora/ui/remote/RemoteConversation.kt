@@ -224,6 +224,9 @@ internal fun RemoteConversation(
         if (!amoled) AnimatedBlobBackground(centerAlpha = if (dark) 0.02f else 0f,
             quarterAlpha = if (dark) 0.01f else 0f, blurRadius = 40f, dark = dark,
             blurEnabled = blur, motionEnabled = false)
+        // Insets are declared explicitly via contentWindowInsets above; the empty
+        // content padding is intentional, so the Material3 usage lint does not apply.
+        @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
         Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = {
             ChatTopBar(
                 isNewChatMode = false, conversations = emptyList(),

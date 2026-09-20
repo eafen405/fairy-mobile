@@ -49,6 +49,9 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val developerOptionsEnabled by viewModel.settings.developerOptionsEnabled.collectAsState()
     var developerTapCount by rememberSaveable { mutableIntStateOf(0) }
     val haptics = LocalAgoraHaptics.current
+    val developerTapsRemainingFormat = stringResource(R.string.developer_options_taps_remaining)
+    val developerEnabledMessage = stringResource(R.string.developer_options_enabled_message)
+    val developerAlreadyEnabledMessage = stringResource(R.string.developer_options_already_enabled_message)
 
     val autoUpdateCheck by viewModel.settings.autoUpdateCheck.collectAsState()
     var updateStatus by remember { mutableStateOf<String?>(null) }
@@ -72,24 +75,17 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             DeveloperUnlockFeedback.REMAINING_TAPS -> {
                 haptics.selection()
                 viewModel.emitSnackbar(
-                    context.getString(
-                        R.string.developer_options_taps_remaining,
-                        result.remainingTaps,
-                    ),
+                    String.format(developerTapsRemainingFormat, result.remainingTaps),
                 )
             }
             DeveloperUnlockFeedback.ENABLED -> {
                 haptics.confirm()
                 viewModel.settings.setDeveloperOptionsEnabled(true)
-                viewModel.emitSnackbar(
-                    context.getString(R.string.developer_options_enabled_message),
-                )
+                viewModel.emitSnackbar(developerEnabledMessage)
             }
             DeveloperUnlockFeedback.ALREADY_ENABLED -> {
                 haptics.selection()
-                viewModel.emitSnackbar(
-                    context.getString(R.string.developer_options_already_enabled_message),
-                )
+                viewModel.emitSnackbar(developerAlreadyEnabledMessage)
             }
         }
     }
