@@ -2,7 +2,6 @@ package com.newoether.agora.util
 
 import android.content.Context
 import android.net.Uri
-import androidx.core.net.toUri
 import android.provider.OpenableColumns
 
 object FileValidator {
@@ -72,7 +71,7 @@ object FileValidator {
 
     fun resolveMimeType(context: Context, uriString: String): String? {
         return try {
-            context.contentResolver.getType(uriString.toUri())
+            context.contentResolver.getType(Uri.parse(uriString))
         } catch (_: Exception) { null }
     }
 

@@ -207,7 +207,11 @@ class AgoraForegroundService : Service() {
                 return false
             }
             return try {
-                appContext.startForegroundService(intent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    appContext.startForegroundService(intent)
+                } else {
+                    appContext.startService(intent)
+                }
                 CrashReporter.note("FGS.startForegroundService ok")
                 true
             } catch (e: RuntimeException) {
@@ -244,6 +248,7 @@ class AgoraForegroundService : Service() {
         }
 
         private fun createGenerationChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val manager = context.getSystemService(NotificationManager::class.java)
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -305,6 +310,7 @@ class AgoraForegroundService : Service() {
         }
 
         private fun createCompletionChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val channel = NotificationChannel(
                 COMPLETION_CHANNEL_ID,
                 "Response Ready",

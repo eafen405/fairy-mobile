@@ -93,6 +93,7 @@ object AutomationForegroundInfo {
         NOTIFICATION_BASE or (conversationId.hashCode() and 0x00ff_ffff)
 
     private fun createChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(

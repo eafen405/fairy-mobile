@@ -3,8 +3,6 @@ package com.newoether.agora.viewmodel
 import android.app.Application
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import androidx.core.graphics.scale
-import androidx.core.net.toUri
 import com.newoether.agora.util.AttachmentSourceReader
 import java.io.File
 import java.net.URI
@@ -146,7 +144,7 @@ class ImageProcessor(
             File(source).isAbsolute -> retriever.setDataSource(source)
             source.startsWith("file:", ignoreCase = true) ->
                 retriever.setDataSource(File(URI(source)).absolutePath)
-            else -> retriever.setDataSource(app, source.toUri())
+            else -> retriever.setDataSource(app, Uri.parse(source))
         }
     }
 
@@ -158,7 +156,12 @@ class ImageProcessor(
         val ratio = maxEdge.toDouble() / longestEdge.toDouble()
         val targetWidth = maxOf(1, kotlin.math.round(width * ratio).toInt())
         val targetHeight = maxOf(1, kotlin.math.round(height * ratio).toInt())
-        return scale(targetWidth, targetHeight, filter = true)
+        return android.graphics.Bitmap.createScaledBitmap(
+            this,
+            targetWidth,
+            targetHeight,
+            true,
+        )
     }
 
     private fun openStream(source: String): java.io.InputStream? =

@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import androidx.core.graphics.createBitmap
-import androidx.core.net.toUri
 import android.os.ParcelFileDescriptor
 import java.io.File
 import java.net.URI
@@ -158,14 +156,14 @@ object PdfPageRenderer {
                 File(URI(source)),
                 ParcelFileDescriptor.MODE_READ_ONLY,
             )
-            else -> context.contentResolver.openFileDescriptor(source.toUri(), "r")
+            else -> context.contentResolver.openFileDescriptor(Uri.parse(source), "r")
         }
     } catch (_: Exception) {
         null
     }
 
     private fun createPageBitmap(width: Int, height: Int): Bitmap =
-        createBitmap(width, height).apply {
+        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.WHITE)
         }
 

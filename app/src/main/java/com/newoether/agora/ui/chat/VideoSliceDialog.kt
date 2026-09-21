@@ -2,8 +2,6 @@ package com.newoether.agora.ui.chat
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
-import androidx.core.graphics.scale
-import androidx.core.net.toUri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -94,13 +92,14 @@ fun VideoSliceDialog(
             try {
                 val retriever = MediaMetadataRetriever()
                 try {
-                    retriever.setDataSource(context, videoUri.toUri())
+                    retriever.setDataSource(context, android.net.Uri.parse(videoUri))
                     val bitmap = retriever.frameAtTime
                     bitmap?.let {
-                        it.scale(
+                        Bitmap.createScaledBitmap(
+                            it,
                             512,
                             (512f * it.height / it.width).roundToInt(),
-                            filter = true,
+                            true,
                         ).also { scaled ->
                             if (scaled !== bitmap) bitmap.recycle()
                         }

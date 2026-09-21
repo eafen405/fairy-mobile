@@ -2,7 +2,6 @@ package com.newoether.agora
 
 import android.content.Intent
 import android.net.Uri
-import androidx.core.net.toUri
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -108,7 +107,7 @@ internal fun MainApplicationDialogs(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, info.url.toUri()))
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.url)))
                     viewModel.dismissUpdateDialog()
                 }) { Text(stringResource(R.string.about_view_release)) }
             },

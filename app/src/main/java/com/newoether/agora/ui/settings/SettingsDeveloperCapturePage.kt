@@ -88,7 +88,6 @@ import com.newoether.agora.diagnostics.DiagnosticRequestContext
 import com.newoether.agora.diagnostics.DiagnosticSnapshot
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -712,8 +711,8 @@ private fun DiagnosticEvent.rawDetails(): String =
 
 private fun formatBytes(bytes: Long): String = when {
     bytes < 1024L -> "$bytes B"
-    bytes < 1024L * 1024L -> String.format(Locale.US, "%.1f KiB", bytes / 1024.0)
-    else -> String.format(Locale.US, "%.1f MiB", bytes / (1024.0 * 1024.0))
+    bytes < 1024L * 1024L -> String.format("%.1f KiB", bytes / 1024.0)
+    else -> String.format("%.1f MiB", bytes / (1024.0 * 1024.0))
 }
 
 private suspend fun exportCapture(

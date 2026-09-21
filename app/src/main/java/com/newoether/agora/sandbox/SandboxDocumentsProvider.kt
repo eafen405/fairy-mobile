@@ -5,6 +5,7 @@ import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.os.CancellationSignal
@@ -351,7 +352,9 @@ private fun Context.openSandboxRootPicker(authority: String) {
         Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
 
     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-        putExtra(DocumentsContract.EXTRA_INITIAL_URI, treeUri)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, treeUri)
+        }
         addFlags(flags)
         if (this@openSandboxRootPicker !is Activity) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

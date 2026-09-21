@@ -1,5 +1,7 @@
 package com.newoether.agora.diagnostics
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -317,6 +319,15 @@ internal class DiagnosticCaptureStore(
     }
 
     private fun forEachFile(parent: File, action: (File) -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            forEachFileApi26(parent, action)
+        } else {
+            parent.listFiles().orEmpty().forEach(action)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun forEachFileApi26(parent: File, action: (File) -> Unit) {
         Files.newDirectoryStream(parent.toPath()).use { entries ->
             entries.forEach { path -> action(path.toFile()) }
         }

@@ -8,7 +8,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.core.net.toUri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.animation.AnimatedVisibility
@@ -59,7 +58,7 @@ import java.util.Locale
 
 private fun directImageFile(url: String): File? {
     val path = if (url.startsWith("file://", ignoreCase = true)) {
-        url.toUri().path
+        Uri.parse(url).path
     } else {
         url
     }
@@ -102,7 +101,7 @@ private fun openImageSource(context: Context, url: String): OpenedImageSource? {
         )
     }
 
-    val uri = url.toUri()
+    val uri = Uri.parse(url)
     context.contentResolver.openAssetFileDescriptor(uri, "r")?.let { descriptor ->
         return OpenedImageSource(
             input = descriptor.createInputStream(),

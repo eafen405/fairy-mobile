@@ -2,7 +2,6 @@ package com.newoether.agora.util
 
 import android.content.Context
 import android.net.Uri
-import androidx.core.net.toUri
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -18,12 +17,12 @@ object AttachmentSourceReader {
 
     fun open(context: Context, source: String): InputStream? =
         open(source) { uriSource ->
-            context.contentResolver.openInputStream(uriSource.toUri())
+            context.contentResolver.openInputStream(Uri.parse(uriSource))
         }
 
     fun readText(context: Context, source: String, maxChars: Int): String? =
         readText(source, maxChars) { uriSource ->
-            context.contentResolver.openInputStream(uriSource.toUri())
+            context.contentResolver.openInputStream(Uri.parse(uriSource))
         }
 
     internal fun open(

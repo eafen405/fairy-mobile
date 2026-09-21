@@ -1,7 +1,6 @@
 package com.newoether.agora.remote
 
 import android.net.Uri
-import androidx.core.net.toUri
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.SelectedAttachment
 import kotlinx.coroutines.CancellationException
@@ -31,7 +30,7 @@ internal class RemoteAttachmentDrafts(
         scope.launch {
             for (item in items) {
                 try {
-                    val imported = store.import(item.uri.toUri(), item.localId)
+                    val imported = store.import(Uri.parse(item.uri), item.localId)
                     val current = state.value.attachments[owner].orEmpty()
                     if (current.none { it.localId == item.localId }) { store.remove(imported); continue }
                     replace(owner, imported)
@@ -61,6 +60,6 @@ internal class RemoteAttachmentDrafts(
         val item = state.value.attachments[owner].orEmpty().firstOrNull { it.localId == id &&
             it.importState == AttachmentImportState.FAILED } ?: return
         remove(owner, id)
-        add(owner, listOf(item.uri.toUri()))
+        add(owner, listOf(Uri.parse(item.uri)))
     }
 }

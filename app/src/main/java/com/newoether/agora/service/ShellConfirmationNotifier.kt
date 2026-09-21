@@ -6,7 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.core.net.toUri
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.newoether.agora.MainActivity
 import com.newoether.agora.R
@@ -85,7 +85,7 @@ object ShellConfirmationNotifier {
             context,
             (promptId % Int.MAX_VALUE).toInt(),
             Intent(action, null, context, ShellConfirmationReceiver::class.java)
-                .setData("agora-shell-confirm://$sessionId/$promptId".toUri())
+                .setData(android.net.Uri.parse("agora-shell-confirm://$sessionId/$promptId"))
                 .putExtra(EXTRA_SESSION_ID, sessionId)
                 .putExtra(EXTRA_PROMPT_ID, promptId),
             flags,
@@ -105,6 +105,7 @@ object ShellConfirmationNotifier {
     }
 
     private fun createChannel(context: Context) {
+        if (Build.VERSION.SDK_INT< Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.shell_confirm_notification_channel),

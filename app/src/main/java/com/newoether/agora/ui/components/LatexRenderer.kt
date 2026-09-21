@@ -3,7 +3,6 @@ package com.newoether.agora.ui.components
 import android.graphics.Bitmap
 import android.graphics.Canvas
 
-import androidx.core.graphics.createBitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.size
@@ -400,7 +399,7 @@ fun renderLatexToBitmap(
         val ih = drawable.intrinsicHeight
         val w = maxOf(iw.takeIf { it > 0 } ?: fallbackW, minW)
         val h = ih.takeIf { it > 0 } ?: fallbackH
-        val bmp = createBitmap(w, h)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         drawable.setBounds(0, 0, w, h)
         drawable.draw(canvas)
@@ -464,7 +463,7 @@ private fun renderTextToBitmap(text: String, textSize: Float, color: Int): Bitma
     val fm = paint.fontMetrics
     val w = (paint.measureText(text) + 8f).toInt().coerceAtLeast(1)
     val h = ((fm.descent - fm.ascent) + 8f).toInt().coerceAtLeast(1)
-    val bmp = createBitmap(w, h)
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     bmp.eraseColor(0x00000000)
     val canvas = Canvas(bmp)
     canvas.drawText(text, 4f, -fm.ascent + 4f, paint)

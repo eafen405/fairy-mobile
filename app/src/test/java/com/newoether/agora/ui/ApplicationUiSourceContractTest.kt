@@ -132,7 +132,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(source.contains("private const val MAX_PAGES = 5"))
         assertTrue(source.contains("private const val TARGET_LONG_EDGE = 1536"))
         assertTrue(source.contains("private fun createPageBitmap(width: Int, height: Int): Bitmap"))
-        assertEquals(1, Regex("createBitmap\\(").findAll(source).count())
+        assertEquals(1, Regex("Bitmap\\.createBitmap\\(").findAll(source).count())
         assertTrue(source.contains("eraseColor(Color.WHITE)"))
         assertEquals(
             2,

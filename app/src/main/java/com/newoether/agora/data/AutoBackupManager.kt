@@ -1,6 +1,7 @@
 package com.newoether.agora.data
 
 import android.app.NotificationManager
+import android.os.Build
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -241,12 +242,14 @@ class AutoBackupManager(
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val channel = android.app.NotificationChannel(
-                CHANNEL_ID,
-                "Auto Backup",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = "Auto backup status" }
-            nm.createNotificationChannel(channel)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = android.app.NotificationChannel(
+                    CHANNEL_ID,
+                    "Auto Backup",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply { description = "Auto backup status" }
+                nm.createNotificationChannel(channel)
+            }
 
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
