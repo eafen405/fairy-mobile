@@ -49,7 +49,7 @@ internal fun projectRemoteTopology(nodes: List<RemoteMessageNode>, runtime: Remo
                 it.displayPageId == first.displayPageId
             }?.id, text = "",
             participant = if (first.role == "user") Participant.USER else Participant.MODEL,
-            timestamp = first.timestamp, modelName = "Codex", runId = first.turnId,
+            timestamp = first.timestamp, modelName = "Fairy", runId = first.turnId,
             displayPageId = first.displayPageId,
             status = if (group.any { it.error }) MessageStatus.ERROR else MessageStatus.SUCCESS), group))
     }
@@ -64,10 +64,10 @@ internal fun projectRemoteTopology(nodes: List<RemoteMessageNode>, runtime: Remo
                 "tool" -> MessageStatus.TOOL_CALLING
                 else -> MessageStatus.SENDING
             }
-            set(lastIndex, tail.copy(stub = tail.stub.copy(status = status, modelName = runtime.model ?: "Codex")))
+            set(lastIndex, tail.copy(stub = tail.stub.copy(status = status, modelName = runtime.model ?: "Fairy")))
         } else add(RemoteMessageGroup(ChatMessage(id = "remote-active-${runtime.activeTurnId}",
             parentId = tail?.stub?.id, text = "", participant = Participant.MODEL,
-            timestamp = tail?.stub?.timestamp ?: 0, modelName = runtime.model ?: "Codex",
+            timestamp = tail?.stub?.timestamp ?: 0, modelName = runtime.model ?: "Fairy",
             runId = runtime.activeTurnId, status = MessageStatus.SENDING,
             displayPageId = tail?.stub?.displayPageId), emptyList()))
     }

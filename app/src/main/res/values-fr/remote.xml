@@ -5,10 +5,10 @@
     <string name="remote_connect">Connecter</string>
     <string name="remote_address">URL du service</string>
     <string name="remote_token">Jeton d’accès</string>
-    <string name="remote_connection_hint">Installez Filo sur l’appareil cible, puis saisissez son adresse IP ou son URL.</string>
+    <string name="remote_connection_hint">Installez Fairy sur l’appareil cible, puis saisissez son adresse IP ou son URL.</string>
     <string name="remote_sessions">Sessions</string>
     <string name="remote_empty">Aucune session existante trouvée</string>
-    <string name="remote_sync_hint">Gardez cette session ouverte dans Codex. Les réponses sont synchronisées après leur enregistrement.</string>
+    <string name="remote_sync_hint">Gardez cette session ouverte dans Fairy. Les réponses sont synchronisées après leur enregistrement.</string>
     <string name="remote_refresh">Actualiser</string>
     <string name="remote_load_more">Charger Plus</string>
     <string name="remote_check">J’ai Vérifié</string>
@@ -16,11 +16,11 @@
     <string name="remote_remove">Supprimer la connexion</string>
     <string name="remote_add_device">Ajouter un appareil</string>
     <string name="remote_no_devices">Aucun appareil</string>
-    <string name="remote_no_devices_desc">Ajoutez un ordinateur exécutant Filo pour accéder à ses sessions Codex.</string>
+    <string name="remote_no_devices_desc">Ajoutez un ordinateur exécutant Fairy pour accéder à ses sessions Fairy.</string>
     <string name="remote_connection">Connexion</string>
     <string name="remote_edit_device">Modifier cet appareil</string>
     <string name="remote_delete_title">Supprimer cet appareil ?</string>
-    <string name="remote_delete_message">Supprimer la connexion enregistrée à %1$s ? Les sessions Codex seront conservées.</string>
+    <string name="remote_delete_message">Supprimer la connexion enregistrée à %1$s ? Les sessions Fairy seront conservées.</string>
     <string name="remote_new_session_unavailable">Nouvelle session — indisponible sur cet appareil</string>
     <string name="remote_model_unavailable">Modèle indisponible</string>
     <string name="remote_address_placeholder">http://192.168.1.100:7435</string>
@@ -30,5 +30,5 @@
     <string name="remote_connecting">Connexion</string>
     <string name="remote_archive">Archiver</string>
     <string name="remote_archive_title">Archiver la tâche ?</string>
-    <string name="remote_archive_message">Retirer cette tâche des listes actives de Codex et Remote ? Son historique sera conservé.</string>
+    <string name="remote_archive_message">Retirer cette tâche des listes actives de Fairy et Remote ? Son historique sera conservé.</string>
 </resources>

@@ -85,7 +85,7 @@
     <string name="prompts_template_blank">空白</string>
     <string name="prompts_template_blank_desc">從空白的可編輯系統指令開始。</string>
     <string name="prompts_template_default">預設</string>
-    <string name="prompts_template_default_desc">使用 Agora 預設指令，包含執行階段上下文、記憶、網頁搜尋、Shell 和裝置檔案存取規則。</string>
+    <string name="prompts_template_default_desc">使用 Fairy 預設指令，包含執行階段上下文、記憶、網頁搜尋、Shell 和裝置檔案存取規則。</string>
     <string name="prompts_duplicate">複製</string>
     <string name="prompts_duplicate_title">%1$s 副本</string>
     <string name="prompts_empty_preview">空指令</string>
