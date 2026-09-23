@@ -28,6 +28,11 @@ class RemoteSettingsTest {
         coEvery { store.load() } returns emptyList()
         every { client.address } returns "http://computer/"
         coEvery { client.connect() } returns "Computer"
+        every { client.sessionCredential } returns "cookie"
+        coEvery { client.login(any(), any()) } returns "user"
+        coEvery { client.register(any(), any(), any()) } returns "user"
+        coEvery { client.logout() } returns Unit
+        coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
         coEvery { client.models() } returns listOf(model)
         coEvery { client.conversation(any(), any()) } answers { bodyPage(emptyList(), null, emptyList(), runtime) }
@@ -44,7 +49,7 @@ class RemoteSettingsTest {
 
     private fun TestScope.open(draft: Boolean = false): RemoteViewModel {
         val vm = RemoteViewModel(store) { _, _ -> client }; runCurrent()
-        vm.saveDevice("http://computer/", "token"); runCurrent()
+        vm.login("http://computer/", "user", "pass"); runCurrent()
         vm.selectDevice("http://computer/"); vm.setVisible(true); runCurrent()
         if (draft) vm.newSession() else { vm.selectSession(session); runCurrent() }
         return vm

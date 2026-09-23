@@ -107,14 +107,14 @@ internal class FiloClient(
         .callTimeout(30, TimeUnit.SECONDS).build(),
     mutationTimeoutMillis: Long = 210_000,
 ) {
-    private val origin = try { origin.trim().toHttpUrl().also {
+    private val base = try { origin.trim().toHttpUrl().also {
         require(it.username.isEmpty() && it.password.isEmpty() && it.query == null &&
             it.fragment == null && it.encodedPath == "/")
     } } catch (_: IllegalArgumentException) { throw FiloConfigurationException() }
     // 远端 base = {部署 origin}/api/mobile —— v1/* 与服务端命名空间一一对应。
-    private val endpoint: HttpUrl = origin.resolve("api/mobile/")
+    private val endpoint: HttpUrl = base.resolve("api/mobile/")
         ?: throw FiloConfigurationException()
-    val address: String get() = origin.toString()
+    val address: String get() = base.toString()
     @Volatile private var sessionCookie: String? = credential.takeIf { it.isNotBlank() }
     val sessionCredential: String? get() = sessionCookie
     private val json = Json { ignoreUnknownKeys = true }
@@ -166,18 +166,18 @@ internal class FiloClient(
         json.encodeToString(mapOf("username" to username, "password" to password, "invite" to invite)))
 
     private suspend fun authenticate(path: String, body: String): String {
-        val account = json.decodeFromString<FairyAccount>(request(path, base = origin, body = body))
+        val account = json.decodeFromString<FairyAccount>(request(path, base = base, body = body))
         if (sessionCookie.isNullOrEmpty()) throw FiloConfigurationException()
         return account.username
     }
 
     suspend fun logout() {
-        runCatching { request("api/logout", base = origin, body = "{}") }
+        runCatching { request("api/logout", base = base, body = "{}") }
         sessionCookie = null
     }
 
     suspend fun me(): String =
-        json.decodeFromString<FairyAccount>(request("api/me", base = origin)).username
+        json.decodeFromString<FairyAccount>(request("api/me", base = base)).username
 
     suspend fun sessions(cursor: String? = null): RemoteSessionPage = withContext(Dispatchers.Default) {
         val page = json.decodeFromString<RemoteSessionPage>(request("v1/sessions", cursor))

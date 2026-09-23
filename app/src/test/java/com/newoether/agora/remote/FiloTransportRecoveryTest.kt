@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class FiloTransportRecoveryTest {
     private val token = "a".repeat(64)
     private val id = "00000000-0000-4000-8000-000000000001"
-    private val info = """{"protocolVersion":2,"agent":"codex","sessionMode":"existing","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"test"}"""
+    private val info = """{"protocolVersion":2,"agent":"fairy","sessionMode":"existing","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"test"}"""
     private fun HttpExchange.reply(status: Int, body: String) {
         val bytes = body.toByteArray()
         sendResponseHeaders(status, bytes.size.toLong())
@@ -22,8 +22,8 @@ class FiloTransportRecoveryTest {
     private fun server(handler: (HttpExchange) -> Unit): HttpServer =
         HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/") { exchange ->
-                assertEquals("Bearer $token", exchange.requestHeaders.getFirst("Authorization"))
-                if (exchange.requestURI.path == "/v1/info") exchange.reply(200, info) else handler(exchange)
+                assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
+                if (exchange.requestURI.path == "/api/mobile/v1/info") exchange.reply(200, info) else handler(exchange)
             }
             start()
         }

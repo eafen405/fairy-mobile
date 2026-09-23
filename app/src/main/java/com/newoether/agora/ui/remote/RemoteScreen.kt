@@ -98,6 +98,17 @@ private fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, acti
         onBack()
     }
     BackHandler(active, back)
+    // 单账户形态：唯一连接与主会话直接选中，不经过设备/会话目录；出错留给重试按钮。
+    LaunchedEffect(state.restoring, state.addingDevice, state.deviceId, state.devices,
+        state.session, state.sessions, state.loading) {
+        if (state.restoring || state.addingDevice) return@LaunchedEffect
+        if (state.deviceId == null) {
+            state.devices.singleOrNull()?.takeIf { it.status != RemoteDeviceStatus.ERROR }
+                ?.let { vm.selectDevice(it.id) }
+        } else if (state.session == null && !state.loading) {
+            state.sessions.firstOrNull()?.let { vm.selectSession(it) }
+        }
+    }
     val target = when {
         state.restoring -> "restoring"
         state.addingDevice || state.devices.isEmpty() -> "login"

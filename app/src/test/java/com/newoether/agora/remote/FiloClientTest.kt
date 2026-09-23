@@ -28,7 +28,7 @@ class FiloClientTest {
         var reply = """{"archived":true,"cwd":"C:/project"}"""
         server.createContext("/") { exchange ->
             requests += "${exchange.requestMethod} ${exchange.requestURI.path}"
-            assertEquals("Bearer $token", exchange.requestHeaders.getFirst("Authorization"))
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
             assertEquals("{}", exchange.requestBody.reader().readText())
             val bytes = reply.toByteArray()
             exchange.sendResponseHeaders(200, bytes.size.toLong())
@@ -41,14 +41,14 @@ class FiloClientTest {
             reply = """{"deleted":true}"""
             try { client.archiveSession(id); fail("Legacy deletion is not an archive receipt") }
             catch (_: IllegalArgumentException) { }
-            assertEquals(List(2) { "POST /v1/sessions/$id/archive" }, requests)
+            assertEquals(List(2) { "POST /api/mobile/v1/sessions/$id/archive" }, requests)
         } finally { server.stop(0) }
     }
 
     @Test fun sessionListDecodesLightweightStatusAndOldServerFallback() = runBlocking {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/v1/sessions") { exchange ->
-            assertEquals("Bearer $token", exchange.requestHeaders.getFirst("Authorization"))
+        server.createContext("/api/mobile/v1/sessions") { exchange ->
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
             val bytes = """{"sessions":[
                 {"id":"active","title":"Task","cwd":"C:/work","updatedAt":2,"status":"active"},
                 {"id":"unknown","title":"Old","cwd":"C:/work","updatedAt":1}
@@ -76,11 +76,12 @@ class FiloClientTest {
         assertEquals("new", messages.last().text)
     }
 
-    @Test fun malformedEndpointOrTokenIsRejectedBeforeNetwork() {
-        listOf("http://user:secret@localhost/", "http://localhost/?token=x", "http://localhost/path").forEach {
+    @Test fun malformedEndpointIsRejectedBeforeNetwork() {
+        listOf("http://user:secret@localhost/", "http://localhost/?token=x", "http://localhost/path", "broken").forEach {
             assertThrows(IllegalArgumentException::class.java) { applicationFixtureClient(it, token) }
         }
-        assertThrows(IllegalArgumentException::class.java) { applicationFixtureClient("http://localhost/", "short") }
+        // The credential is an opaque fairy_login cookie value — no format gate.
+        applicationFixtureClient("http://localhost/", "opaque-cookie-value")
     }
 
     @Test fun onlyNativeActiveTurnOwnsSharedStreamingPresentation() {
@@ -193,7 +194,7 @@ class FiloClientTest {
         val legacy = RemoteMessage("a", "turn", null, "assistant", "Answer", 10)
         val rich = legacy.copy(id = "t", text = "", activity = RemoteActivity(
             "tool", "mcp/tools", "{}", "{\"structuredContent\":{\"count\":2}}", "succeeded"))
-        server.createContext("/v1/sessions/$id") { exchange ->
+        server.createContext("/api/mobile/v1/sessions/$id") { exchange ->
             queries.add(exchange.requestURI.query)
             val record = if (queries.size == 1) legacy else rich
             val bytes = Json.encodeToString(RemoteConversationPage(listOf(record), null, emptyList())).toByteArray()
@@ -234,7 +235,7 @@ class FiloClientTest {
         var query: String? = null
         server.createContext("/") { exchange ->
             requests.incrementAndGet()
-            auth = exchange.requestHeaders.getFirst("Authorization")
+            auth = exchange.requestHeaders.getFirst("Cookie")
             path = exchange.requestURI.path
             query = exchange.requestURI.query
             body = exchange.requestBody.reader().readText()
@@ -248,8 +249,8 @@ class FiloClientTest {
             try { client.send(id, "hello", id); fail("Redirect must fail") }
             catch (error: FiloHttpException) { assertEquals(307, error.status) }
             assertEquals(1, requests.get())
-            assertEquals("Bearer $token", auth)
-            assertEquals("/v1/sessions/$id/messages", path)
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", auth)
+            assertEquals("/api/mobile/v1/sessions/$id/messages", path)
             assertNull(query)
             assertTrue(body.contains("\"text\":\"hello\""))
             assertTrue(body.contains("\"clientId\":\"$id\""))
@@ -261,7 +262,7 @@ class FiloClientTest {
         var method = ""
         var path = ""
         var body = ""
-        server.createContext("/v1/sessions") { exchange ->
+        server.createContext("/api/mobile/v1/sessions") { exchange ->
             method = exchange.requestMethod
             path = exchange.requestURI.path
             body = exchange.requestBody.reader().readText()
@@ -274,7 +275,7 @@ class FiloClientTest {
             val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
             val created = client.create("hello", id, settings = RemoteSettings(model = "chosen", updateServiceTier = true))
             assertEquals("POST", method)
-            assertEquals("/v1/sessions", path)
+            assertEquals("/api/mobile/v1/sessions", path)
             assertEquals(id, created.id)
             assertTrue(body.contains("\"text\":\"hello\""))
             assertTrue(body.contains("\"clientId\":\"$id\""))
@@ -288,11 +289,11 @@ class FiloClientTest {
         Unit
     }
 
-    @Test fun connectionAcceptsOriginalDesktopGatewayAndRejectsRetiredOrUnknownModes() = runBlocking {
+    @Test fun connectionAcceptsTheFairyGatewayAndRejectsRetiredOrUnknownModes() = runBlocking {
         for (mode in listOf("existing", "standalone", "unsupported")) {
             val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-            server.createContext("/v1/info") { exchange ->
-                val value = """{"protocolVersion":2,"agent":"codex","sessionMode":"$mode","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"quantum"}""".toByteArray()
+            server.createContext("/api/mobile/v1/info") { exchange ->
+                val value = """{"protocolVersion":2,"agent":"fairy","sessionMode":"$mode","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"fairy"}""".toByteArray()
                 exchange.sendResponseHeaders(200, value.size.toLong())
                 exchange.responseBody.use { it.write(value) }
             }
@@ -302,9 +303,38 @@ class FiloClientTest {
                 if (mode != "existing") {
                     try { client.connect(); fail("Retired or unknown mode must be rejected") }
                     catch (_: IllegalArgumentException) { }
-                } else assertEquals("quantum", client.connect())
+                } else assertEquals("fairy", client.connect())
             } finally { server.stop(0) }
         }
+    }
+
+    @Test fun loginCapturesFairyCookieAndAuthorizesFollowingRequests() = runBlocking {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val cookies = mutableListOf<String?>()
+        server.createContext("/") { exchange ->
+            cookies += exchange.requestHeaders.getFirst("Cookie")
+            val value = when (exchange.requestURI.path) {
+                "/api/login" -> {
+                    exchange.responseHeaders.add("Set-Cookie", "$FAIRY_LOGIN_COOKIE=session-cookie; HttpOnly; Path=/")
+                    """{"username":"alice"}"""
+                }
+                "/api/mobile/v1/info" -> """{"protocolVersion":2,"agent":"fairy","sessionMode":"existing","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"fairy"}"""
+                else -> """{"code":"not_found","error":"missing"}"""
+            }.toByteArray()
+            if (exchange.requestURI.path == "/api/mobile/v1/info") {
+                assertEquals("$FAIRY_LOGIN_COOKIE=session-cookie", cookies.last())
+            }
+            exchange.sendResponseHeaders(if (exchange.requestURI.path == "/api/login") 200 else 200, value.size.toLong())
+            exchange.responseBody.use { it.write(value) }
+        }
+        server.start()
+        try {
+            val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", "")
+            assertEquals("alice", client.login("alice", "pw"))
+            assertEquals("session-cookie", client.sessionCredential)
+            assertEquals("fairy", client.connect())
+            assertNull(cookies.first())
+        } finally { server.stop(0) }
     }
 
     @Test fun protocolTwoAndNativeReceiptAndEventStreamUseIndependentAuthenticatedTransport() = runBlocking {
@@ -313,10 +343,10 @@ class FiloClientTest {
         val page = RemoteConversationPage(listOf(RemoteMessage("native-user", "turn", id, "user", "hello", 1)),
             null, emptyList(), RemoteRuntime("active", "turn", "model", 42, 256000))
         server.createContext("/") { exchange ->
-            auth += exchange.requestHeaders.getFirst("Authorization")
+            auth += exchange.requestHeaders.getFirst("Cookie")
             val value = when (exchange.requestURI.path) {
-                "/v1/info" -> """{"protocolVersion":2,"agent":"codex","sessionMode":"existing","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"Computer"}"""
-                "/v1/sessions/$id/messages" -> """{"turnId":"turn","clientId":"$id"}"""
+                "/api/mobile/v1/info" -> """{"protocolVersion":2,"agent":"fairy","sessionMode":"existing","messageDelivery":"native-steer","outputMode":"live-messages","supportsLazyMessages":true,"device":"fairy"}"""
+                "/api/mobile/v1/sessions/$id/messages" -> """{"turnId":"turn","clientId":"$id"}"""
                 else -> "data: ${Json.encodeToString(page)}\n\n"
             }.toByteArray()
             exchange.sendResponseHeaders(200, value.size.toLong())
@@ -325,10 +355,10 @@ class FiloClientTest {
         server.start()
         try {
             val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
-            assertEquals("Computer", client.connect())
+            assertEquals("fairy", client.connect())
             assertEquals("turn", client.send(id, "hello", id))
             assertEquals(page, client.events(id).first())
-            assertEquals(listOf("Bearer $token", "Bearer $token", "Bearer $token"), auth)
+            assertEquals(List(3) { "$FAIRY_LOGIN_COOKIE=$token" }, auth)
         } finally { server.stop(0) }
     }
     @Test fun oneHttpRequestReturnsCatalogAndExactRowStatus() = runBlocking {
@@ -349,7 +379,7 @@ class FiloClientTest {
             val result = applicationFixtureClient("http://127.0.0.1:" + server.address.port + "/", token).sessions("page-two")
             assertEquals("native-turn", result.statuses.single().activeTurnId)
             assertEquals("page-two", result.sessions.single().listCursor)
-            assertEquals(listOf("/v1/sessions?cursor=page-two"), requests)
+            assertEquals(listOf("/api/mobile/v1/sessions?cursor=page-two"), requests)
         } finally { server.stop(0) }
     }
 

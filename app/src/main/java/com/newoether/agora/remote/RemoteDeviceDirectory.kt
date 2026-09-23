@@ -73,7 +73,6 @@ internal class RemoteDeviceDirectory(
                 val client = createClient(origin, "")
                 val name = if (invite == null) client.login(username, password)
                     else client.register(username, password, invite)
-                client.connect()
                 val id = client.address
                 for (stale in configurations.keys) connections.remove(stale)
                 val credential = client.sessionCredential ?: throw FiloConfigurationException()
@@ -112,7 +111,6 @@ internal class RemoteDeviceDirectory(
         mutableClients.remove(id)
         scope.launch { runCatching { connections.remove(id) } }
         mutableState.value = state.value.copy(
-            devices = state.value.devices.filterNot { it.id == id },
             drafts = state.value.drafts.filterKeys { !it.startsWith("$id/") },
             attempts = state.value.attempts.filterKeys { !it.startsWith("$id/") },
             sessionOwners = state.value.sessionOwners.filterKeys { !it.startsWith("$id/") },

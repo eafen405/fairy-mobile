@@ -26,6 +26,11 @@ class RemoteGroupPaginationTest {
         coEvery { connections.load() } returns emptyList()
         every { client.address } returns "http://computer/"
         coEvery { client.connect() } returns "Computer"
+        every { client.sessionCredential } returns "cookie"
+        coEvery { client.login(any(), any()) } returns "user"
+        coEvery { client.register(any(), any(), any()) } returns "user"
+        coEvery { client.logout() } returns Unit
+        coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
         coEvery { client.models() } returns emptyList()
         every { client.events(any()) } answers {
@@ -39,7 +44,7 @@ class RemoteGroupPaginationTest {
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }
         runCurrent()
         vm.setVisible(true)
-        vm.saveDevice("http://computer/", "token"); runCurrent()
+        vm.login("http://computer/", "user", "pass"); runCurrent()
         vm.selectDevice("http://computer/"); runCurrent()
         vm.selectSession(session); runCurrent()
         return vm

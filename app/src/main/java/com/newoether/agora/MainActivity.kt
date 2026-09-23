@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SCREENSHOT_DESTINATION = "com.newoether.agora.extra.SCREENSHOT_DESTINATION"
+        const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -453,3 +454,8 @@ fun MainNavigation(
         }
     }
 }
+
+internal fun consumeNotificationTarget(
+    target: kotlinx.coroutines.flow.MutableStateFlow<String?>,
+    expectedId: String,
+): Boolean = target.compareAndSet(expectedId, null)
