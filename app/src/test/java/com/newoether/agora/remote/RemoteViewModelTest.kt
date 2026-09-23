@@ -29,7 +29,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val gate = CompletableDeferred<RemoteConversationPage>()
         coEvery { client.conversation("session", null) } coAnswers { withContext(NonCancellable) { gate.await() } }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.setVisible(true); runCurrent()
         vm.selectSession(session); runCurrent()
         vm.selectSession(session.copy(id = "other")); runCurrent()
@@ -51,7 +51,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             }
         }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.setVisible(true); runCurrent()
         vm.selectSession(session); runCurrent()
         assertEquals("old-model", vm.state.value.selectedModel)
@@ -64,7 +64,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val gate = CompletableDeferred<String>()
         coEvery { client.send(any(), any(), any(), any()) } coAnswers { gate.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.selectSession(session); vm.setVisible(true); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "first"); vm.send(); runCurrent()
@@ -87,7 +87,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
     @Test fun uncertainSendKeepsDraftAndCannotAutomaticallyRetry() = runTest(dispatcher) {
         coEvery { client.send(any(), any(), any(), any()) } throws IOException("Lost response")
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.selectSession(session); vm.setVisible(true); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
@@ -108,7 +108,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             coEvery { client.conversation(any(), any()) } returns bodyPage(emptyList(), null, emptyList())
                 .copy(runtime = RemoteRuntime(status, model = "model"))
             val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-            saveAndSelect(vm)
+            loginAndSelect(vm)
             vm.selectSession(session); vm.setVisible(true); runCurrent()
             val owner = vm.state.value.owner!!
             assertEquals(status, vm.state.value.runtime?.status)
@@ -137,7 +137,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
                     RemoteActivity("tool", toolName = "exec", state = "succeeded")),
             ), null, emptyList())
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.selectSession(session); vm.setVisible(true); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
@@ -179,7 +179,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
     @Test fun malformedAcceptedResponseIsUnknownRatherThanRejected() = runTest(dispatcher) {
         coEvery { client.send(any(), any(), any(), any()) } throws SerializationException("Invalid response")
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm)
+        loginAndSelect(vm)
         vm.selectSession(session); vm.setVisible(true); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
@@ -194,7 +194,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val response = CompletableDeferred<String>()
         coEvery { client.send(any(), any(), any(), any()) } coAnswers { response.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         val running = RemoteRuntime("active", "turn", "model", 1234, 256000)
         events.emit(bodyPage(emptyList(), null, emptyList(), running)); runCurrent()
         val owner = vm.state.value.owner!!
@@ -218,7 +218,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val events = MutableSharedFlow<RemoteConversationPage>()
         every { client.events(any()) } returns events
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "native-turn")))
         runCurrent()
         assertTrue(vm.state.value.runtime!!.isRunning)
@@ -239,7 +239,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         every { client.events(any()) } returns events
         coEvery { client.stop(any(), any()) } coAnswers { receipt.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "turn")))
         runCurrent()
         vm.stop(); vm.stop(); runCurrent()
@@ -266,7 +266,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         every { client.events(any()) } returns events
         coEvery { client.stop(any(), any()) } coAnswers { receipt.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "turn")))
         runCurrent(); vm.stop(); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("idle")))
@@ -283,7 +283,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             emptyList(), null, emptyList(), RemoteRuntime("active", "turn"))
         coEvery { client.stop(any(), any()) } throws IOException("Lost Stop receipt")
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         vm.stop(); runCurrent()
         assertFalse(vm.state.value.isStopping)
         assertFalse(vm.state.value.controlling)
@@ -302,7 +302,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         }
         coEvery { client.stop(any(), any()) } returns Unit
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         vm.stop(); runCurrent()
         assertTrue(vm.state.value.isStopping)
         disconnect.complete(Unit); runCurrent()
@@ -320,7 +320,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         every { client.events(any()) } returns events
         coEvery { client.stop(any(), any()) } coAnswers { receipt.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "old-turn")))
         runCurrent(); vm.stop(); runCurrent()
         vm.selectSession(session.copy(id = "other")); runCurrent()
@@ -341,7 +341,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         every { client.events(any()) } returns events
         coEvery { client.stop(any(), any()) } returns Unit
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "old-turn")))
         runCurrent(); vm.stop(); runCurrent()
         assertTrue(vm.state.value.isStopping)
@@ -357,7 +357,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
 
     @Test fun newChatEntryAndRepeatedPlusStayLocalAndFocusWithoutRuntime() = runTest(dispatcher) {
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
         val owner = vm.state.value.owner!!
         assertTrue(vm.state.value.isDraft)
@@ -392,7 +392,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         coEvery { client.send(any(), any(), any(), any()) } returns "turn"
         every { client.events(any()) } returns events
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
         val owner = vm.state.value.owner!!
         vm.completeComposerFocus(owner)
@@ -435,7 +435,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val created = CompletableDeferred<RemoteSession>()
         coEvery { client.create(any(), any(), any(), any()) } coAnswers { created.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); vm.send(); runCurrent()
@@ -453,7 +453,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
     @Test fun unknownCreationKeepsDraftAndNeverAutomaticallyRetries() = runTest(dispatcher) {
         coEvery { client.create(any(), any(), any(), any()) } throws IOException("Lost creation receipt")
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
@@ -470,7 +470,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val catalog = CompletableDeferred<List<RemoteModel>>()
         coEvery { client.models() } coAnswers { catalog.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         assertTrue(vm.state.value.modelsLoading)
         vm.newSession()
         val owner = vm.state.value.owner
@@ -494,7 +494,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         coEvery { client.create(any(), any(), any(), any()) } returns RemoteSession("native", "New", "/host/default", 1)
         coEvery { client.send(any(), any(), any(), any()) } returns "turn"
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        saveAndSelect(vm); vm.setVisible(true); runCurrent()
+        loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
         catalog.completeExceptionally(IOException("Offline model catalog")); runCurrent()
         assertFalse(vm.state.value.modelsLoading)
@@ -524,9 +524,12 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             coEvery { client.sessions(any()) } throws FiloHttpException(401)
             vm.refresh(); runCurrent()
             assertEquals(RemoteFailure.AUTHENTICATION, vm.state.value.failure)
+            // 401 过期后直接回到登录页：连接保留预填信息，恢复读被 addingDevice 拦住。
+            assertTrue(vm.state.value.addingDevice)
+            assertNull(vm.state.value.session)
             coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
             vm.refresh(); runCurrent()
-            assertNull(vm.state.value.failure)
+            assertEquals(RemoteFailure.AUTHENTICATION, vm.state.value.failure)
             vm.setVisible(false)
             assertTrue(events.any { it.contains("restore_completed") })
             assertTrue(events.any { it.contains("read_failed.NETWORK.IOException") })
@@ -539,7 +542,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             emptyList(), null, emptyList(), RemoteRuntime("notLoaded"))
         coEvery { client.send("history", any(), any()) } throws FiloHttpException(409, detail = "Original owner unavailable")
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        vm.setVisible(true); saveAndSelect(vm)
+        vm.setVisible(true); loginAndSelect(vm)
         vm.selectSession(session.copy(id = "history")); runCurrent()
         assertEquals("notLoaded", vm.state.value.runtime?.status)
         assertEquals("model", vm.state.value.models.single().id)
@@ -559,7 +562,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             RemoteMessage("recent", "turn", null, "assistant", "Recent history", 2)), "older", emptyList(), RemoteRuntime("notLoaded"))
         coEvery { client.conversation("history", "older") } coAnswers { page.await() }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        vm.setVisible(true); saveAndSelect(vm)
+        vm.setVisible(true); loginAndSelect(vm)
         vm.selectSession(session.copy(id = "history")); vm.state.first { it.historyCursor == "older" && it.nodes.isNotEmpty() }
         assertFalse(vm.state.value.loading)
         coVerify(exactly = 0) { client.conversation("history", "older") }
@@ -582,7 +585,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         coEvery { client.conversation("historical", "older") } returns
             bodyPage(listOf(older), null, emptyList(), RemoteRuntime("notLoaded"))
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        vm.setVisible(true); saveAndSelect(vm)
+        vm.setVisible(true); loginAndSelect(vm)
         vm.selectSession(historical); vm.state.first { it.nodes.isNotEmpty() }
         assertEquals(listOf(recent.id), vm.state.value.nodes.map { it.id })
         assertFalse(vm.state.value.loading)
@@ -603,7 +606,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
 
     @Test fun sessionActionsWaitForNativeSuccessAndKeepFailuresInTheList() = runTest(dispatcher) {
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        vm.setVisible(true); saveAndSelect(vm)
+        vm.setVisible(true); loginAndSelect(vm)
         coEvery { client.rename(session.id, "Requested") } returns session.copy(title = "Native name")
         vm.renameSession(session.id, "Requested"); runCurrent()
         assertEquals("Native name", vm.state.value.sessions.single().title)
@@ -623,7 +626,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val gate = CompletableDeferred<Unit>()
         coEvery { client.archiveSession(session.id) } coAnswers { withContext(NonCancellable) { gate.await() } }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
-        vm.setVisible(true); saveAndSelect(vm)
+        vm.setVisible(true); loginAndSelect(vm)
         vm.archiveSession(session.id); vm.archiveSession(session.id); runCurrent()
         assertEquals(listOf(session), vm.state.value.sessions)
         vm.selectDevice(null); runCurrent()

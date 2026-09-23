@@ -63,7 +63,7 @@
     <string name="loop_next_in">Próxima em %1$s</string>
     <string name="loop_cycle">Ciclo %1$d/%2$d</string>
     <string name="loop_stop">Parar loop</string>
-    <string name="automation_notification_channel_desc">Notificação contínua enquanto uma automação do Agora está em execução</string>
+    <string name="automation_notification_channel_desc">Notificação contínua enquanto uma automação do Fairy está em execução</string>
     <string name="settings_automation">Automação</string>
     <string name="settings_automation_desc">Tarefas, loops e precisão de agendamento</string>
     <string name="automation_ai_tools">Acessar tarefas e loops</string>

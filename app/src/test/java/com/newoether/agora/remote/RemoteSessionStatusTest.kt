@@ -24,6 +24,11 @@ class RemoteSessionStatusTest {
         coEvery { store.load() } returns listOf(RemoteConnection("Computer", address, "token"))
         every { client.address } returns address
         coEvery { client.connect() } returns "Computer"
+        every { client.sessionCredential } returns "cookie"
+        coEvery { client.login(any(), any()) } returns "user"
+        coEvery { client.register(any(), any(), any()) } returns "user"
+        coEvery { client.logout() } returns Unit
+        coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } answers { page() }
         coEvery { client.models() } returns emptyList()
         every { client.events(any()) } returns flow { awaitCancellation() }

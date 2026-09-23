@@ -15,7 +15,7 @@ class RemoteImageClientTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             reads++
-            assertEquals("Bearer " + "a".repeat(64), exchange.requestHeaders.getFirst("Authorization"))
+            assertEquals("$FAIRY_LOGIN_COOKIE=" + "a".repeat(64), exchange.requestHeaders.getFirst("Cookie"))
             assertTrue(exchange.requestURI.path.endsWith("/image"))
             assertTrue(exchange.requestURI.query.startsWith("messages="))
             exchange.responseHeaders.add("Content-Type", "image/png")

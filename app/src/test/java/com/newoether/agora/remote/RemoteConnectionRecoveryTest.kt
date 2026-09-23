@@ -39,6 +39,11 @@ class RemoteConnectionRecoveryTest {
         coEvery { connections.load() } returns emptyList()
         every { client.address } returns "http://computer/"
         coEvery { client.connect() } returns "Computer"
+        every { client.sessionCredential } returns "cookie"
+        coEvery { client.login(any(), any()) } returns "user"
+        coEvery { client.register(any(), any(), any()) } returns "user"
+        coEvery { client.logout() } returns Unit
+        coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
         coEvery { client.models() } returns listOf(RemoteModel("model", "Model", true))
         coEvery { client.conversation(any(), any()) } throws FiloHttpException(503)
@@ -51,7 +56,7 @@ class RemoteConnectionRecoveryTest {
             try { awaitCancellation() } finally { vm.setVisible(false) }
         }
         runCurrent()
-        vm.saveDevice("http://computer/", "token"); runCurrent()
+        vm.login("http://computer/", "user", "pass"); runCurrent()
         vm.selectDevice("http://computer/")
         vm.selectSession(session)
         vm.setVisible(true); runCurrent()

@@ -113,7 +113,7 @@ class RemoteTopologyTest {
         val paths = mutableListOf<String>()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
-            assertEquals("Bearer " + "a".repeat(64), exchange.requestHeaders.getFirst("Authorization"))
+            assertEquals("$FAIRY_LOGIN_COOKIE=" + "a".repeat(64), exchange.requestHeaders.getFirst("Cookie"))
             paths += exchange.requestURI.toString()
             val json = Json.encodeToString(page)
             val text = if (exchange.requestURI.path.endsWith("/events")) "data: $json\n\n" else json

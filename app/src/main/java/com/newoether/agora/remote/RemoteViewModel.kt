@@ -78,7 +78,7 @@ internal class RemoteViewModel(
     private var modelEpoch = 0L
     private val createdAt = System.nanoTime()
     private val diagnosticContext = DiagnosticRequestContext(
-        requestId = UUID.randomUUID().toString(), provider = "Filo", model = "Codex", requestKind = "remote",
+        requestId = UUID.randomUUID().toString(), provider = "Fairy", model = "Fairy", requestKind = "remote",
     )
 
     private val deviceDirectory = RemoteDeviceDirectory(
@@ -99,6 +99,7 @@ internal class RemoteViewModel(
 
     private fun trace(stage: String, error: Exception? = null, notify: Boolean = true): RemoteFailure? {
         val failure = error?.let(::classifyRemoteFailure)
+        if (failure == RemoteFailure.AUTHENTICATION) expireAuthentication()
         if (failure != null && notify) noticeChannel.trySend(RemoteNotice(stage, failure, selectionEpoch, remoteErrorDetail(error), remoteErrorCode(error)))
         val suffix = if (failure == null) "" else ".${failure.name}.${error.javaClass.simpleName}"
         // Preserve the existing privacy wrapper and diagnostic logging preferences.
@@ -138,21 +139,25 @@ internal class RemoteViewModel(
         catch (error: Exception) { if (state.value.deviceId == device) trace("usage_failed", error); null }
     }
 
-    fun addDevice() = editDevice(null)
-
     fun editorConnection(): RemoteConnection? = deviceDirectory.editorConnection()
 
-    fun editDevice(id: String?) {
-        if (state.value.saving || state.value.restoring || (id != null && id !in clients)) return
-        selectionEpoch++
-        mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
-        invalidateReads()
-        mutableState.value = state.value.copy(deviceId = null, session = null, addingDevice = true,
-            editedDeviceId = id, storageError = false, failure = null, lastKnownModel = null)
+    fun login(origin: String, username: String, password: String, invite: String? = null) =
+        deviceDirectory.login(origin, username, password, invite)
+
+    fun logout() {
+        val id = state.value.deviceId ?: return
+        val client = clients[id]
+        viewModelScope.launch {
+            if (client != null) runCatching { client.logout() }
+            deviceDirectory.expireConnection(id)
+        }
     }
 
-    fun saveDevice(address: String, token: String, name: String? = null) =
-        deviceDirectory.saveDevice(address, token, name)
+    private fun expireAuthentication() {
+        if (state.value.addingDevice || state.value.restoring) return
+        val id = state.value.deviceId ?: clients.keys.singleOrNull() ?: return
+        deviceDirectory.expireConnection(id)
+    }
 
     fun removeDevice(id: String) = deviceDirectory.removeDevice(id)
 
@@ -162,12 +167,16 @@ internal class RemoteViewModel(
         mutableState.value = state.value.copy(devices = state.value.devices.map { if (it.id == id) update(it) else it })
     }
 
-    fun selectDevice(id: String?) {
-        if (id != null && id !in clients) return
+    private fun beginSelection() {
         scrollRequests.clear()
         selectionEpoch++
         mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
         invalidateReads()
+    }
+
+    fun selectDevice(id: String?) {
+        if (id != null && id !in clients) return
+        beginSelection()
         modelEpoch++
         modelLoading?.cancel()
         mutableState.value = state.value.copy(deviceId = id, addingDevice = false, editedDeviceId = null,
@@ -179,10 +188,7 @@ internal class RemoteViewModel(
     }
 
     fun selectSession(session: RemoteSession?) {
-        scrollRequests.clear()
-        selectionEpoch++
-        mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
-        invalidateReads()
+        beginSelection()
         mutableState.value = state.value.copy(session = session, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null, runtime = null, lastKnownModel = null, composerFocusOwner = null,
             draftSessionId = null, draftSettings = RemoteSettings())
         refresh()
@@ -469,10 +475,7 @@ internal class RemoteViewModel(
     fun newSession() {
         val snapshot = state.value
         if (snapshot.deviceId !in clients || snapshot.isDraft || snapshot.controlling) return
-        scrollRequests.clear()
-        selectionEpoch++
-        mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
-        invalidateReads()
+        beginSelection()
         val id = UUID.randomUUID().toString()
         // A local composer identity survives promotion to the first native session.
         mutableState.value = state.value.copy(
@@ -773,7 +776,10 @@ internal class RemoteViewModel(
     private fun confirmDelivery(owner: String, attempt: RemoteAttempt, fresh: List<RemoteMessageNode> = state.value.nodes) {
         if (state.value.attempts[owner]?.clientId != attempt.clientId) return
         if (state.value.attempts[owner]?.delivery == RemoteDelivery.DELIVERED || state.value.owner != owner) return
-        val message = fresh.firstOrNull { it.role == "user" && it.clientId == attempt.clientId } ?: return
+        // 服务端回执已确认受理；页面里 user 消息的 clientId 恒为 null（Fairy 不回显），
+        // 节点不携带正文，因此回退到按正文长度匹配最新一条用户消息来判定送达。
+        val message = fresh.lastOrNull { it.role == "user" &&
+            (it.clientId == attempt.clientId || it.clientId == null && it.textLength == attempt.text.length) } ?: return
         state.value.attachments[owner].orEmpty().forEach { attachmentStore?.remove(it) }
         mutableState.value = state.value.copy(
             attachments = state.value.attachments - owner,

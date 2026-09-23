@@ -22,7 +22,7 @@ class FiloTimeoutTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.executor = executor
         server.createContext("/") { exchange ->
-            assertEquals("Bearer $token", exchange.requestHeaders.getFirst("Authorization"))
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
             val write = exchange.requestMethod == "POST"
             if (write) posts.incrementAndGet()
             exchange.requestBody.use { it.readBytes() }

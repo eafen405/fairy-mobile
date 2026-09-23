@@ -68,7 +68,7 @@ internal class RemoteConnectionStore(
         json.decodeFromString<List<RemoteConnection>>(file.readText()).map {
             if (!SecretCrypto.isEncrypted(it.token)) throw RemoteStorageException()
             val token = decrypt(it.token)
-            if (!token.matches(Regex("[a-fA-F0-9]{64}"))) throw RemoteStorageException()
+            if (token.isBlank()) throw RemoteStorageException()
             RemoteConnection(it.name, it.address, token, it.viewedTurns)
         }.also { entries ->
             if (entries.map { it.address }.distinct().size != entries.size) throw RemoteStorageException()

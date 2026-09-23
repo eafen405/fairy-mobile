@@ -85,7 +85,7 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
             id = first.groupId ?: first.nativeId ?: first.id, parentId = lastOrNull()?.id,
             text = if (segments == null) userText else answerText.toString(),
             participant = if (first.role == "user") Participant.USER else Participant.MODEL,
-            timestamp = first.timestamp, modelName = "Codex", runId = first.turnId,
+            timestamp = first.timestamp, modelName = "Fairy", runId = first.turnId,
             segments = segments, markdownImages = inlineImages,
             status = if (segments?.any { it.type == "error" } == true) MessageStatus.ERROR else MessageStatus.SUCCESS,
         ))
@@ -103,13 +103,13 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                 "tool" -> MessageStatus.TOOL_CALLING
                 else -> MessageStatus.SENDING
             }
-            set(lastIndex, tail.copy(status = status, modelName = runtime.model ?: "Codex"))
+            set(lastIndex, tail.copy(status = status, modelName = runtime.model ?: "Fairy"))
         } else {
             // Display-only empty assistant uses the existing initial-generation indicator.
             // Its authority is the real native active turn, not an inferred local request.
             add(ChatMessage(id = "remote-active-$turn", parentId = tail?.id, text = "",
                 participant = Participant.MODEL, timestamp = tail?.timestamp ?: 0,
-                modelName = runtime.model ?: "Codex", runId = turn, status = MessageStatus.SENDING))
+                modelName = runtime.model ?: "Fairy", runId = turn, status = MessageStatus.SENDING))
         }
     }
 }

@@ -19,8 +19,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -51,6 +53,8 @@ private data class CreateResult(val id: String, val title: String, val cwd: Stri
 
 @Serializable
 private data class FiloError(val code: String? = null, val error: String? = null)
+@Serializable
+private data class FairyAccount(val username: String, val role: String? = null)
 
 internal class FiloHttpException(val status: Int, val code: String? = null, val detail: String? = null) : IOException("Filo HTTP $status")
 internal class FiloStreamException(val detail: String? = null, val code: String? = null) : IOException("Filo could not read the native session")
@@ -63,10 +67,12 @@ internal fun remoteErrorDetail(error: Exception): String? = when (error) {
 internal fun remoteErrorCode(error: Exception): String? = when (error) {
     is FiloHttpException -> error.code
     is FiloStreamException -> error.code
+    is FiloIncompatibleException -> error.code
     else -> null
 }
 internal class FiloInputException : IllegalArgumentException("Invalid Filo message")
 internal class FiloConfigurationException : IllegalArgumentException("Invalid Filo connection")
+internal class FiloIncompatibleException(val code: String = "incompatible") : IllegalArgumentException("Incompatible Fairy service")
 internal enum class RemoteFailure { NETWORK, AUTHENTICATION, CONFIGURATION, PROTOCOL, SERVICE, STORAGE, SESSION_BUSY, CONTENT_TOO_LARGE, UNKNOWN }
 
 internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (error) {
@@ -75,6 +81,7 @@ internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (erro
     is RemoteAttachmentException -> RemoteFailure.STORAGE
     is com.newoether.agora.util.ConchChannelException -> RemoteFailure.PROTOCOL
     is FiloConfigurationException, is FiloInputException -> RemoteFailure.CONFIGURATION
+    is FiloIncompatibleException -> RemoteFailure.PROTOCOL
     is FiloStreamException -> RemoteFailure.SERVICE
     is FiloHttpException -> when {
         error.status == 409 && error.code == "session_busy" -> RemoteFailure.SESSION_BUSY
@@ -86,39 +93,57 @@ internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (erro
     else -> RemoteFailure.UNKNOWN
 }
 
-/** A dedicated transport: credentials, redirects and retries never enter the provider client. */
+internal const val FAIRY_LOGIN_COOKIE = "fairy_login"
+
+/** A dedicated transport: credentials, redirects and retries never enter the provider client.
+ *  The credential is the `fairy_login` cookie issued by /api/login|register; it is persisted
+ *  by RemoteConnectionStore, and every response's Set-Cookie is re-captured into this client. */
 internal class FiloClient(
-    address: String,
-    private val token: String,
+    origin: String,
+    credential: String = "",
     private val calls: Call.Factory = OkHttpClient.Builder()
         .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false)
-        // Conch closes idle connections at 120s, so pooled ones must expire earlier. Without this
-        // the encrypted path reuses a dead socket and the POST cannot be replayed safely.
         .connectionPool(okhttp3.ConnectionPool(5, 45, TimeUnit.SECONDS))
-        .addInterceptor(com.newoether.agora.util.ConchEncryptedHttp(token))
         .callTimeout(30, TimeUnit.SECONDS).build(),
     mutationTimeoutMillis: Long = 210_000,
 ) {
-    private val endpoint = try { address.trim().toHttpUrl().also {
+    private val base = try { origin.trim().toHttpUrl().also {
         require(it.username.isEmpty() && it.password.isEmpty() && it.query == null &&
             it.fragment == null && it.encodedPath == "/")
-        require(token.matches(Regex("[a-fA-F0-9]{64}")))
     } } catch (_: IllegalArgumentException) { throw FiloConfigurationException() }
-    val address: String get() = endpoint.toString()
+    // 远端 base = {部署 origin}/api/mobile —— v1/* 与服务端命名空间一一对应。
+    private val endpoint: HttpUrl = base.resolve("api/mobile/")
+        ?: throw FiloConfigurationException()
+    val address: String get() = base.toString()
+    @Volatile private var sessionCookie: String? = credential.takeIf { it.isNotBlank() }
+    val sessionCredential: String? get() = sessionCookie
     private val json = Json { ignoreUnknownKeys = true }
     private fun decodeError(text: String): FiloError {
         val error = runCatching { json.decodeFromString<FiloError>(text) }.getOrNull() ?: return FiloError()
-        return error.copy(code = error.code?.takeIf { it.matches(Regex("[a-z][a-z0-9_]{0,63}")) }, error = error.error?.replace(token, "[redacted]")
-            ?.filter { !it.isISOControl() || it == '\n' }?.trim()?.take(2048)?.takeIf { it.isNotBlank() })
+        val credential = sessionCookie
+        return error.copy(code = error.code?.takeIf { it.matches(Regex("[a-z][a-z0-9_]{0,63}")) },
+            error = (if (credential.isNullOrEmpty()) error.error else error.error?.replace(credential, "[redacted]"))
+                ?.filter { !it.isISOControl() || it == '\n' }?.trim()?.take(2048)?.takeIf { it.isNotBlank() })
     }
     private fun httpError(response: Response, text: String = response.body.source().readRemoteResponse()): FiloHttpException {
         val error = decodeError(text)
         return FiloHttpException(response.code, error.code, error.error)
     }
+    private fun captureCookies(response: Response) {
+        for (header in response.headers("Set-Cookie")) {
+            val pair = header.substringBefore(';').split('=', limit = 2)
+            if (pair.size == 2 && pair[0].trim() == FAIRY_LOGIN_COOKIE) {
+                sessionCookie = pair[1].trim().takeIf { it.isNotEmpty() }
+            }
+        }
+    }
+    private fun Request.Builder.authorize(): Request.Builder = apply {
+        sessionCookie?.let { header("Cookie", "$FAIRY_LOGIN_COOKIE=$it") }
+    }
     // A server can close an idle pooled connection just before its next use. GETs can
     // recover on a fresh connection; native mutations keep the non-retrying transport.
     private val readCalls: Call.Factory = (calls as? OkHttpClient)?.newBuilder()
-        ?.retryOnConnectionFailure(calls.interceptors.none { it is com.newoether.agora.util.ConchEncryptedHttp })?.build() ?: calls
+        ?.retryOnConnectionFailure(true)?.build() ?: calls
     // Filo allows 180 seconds for cold executor readiness and native mutation acknowledgement.
     // Both the socket read and whole-call deadline must outlive that inner operation.
     private val mutationCalls: Call.Factory = (calls as? OkHttpClient)?.newBuilder()
@@ -128,11 +153,31 @@ internal class FiloClient(
 
     suspend fun connect(): String {
         val info = json.decodeFromString<FiloInfo>(request("v1/info"))
-        require(info.protocolVersion == 2 && info.agent == "codex" &&
-            info.sessionMode == "existing" && info.messageDelivery == "native-steer" &&
-            info.outputMode == "live-messages" && info.supportsLazyMessages) { "Incompatible Filo service" }
+        if (info.protocolVersion != 2 || info.agent != "fairy" ||
+            info.sessionMode != "existing" || info.messageDelivery != "native-steer" ||
+            info.outputMode != "live-messages" || !info.supportsLazyMessages) throw FiloIncompatibleException()
         return info.device
     }
+
+    suspend fun login(username: String, password: String): String = authenticate("api/login",
+        json.encodeToString(mapOf("username" to username, "password" to password)))
+
+    suspend fun register(username: String, password: String, invite: String): String = authenticate("api/register",
+        json.encodeToString(mapOf("username" to username, "password" to password, "invite" to invite)))
+
+    private suspend fun authenticate(path: String, body: String): String {
+        val account = json.decodeFromString<FairyAccount>(request(path, base = base, body = body))
+        if (sessionCookie.isNullOrEmpty()) throw FiloConfigurationException()
+        return account.username
+    }
+
+    suspend fun logout() {
+        runCatching { request("api/logout", base = base, body = "{}") }
+        sessionCookie = null
+    }
+
+    suspend fun me(): String =
+        json.decodeFromString<FairyAccount>(request("api/me", base = base)).username
 
     suspend fun sessions(cursor: String? = null): RemoteSessionPage = withContext(Dispatchers.Default) {
         val page = json.decodeFromString<RemoteSessionPage>(request("v1/sessions", cursor))
@@ -151,7 +196,7 @@ internal class FiloClient(
     ): com.newoether.agora.model.ToolImageAttachment = suspendCancellableCoroutine { continuation ->
         val url = endpoint.newBuilder().addPathSegments("v1/sessions/${sessionId(id)}/image")
             .addQueryParameter("messages", json.encodeToString(listOf(requested))).build()
-        val call = readCalls.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build())
+        val call = readCalls.newCall(Request.Builder().url(url).authorize().build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -160,6 +205,7 @@ internal class FiloClient(
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
+                        captureCookies(it)
                         if (!it.isSuccessful) throw httpError(it)
                         if (it.body.contentLength() > com.newoether.agora.tool.ToolImageStore.MAX_IMAGE_BYTES)
                             throw RemoteContentLimitException()
@@ -191,7 +237,7 @@ internal class FiloClient(
         val request = Request.Builder().url(endpoint.newBuilder()
             .addPathSegments("v1/sessions/${sessionId(id)}/events")
             .apply { view?.let { addQueryParameter("view", it) } }.build())
-            .header("Authorization", "Bearer $token").build()
+            .authorize().build()
         val call = readCalls.newCall(request)
         call.timeout().clearTimeout()
         call.enqueue(object : Callback {
@@ -199,6 +245,7 @@ internal class FiloClient(
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
+                        captureCookies(it)
                         if (!it.isSuccessful) throw httpError(it)
                         val source = it.body.source()
                         var errorEvent = false
@@ -292,14 +339,15 @@ internal class FiloClient(
         path: String, cursor: String? = null, body: String? = null, includeActivity: Boolean = false,
         includeMetadata: Boolean = false,
         uploadBody: okhttp3.RequestBody? = null, method: String? = null,
+        base: HttpUrl = endpoint,
     ): String =
         suspendCancellableCoroutine { continuation ->
-            val url = requireNotNull(endpoint.resolve(path)).newBuilder().apply {
+            val url = requireNotNull(base.resolve(path)).newBuilder().apply {
                 cursor?.let { addQueryParameter("cursor", it) }
                 if (includeActivity) addQueryParameter("includeActivity", "true")
                 if (includeMetadata) addQueryParameter("includeMetadata", "true")
             }.build()
-            val request = Request.Builder().url(url).header("Authorization", "Bearer $token")
+            val request = Request.Builder().url(url).authorize()
                 .apply {
                     val payload = uploadBody ?: body?.toRequestBody("application/json".toMediaType())
                     if (payload != null) method(method ?: "POST", payload)
@@ -313,6 +361,7 @@ internal class FiloClient(
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         try {
+                            captureCookies(it)
                             val text = it.body.source().readRemoteResponse()
                             if (!it.isSuccessful) throw httpError(it, text)
                             if (!continuation.isCancelled) continuation.resume(text)

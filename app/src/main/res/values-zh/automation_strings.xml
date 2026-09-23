@@ -63,7 +63,7 @@
     <string name="loop_next_in">下次 %1$s 后</string>
     <string name="loop_cycle">第 %1$d/%2$d 轮</string>
     <string name="loop_stop">停止循环</string>
-    <string name="automation_notification_channel_desc">Agora 自动化运行时显示的常驻通知</string>
+    <string name="automation_notification_channel_desc">Fairy 自动化运行时显示的常驻通知</string>
 
     <string name="settings_automation">自动化</string>
     <string name="settings_automation_desc">任务、会话循环与调度精度</string>

@@ -26,7 +26,11 @@ internal abstract class RemoteViewModelFixture {
         Dispatchers.setMain(dispatcher)
         coEvery { connections.load() } returns emptyList()
         every { client.address } returns "http://computer/"
-        coEvery { client.connect() } returns "Computer"
+        every { client.sessionCredential } returns "cookie-value"
+        coEvery { client.login(any(), any()) } returns "user"
+        coEvery { client.register(any(), any(), any()) } returns "user"
+        coEvery { client.logout() } returns Unit
+        coEvery { client.connect() } returns "fairy"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
         coEvery { client.conversation(any(), any()) } returns bodyPage(emptyList(), null, emptyList())
         coEvery { client.models() } returns listOf(RemoteModel("model", "Model", true))
@@ -34,15 +38,15 @@ internal abstract class RemoteViewModelFixture {
             val id = firstArg<String>()
             flow {
                 val page = client.conversation(id)
-                emit(page.copy(runtime = page.runtime ?: RemoteRuntime("idle", model = "model")))
+                emit(page.copy(runtime = page.runtime ?: RemoteRuntime("idle", model = "fairy")))
                 awaitCancellation()
             }
         }
     }
     @After fun tearDown() { Dispatchers.resetMain() }
 
-    protected fun TestScope.saveAndSelect(vm: RemoteViewModel) {
-        vm.saveDevice("http://computer/", "token"); runCurrent()
-        vm.selectDevice("http://computer/"); runCurrent()
+    protected fun TestScope.loginAndSelect(vm: RemoteViewModel) {
+        vm.setVisible(true)
+        vm.login("http://computer/", "user", "pass"); runCurrent()
     }
 }
