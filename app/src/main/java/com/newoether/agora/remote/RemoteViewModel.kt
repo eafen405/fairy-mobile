@@ -99,6 +99,7 @@ internal class RemoteViewModel(
 
     private fun trace(stage: String, error: Exception? = null, notify: Boolean = true): RemoteFailure? {
         val failure = error?.let(::classifyRemoteFailure)
+        if (failure == RemoteFailure.AUTHENTICATION) expireAuthentication()
         if (failure != null && notify) noticeChannel.trySend(RemoteNotice(stage, failure, selectionEpoch, remoteErrorDetail(error), remoteErrorCode(error)))
         val suffix = if (failure == null) "" else ".${failure.name}.${error.javaClass.simpleName}"
         // Preserve the existing privacy wrapper and diagnostic logging preferences.
@@ -151,8 +152,23 @@ internal class RemoteViewModel(
             editedDeviceId = id, storageError = false, failure = null, lastKnownModel = null)
     }
 
-    fun saveDevice(address: String, token: String, name: String? = null) =
-        deviceDirectory.saveDevice(address, token, name)
+    fun login(origin: String, username: String, password: String, invite: String? = null) =
+        deviceDirectory.login(origin, username, password, invite)
+
+    fun logout() {
+        val id = state.value.deviceId ?: return
+        val client = clients[id]
+        viewModelScope.launch {
+            if (client != null) runCatching { client.logout() }
+            deviceDirectory.expireConnection(id)
+        }
+    }
+
+    private fun expireAuthentication() {
+        if (state.value.addingDevice || state.value.restoring) return
+        val id = state.value.deviceId ?: clients.keys.singleOrNull() ?: return
+        deviceDirectory.expireConnection(id)
+    }
 
     fun removeDevice(id: String) = deviceDirectory.removeDevice(id)
 
@@ -215,7 +231,9 @@ internal class RemoteViewModel(
         invalidateReads()
         val id = state.value.deviceId
         if (id == null) {
-            clients.keys.forEach(::checkDevice)
+            // 单账户形态：恢复出的唯一连接直接选中，不经过设备列表。
+            val only = clients.keys.firstOrNull()
+            if (only != null) selectDevice(only) else clients.keys.forEach(::checkDevice)
             return
         }
         val client = clients[id] ?: return
@@ -254,6 +272,12 @@ internal class RemoteViewModel(
                     if (session == null) {
                         val page = client.sessions()
                         if (generation != epoch) return@launch
+                        // 仅主会话单面：服务端返回单项即直接进入会话页，无会话目录。
+                        val first = page.sessions.firstOrNull()
+                        if (first != null) {
+                            selectSession(first)
+                            return@launch
+                        }
                         mutableState.value = state.value.copy(
                             sessions = page.sessions, sessionCursor = page.nextCursor,
                             sessionStatuses = mergeListedSessionStatuses(id, page),

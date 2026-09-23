@@ -1,55 +1,39 @@
 package com.newoether.agora
-import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalAccessibilityManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.data.SettingsManager
-import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
-import com.newoether.agora.ui.chat.ChatApp
 import com.newoether.agora.ui.chat.FullScreenMediaPreviewDialog
 import com.newoether.agora.ui.chat.MediaPreviewTarget
-import com.newoether.agora.ui.onboarding.WelcomeScreen
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.ProvideAgoraMotionPolicy
-import com.newoether.agora.ui.settings.SettingsScreen
-import com.newoether.agora.ui.tasks.TaskEditorSessionViewModel
-import com.newoether.agora.ui.tasks.TaskHistoryPreviewPhase
 import com.newoether.agora.ui.theme.AgoraTheme
 import com.newoether.agora.util.snackbarTimeoutMillis
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -60,10 +44,7 @@ private fun fullScreenPreviewEnterTransition(allowSpatialTransitions: Boolean): 
 private fun fullScreenPreviewExitTransition(allowSpatialTransitions: Boolean): ExitTransition = fadeOut(tween(durationMillis = 180)) + (if (allowSpatialTransitions) scaleOut(tween(durationMillis = 220, easing = FastOutLinearInEasing), targetScale = 0.96f) else ExitTransition.None)
 class MainActivity : ComponentActivity() {
 
-    private val notificationConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
-
     companion object {
-        const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
         const val EXTRA_SCREENSHOT_DESTINATION = "com.newoether.agora.extra.SCREENSHOT_DESTINATION"
     }
 
@@ -101,7 +82,6 @@ class MainActivity : ComponentActivity() {
         var startupReady = false
         splashScreen.setKeepOnScreenCondition { !startupReady }
         super.onCreate(savedInstanceState)
-        handleNavigationIntent(intent)
 
         com.newoether.agora.util.DebugLog.init(this)
 
@@ -214,45 +194,17 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    var showOnboarding by remember { mutableStateOf<Boolean?>(null) }
-                    val onboardingScope = rememberCoroutineScope()
-
-                    LaunchedEffect(Unit) {
-                        showOnboarding = !settingsManager.onboardingCompleted.first()
-                    }
-
                     // Create ViewModel via the process-scoped DI container (owned by AgoraApplication),
                     // so the same shared singletons back both the UI and background task execution.
                     val container = agoraApplication.requireContainer()
                     val factory = remember { container.chatViewModelFactory() }
                     val viewModel: ChatViewModel = viewModel(factory = factory)
 
-                    when (showOnboarding) {
-                        null -> { /* loading — splash screen covers this */ }
-                        true -> {
-                            WelcomeScreen(
-                                onComplete = {
-                                    onboardingScope.launch {
-                                        settingsManager.saveOnboardingCompleted(true)
-                                    }
-                                    showOnboarding = false
-                                },
-                                isDarkTheme = isDark,
-                                viewModel = viewModel
-                            )
-                        }
-                        false -> {
-                            MainNavigation(
-                                viewModel = viewModel,
-                                settingsManager = settingsManager,
-                                notificationConversationId = notificationConversationId,
-                                onNotificationConversationConsumed = { expectedId ->
-                                    consumeNotificationTarget(notificationConversationId, expectedId)
-                                },
-                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
-                            )
-                        }
-                    }
+                    MainNavigation(
+                        viewModel = viewModel,
+                        settingsManager = settingsManager,
+                        screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
+                    )
                 }
             }
             }
@@ -271,19 +223,6 @@ class MainActivity : ComponentActivity() {
         AppForegroundTracker.setInForeground(false)
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleNavigationIntent(intent)
-    }
-
-    private fun handleNavigationIntent(intent: Intent?) {
-        notificationConversationId.value = intent?.getStringExtra(EXTRA_CONVERSATION_ID)
-            ?.takeIf { it.isNotBlank() }
-            ?: intent?.data?.takeIf { uri ->
-                uri.scheme == "agora" && uri.host == "conversation"
-            }?.lastPathSegment?.takeIf { it.isNotBlank() }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -291,92 +230,10 @@ class MainActivity : ComponentActivity() {
 fun MainNavigation(
     viewModel: ChatViewModel,
     settingsManager: SettingsManager,
-    notificationConversationId: kotlinx.coroutines.flow.StateFlow<String?>,
-    onNotificationConversationConsumed: (String) -> Unit,
     screenshotDestination: String? = null,
 ) {
-    val appContext = LocalContext.current.applicationContext
+    val activity = LocalActivity.current
     val motionPolicy = LocalAgoraMotionPolicy.current
-    val shouldRequestNotificationPermission =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        appContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-        PackageManager.PERMISSION_GRANTED
-    var initialComposerFocusReady by remember {
-        mutableStateOf(screenshotDestination == null && !shouldRequestNotificationPermission)
-    }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) {
-        initialComposerFocusReady = true
-    }
-    LaunchedEffect(Unit) {
-        AgoraForegroundService.createChannels(appContext)
-        if (shouldRequestNotificationPermission) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-    var showSettings by rememberSaveable {
-        mutableStateOf(screenshotDestination?.startsWith("settings") == true)
-    }
-    var showScreenshotSettings by rememberSaveable(screenshotDestination) {
-        mutableStateOf(screenshotDestination?.startsWith("settings") == true)
-    }
-    LaunchedEffect(screenshotDestination) {
-        if (screenshotDestination?.startsWith("settings") == true) {
-            showSettings = true
-            showScreenshotSettings = true
-        }
-    }
-    var showTasks by rememberSaveable { mutableStateOf(false) }
-    var showRemote by rememberSaveable { mutableStateOf(false) }
-    val topLevelPresentation = remember {
-        TopLevelPresentationState(
-            initialOwner = when {
-                showRemote -> TopLevelPresentation.REMOTE
-                showTasks -> TopLevelPresentation.TASKS
-                showSettings -> TopLevelPresentation.SETTINGS
-                else -> TopLevelPresentation.CHAT
-            },
-            onOwnerChanged = { owner ->
-                AppForegroundTracker.setChatPresented(owner == TopLevelPresentation.CHAT)
-            },
-        )
-    }
-    val tasksListState = rememberLazyListState()
-    val taskEditorSession: TaskEditorSessionViewModel = viewModel()
-    var taskToOpen by remember { mutableStateOf<String?>(null) }
-    val taskHistoryPreview = taskEditorSession.historyPreview
-    val currentConversationId by viewModel.currentConversationId.collectAsState()
-    val isNewChatMode by viewModel.isNewChatMode.collectAsState()
-    val isConversationSwitching by viewModel.isSwitching.collectAsState()
-    com.newoether.agora.ui.tasks.TaskHistoryDestinationEffect(
-        editorSession = taskEditorSession,
-        currentConversationId = currentConversationId,
-        isNewChatMode = isNewChatMode,
-        isSwitching = isConversationSwitching,
-    )
-    val notificationTarget by notificationConversationId.collectAsState()
-    LaunchedEffect(notificationTarget) {
-        val id = notificationTarget ?: return@LaunchedEffect
-        try {
-            val exists = withContext(Dispatchers.IO) {
-                (appContext as AgoraApplication).requireContainer().conversationRepository
-                    .getConversation(id) != null
-            }
-            if (exists) {
-                showSettings = false
-                showRemote = false
-                showTasks = false
-                taskToOpen = null
-                taskEditorSession.clear()
-                viewModel.selectConversation(id)
-            }
-        } finally {
-            // A newer notification may have replaced [id] while this effect was suspended.
-            // Only consume the event this effect actually handled.
-            onNotificationConversationConsumed(id)
-        }
-    }
     var mediaPreviewTarget by remember { mutableStateOf<MediaPreviewTarget?>(null) }
     var pdfViewerSelection by remember { mutableStateOf(setOf<Int>()) }
     val onTogglePdfSelection: (Int) -> Unit = { page ->
@@ -392,14 +249,12 @@ fun MainNavigation(
     val snackbarVersionState = remember { mutableIntStateOf(0) }
     var snackbarVersion by snackbarVersionState
     val accessibilityManager = LocalAccessibilityManager.current
-    var chatSnackbarOffset by remember { mutableStateOf(0.dp) }
     var remoteSnackbarOffset by remember { mutableStateOf(0.dp) }
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // Full-screen media viewer (and settings) drop the snackbar to the bottom (nav-bar inset only);
-    // in chat it floats above the bottom bar. The animateDpAsState below turns the change into a
-    // rise/fall animation as the viewer opens/closes.
-    val targetSnackbarPadding = if (showSettings || mediaPreviewTarget != null) navBarPadding
-        else if (showRemote) remoteSnackbarOffset else chatSnackbarOffset
+    // Full-screen media viewer drops the snackbar to the bottom (nav-bar inset only);
+    // in chat it floats above the bottom bar. The animateDpAsState below turns the change
+    // into a rise/fall animation as the viewer opens/closes.
+    val targetSnackbarPadding = if (mediaPreviewTarget != null) navBarPadding else remoteSnackbarOffset
     val snackbarBottomPadding by animateDpAsState(
         targetValue = targetSnackbarPadding,
         animationSpec = if (motionPolicy.allowSpatialTransitions) {
@@ -410,6 +265,9 @@ fun MainNavigation(
         label = "snackbarPadding"
     )
     val focusManager = LocalFocusManager.current
+    val topLevelPresentation = remember {
+        TopLevelPresentationState(initialOwner = TopLevelPresentation.REMOTE)
+    }
     val openMediaPreview: (List<String>, Int) -> Unit = { urls, index ->
         focusManager.clearFocus()
         mediaPreviewTarget = MediaPreviewTarget(urls, index)
@@ -421,8 +279,6 @@ fun MainNavigation(
         snackbarHostState = snackbarHostState,
         snackbarVersionState = snackbarVersionState,
     )
-
-    val customProviders by viewModel.settings.customProviders.collectAsState()
 
     // Sandbox outcomes are buffered by their manager and displayed in production order.
     LaunchedEffect(Unit) {
@@ -459,157 +315,21 @@ fun MainNavigation(
             }
         }
     }
-    
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            ChatApp(
-                viewModel = viewModel,
-                initialComposerFocusReady = initialComposerFocusReady,
-                onNavigateBack = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
-                    ?.let { taskId ->
-                        {
-                            taskToOpen = taskId
-                            taskEditorSession.requestHistoryReturn()
-                            taskEditorSession.beginHistoryReturnRestore { restore, onRestoreFailure ->
-                                if (restore.originWasNewChat) {
-                                    viewModel.restoreNewChatDestination(onRestoreFailure)
-                                } else {
-                                    restore.originConversationId?.let { origin ->
-                                        viewModel.restoreConversationDestination(origin, onRestoreFailure)
-                                    }
-                                }
-                            }
-                            topLevelPresentation.present(TopLevelPresentation.TASKS)
-                            showTasks = true
-                        }
-                    },
-                drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
-                openDrawerOnStart = screenshotDestination == "drawer",
-                initialScrollToTop = screenshotDestination == "chat",
-                onOpenSettings = {
-                    topLevelPresentation.present(TopLevelPresentation.SETTINGS)
-                    showSettings = true
-                },
-                onOpenRemote = {
-                    topLevelPresentation.present(TopLevelPresentation.REMOTE)
-                    showRemote = true
-                },
-                onOpenTasks = { taskId ->
-                    taskToOpen = taskId
-                    topLevelPresentation.present(TopLevelPresentation.TASKS)
-                    showTasks = true
-                },
-                onMediaClick = openMediaPreview,
-                onFileContentClick = { name, content ->
-                    focusManager.clearFocus()
-                    topLevelPresentation.present(TopLevelPresentation.TEXT_PREVIEW)
-                    viewModel.mediaPreview.showFile(name, content)
-                },
-                onPdfPagesClick = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = false
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                onPdfPreviewSelect = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = true
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                pdfViewerSelection = pdfViewerSelection,
-                onTogglePdfSelection = onTogglePdfSelection,
-                onInitPdfSelection = onInitPdfSelection,
-                fullScreenViewerUrls = mediaPreviewTarget?.urls,
-                topLevelPresentation = topLevelPresentation.owner,
-                onSnackbarOffsetChanged = { chatSnackbarOffset = it }
-            )
-
             com.newoether.agora.ui.remote.RemoteOverlay(
-                visible = showRemote, settings = viewModel.settings,
-                hapticsActive = topLevelPresentation.owner == TopLevelPresentation.REMOTE,
-                onDismiss = { showRemote = false },
-                onExitFinished = { topLevelPresentation.release(TopLevelPresentation.REMOTE) },
+                visible = true, settings = viewModel.settings,
+                hapticsActive = true,
+                onDismiss = { activity?.finish() },
+                onExitFinished = {},
                 onMessage = viewModel::emitSnackbar,
                 onSnackbarOffsetChanged = { remoteSnackbarOffset = it },
                 onMediaClick = openMediaPreview,
             )
-
-            SettingsOverlayHost(
-                visible = showSettings && screenshotDestination?.startsWith("settings") != true,
-                onDismiss = { showSettings = false },
-                onExitFinished = {
-                    topLevelPresentation.release(TopLevelPresentation.SETTINGS)
-                },
-            ) {
-                SettingsScreen(
-                    viewModel = viewModel,
-                    onBack = {
-                        showSettings = false
-                    },
-                    initialCategory = screenshotDestination
-                        ?.substringAfter("settings:", "")
-                        ?.ifBlank { null },
-                )
-            }
-
-            if (showScreenshotSettings && screenshotDestination?.startsWith("settings") == true) {
-                Surface(
-                    modifier = Modifier.fillMaxSize().zIndex(2f),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    SettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { showScreenshotSettings = false },
-                        initialCategory = screenshotDestination
-                            .substringAfter("settings:", "")
-                            .ifBlank { null },
-                    )
-                }
-            }
-            SettingsOverlayHost(
-                visible = showTasks,
-                onDismiss = {
-                    taskEditorSession.clear()
-                    showTasks = false
-                },
-                onExitFinished = {
-                    topLevelPresentation.release(TopLevelPresentation.TASKS)
-                },
-                onEnterFinished = {
-                    val preview = taskEditorSession.historyPreview
-                    if (preview.phase == TaskHistoryPreviewPhase.RETURNING) {
-                        taskEditorSession.markHistoryReturnOverlayCovered(preview.generation)
-                    }
-                },
-            ) {
-                com.newoether.agora.ui.tasks.TasksScreen(
-                    viewModel = viewModel,
-                    editorSession = taskEditorSession,
-                    taskListState = tasksListState,
-                    backHandlingEnabled = showTasks,
-                    initialTaskId = taskToOpen,
-                    onInitialTaskHandled = { taskToOpen = null },
-                    onBack = {
-                        taskEditorSession.clear()
-                        showTasks = false
-                    },
-                    onOpenConversation = { conversationId ->
-                        taskEditorSession.openHistory(
-                            previewConversationId = conversationId,
-                            currentConversationId = currentConversationId,
-                            isNewChatMode = isNewChatMode,
-                        )
-                        showTasks = false
-                        viewModel.selectConversation(conversationId)
-                    }
-                )
-            }
 
             // A dedicated dialog gives the media viewer its own window above source sheets.
             FullScreenMediaPreviewDialog(
@@ -733,8 +453,3 @@ fun MainNavigation(
         }
     }
 }
-
-internal fun consumeNotificationTarget(
-    target: kotlinx.coroutines.flow.MutableStateFlow<String?>,
-    expectedId: String,
-): Boolean = target.compareAndSet(expectedId, null)

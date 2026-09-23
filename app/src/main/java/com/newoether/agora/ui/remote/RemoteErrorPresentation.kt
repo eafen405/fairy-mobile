@@ -8,7 +8,11 @@ import com.newoether.agora.remote.RemoteNotice
 /** Stable wire codes select local resources. Native diagnostic text stays in the notice. */
 internal fun remoteNoticeMessage(context: Context, notice: RemoteNotice): String {
     val resource = when (notice.code) {
-        "authentication_failed" -> R.string.remote_auth_failed
+        "authentication_failed", "unauthorized" -> R.string.remote_auth_failed
+        "empty_message" -> R.string.remote_empty_message
+        "attachments_unsupported" -> R.string.remote_attachments_unsupported
+        "post_failed" -> R.string.remote_failed
+        "flush_failed" -> R.string.remote_network_failed
         "invalid_request" -> R.string.remote_invalid_request
         "not_found" -> R.string.remote_not_found
         "not_supported" -> R.string.remote_not_supported

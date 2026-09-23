@@ -63,41 +63,35 @@ internal class RemoteDeviceDirectory(
 
     fun editorConnection(): RemoteConnection? = configurations[state.value.editedDeviceId]
 
-    fun saveDevice(address: String, token: String, name: String? = null) {
+    fun login(origin: String, username: String, password: String, invite: String? = null) {
         if (state.value.saving || state.value.restoring) return
         val generation = selectionEpoch()
-        val previous = state.value.editedDeviceId
         mutableState.value = state.value.copy(saving = true, failure = null, storageError = false)
         report("save_started", null)
         storing = scope.launch {
             try {
-                val client = createClient(address, token.trim())
+                val client = createClient(origin, "")
+                val name = if (invite == null) client.login(username, password)
+                    else client.register(username, password, invite)
+                client.connect()
                 val id = client.address
-                if (previous != null && previous != id && id in mutableClients) throw FiloConfigurationException()
-                val savedName = name?.trim()
-                    ?: state.value.devices.firstOrNull { it.id == (previous ?: id) }?.name.orEmpty()
-                val connection = RemoteConnection(savedName, id, token.trim())
-                connections.save(connection, previous)
-                val replaced = previous ?: id
-                checks.remove(replaced)?.cancel()
-                mutableClients.remove(replaced)
-                configurations.remove(replaced)
+                for (stale in configurations.keys) connections.remove(stale)
+                val credential = client.sessionCredential ?: throw FiloConfigurationException()
+                val connection = RemoteConnection(name, id, credential)
+                connections.save(connection)
+                checks.values.forEach { it.cancel() }
+                checks.clear()
+                mutableClients.clear()
+                configurations.clear()
                 mutableClients[id] = client
                 configurations[id] = connection
-                val device = RemoteDevice(id, savedName, client.address)
-                val devices = state.value.devices
                 mutableState.value = state.value.copy(
-                    devices = if (devices.any { it.id == replaced }) {
-                        devices.map { if (it.id == replaced) device else it }
-                    } else devices + device,
-                    drafts = state.value.drafts.filterKeys { replaced == id || !it.startsWith("$replaced/") },
-                    attempts = state.value.attempts.filterKeys { replaced == id || !it.startsWith("$replaced/") },
-                    sessionOwners = state.value.sessionOwners.filterKeys { replaced == id || !it.startsWith("$replaced/") },
-                    sessionStatuses = state.value.sessionStatuses.filterKeys { !it.startsWith("$replaced/") },
+                    devices = listOf(RemoteDevice(id, name, id)),
+                    drafts = emptyMap(), attempts = emptyMap(),
+                    sessionOwners = emptyMap(), sessionStatuses = emptyMap(),
                 )
                 // Saving an explicitly submitted connection must not undo a later Back/navigation.
-                if (generation == selectionEpoch()) selectDevice(null)
-                checkDevice(id)
+                if (generation == selectionEpoch()) selectDevice(id)
                 report("saved", null)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: RemoteStorageException) {
@@ -111,6 +105,22 @@ internal class RemoteDeviceDirectory(
             }
             finally { mutableState.value = state.value.copy(saving = false) }
         }
+    }
+
+    fun expireConnection(id: String) {
+        checks.remove(id)?.cancel()
+        mutableClients.remove(id)
+        scope.launch { runCatching { connections.remove(id) } }
+        mutableState.value = state.value.copy(
+            devices = state.value.devices.filterNot { it.id == id },
+            drafts = state.value.drafts.filterKeys { !it.startsWith("$id/") },
+            attempts = state.value.attempts.filterKeys { !it.startsWith("$id/") },
+            sessionOwners = state.value.sessionOwners.filterKeys { !it.startsWith("$id/") },
+            sessionStatuses = state.value.sessionStatuses.filterKeys { !it.startsWith("$id/") },
+        )
+        selectDevice(null)
+        // The record stays in `configurations` so the login form can prefill origin/username.
+        mutableState.value = state.value.copy(addingDevice = true, editedDeviceId = id)
     }
 
     fun removeDevice(id: String) {

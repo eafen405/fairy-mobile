@@ -95,7 +95,7 @@ internal fun ChatTopBar(
     onSystemPromptClick: () -> Unit,
     onForkConversation: () -> Unit = {},
     onShareConversation: () -> Unit = {},
-    onNewChat: () -> Unit,
+    onNewChat: (() -> Unit)? = null,
     trailingActions: (@Composable RowScope.() -> Unit)? = null,
     newChatEnabled: Boolean = true,
     newChatDescription: String? = null,
@@ -487,7 +487,7 @@ internal fun ChatTopBar(
                     ) {
                         Spacer(modifier = Modifier.width(5.dp))
                         if (trailingActions != null) trailingActions() else {
-                        IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(44.dp)) {
+                        if (onNewChat != null) IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(44.dp)) {
                             Icon(Icons.Default.Add, contentDescription = newChatDescription ?: stringResource(R.string.new_chat), modifier = Modifier.size(30.dp))
                         }
                         Box {
