@@ -63,7 +63,7 @@
     <string name="loop_next_in">%1$s 後再次執行</string>
     <string name="loop_cycle">循環 %1$d/%2$d</string>
     <string name="loop_stop">停止迴圈</string>
-    <string name="automation_notification_channel_desc">Agora 自動化執行時顯示的常駐通知</string>
+    <string name="automation_notification_channel_desc">Fairy 自動化執行時顯示的常駐通知</string>
     <string name="settings_automation">自動化</string>
     <string name="settings_automation_desc">任務、對話迴圈與排程精度</string>
     <string name="automation_ai_tools">存取任務與迴圈</string>
