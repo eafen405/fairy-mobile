@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy がメッセージを受け付けませんでした。再試行する前にエラーの詳細を確認してください。</string>
     <string name="remote_storage_failed">Fairy がリモート用のローカルデータにアクセスできません。空き容量を確認してください。</string>
     <string name="remote_network_failed">Fairy に接続できません。接続先のパソコン、サービスのアドレス、ネットワークを確認してください。</string>
-    <string name="remote_auth_failed">Fairy がアクセストークンを拒否しました。接続先のパソコンのトークンを使用してください。</string>
-    <string name="remote_configuration_failed">有効なサービス URL と 64 文字のアクセストークンを入力してください。</string>
+    <string name="remote_auth_failed">Fairy サーバーがサインインを拒否しました。ユーザー名とパスワードを確認して、もう一度サインインしてください。</string>
+    <string name="remote_configuration_failed">有効な Fairy サービス URL を入力してください。</string>
     <string name="remote_protocol_failed">Fairy が Fairy の応答を検証または読み取りできません。両方のアプリが最新か確認してください。</string>
     <string name="remote_service_failed">Fairy がリクエストを完了できませんでした。</string>
     <string name="remote_save_failed">Fairy がデバイスを保存できませんでした。空き容量を確認して保存し直してください。</string>

@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy 未接受這則訊息，請查看錯誤詳情後再嘗試。</string>
     <string name="remote_storage_failed">Fairy 無法存取本機遠端資料，請檢查剩餘儲存空間。</string>
     <string name="remote_network_failed">無法連線至 Fairy，請檢查目標電腦、服務位址和網路。</string>
-    <string name="remote_auth_failed">Fairy 拒絕了存取權杖，請使用目標電腦上的權杖。</string>
-    <string name="remote_configuration_failed">請輸入有效的服務 URL 和 64 字元存取權杖。</string>
+    <string name="remote_auth_failed">Fairy 伺服器拒絕了登入，請確認使用者名稱與密碼後重新登入。</string>
+    <string name="remote_configuration_failed">請輸入有效的 Fairy 服務 URL。</string>
     <string name="remote_protocol_failed">Fairy 無法驗證或讀取 Fairy 的回應，請檢查兩端應用程式是否已更新。</string>
     <string name="remote_service_failed">Fairy 未能完成請求。</string>
     <string name="remote_save_failed">Fairy 未能儲存裝置，請檢查儲存空間後重新儲存。</string>

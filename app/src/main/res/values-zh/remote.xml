@@ -4,7 +4,6 @@
     <string name="remote_devices">设备</string>
     <string name="remote_connect">连接</string>
     <string name="remote_address">服务地址</string>
-    <string name="remote_token">访问令牌</string>
     <string name="remote_connection_hint">输入 Fairy 服务地址。</string>
     <string name="remote_sessions">会话</string>
     <string name="remote_empty">未找到已有会话</string>
@@ -35,7 +34,6 @@
     <string name="remote_logout">退出登录</string>
     <string name="remote_empty_message">消息不能为空</string>
     <string name="remote_attachments_unsupported">该服务不支持附件</string>
-    <string name="remote_token_placeholder">0123456789abcdef…</string>
     <string name="remote_online">在线</string>
     <string name="remote_offline">离线</string>
     <string name="remote_connecting">连接中</string>

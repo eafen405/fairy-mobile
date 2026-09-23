@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy no aceptó el mensaje. Consulta el error antes de intentarlo de nuevo.</string>
     <string name="remote_storage_failed">Fairy no puede acceder a los datos remotos locales. Comprueba el espacio disponible.</string>
     <string name="remote_network_failed">No se puede conectar con Fairy. Comprueba el equipo de destino, la dirección y la red.</string>
-    <string name="remote_auth_failed">Fairy rechazó el token de acceso. Usa el token del equipo de destino.</string>
-    <string name="remote_configuration_failed">Introduce una URL de servicio válida y un token de acceso de 64 caracteres.</string>
+    <string name="remote_auth_failed">El servidor Fairy rechazó el inicio de sesión. Comprueba tu usuario y contraseña e inicia sesión de nuevo.</string>
+    <string name="remote_configuration_failed">Introduce una URL de servicio de Fairy válida.</string>
     <string name="remote_protocol_failed">Fairy no puede verificar o leer la respuesta de Fairy. Comprueba que ambas apps estén actualizadas.</string>
     <string name="remote_service_failed">Fairy no pudo completar la solicitud.</string>
     <string name="remote_save_failed">Fairy no pudo guardar el dispositivo. Comprueba el espacio y vuelve a guardar.</string>

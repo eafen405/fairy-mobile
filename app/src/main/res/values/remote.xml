@@ -4,7 +4,6 @@
     <string name="remote_devices">Devices</string>
     <string name="remote_connect">Connect</string>
     <string name="remote_address">Service URL</string>
-    <string name="remote_token">Access token</string>
     <string name="remote_connection_hint">Enter the Fairy service address.</string>
     <string name="remote_sessions">Sessions</string>
     <string name="remote_empty">No existing sessions found</string>
@@ -24,7 +23,6 @@
     <string name="remote_new_session_unavailable">New Session — unavailable on this host</string>
     <string name="remote_model_unavailable">Model Unavailable</string>
     <string name="remote_address_placeholder">https://fairy.example.com</string>
-    <string name="remote_token_placeholder">0123456789abcdef…</string>
     <string name="remote_online">Online</string>
     <string name="remote_offline">Offline</string>
     <string name="remote_connecting">Connecting</string>

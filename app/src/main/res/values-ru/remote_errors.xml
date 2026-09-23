@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy не принял сообщение. Перед новой попыткой проверьте сведения об ошибке.</string>
     <string name="remote_storage_failed">Fairy не может открыть локальные данные Remote. Проверьте свободное место.</string>
     <string name="remote_network_failed">Не удалось подключиться к Fairy. Проверьте целевой компьютер, адрес службы и сеть.</string>
-    <string name="remote_auth_failed">Fairy отклонил токен доступа. Используйте токен с целевого компьютера.</string>
-    <string name="remote_configuration_failed">Введите корректный URL службы и токен доступа из 64 символов.</string>
+    <string name="remote_auth_failed">Сервер Fairy отклонил вход. Проверьте имя пользователя и пароль и войдите снова.</string>
+    <string name="remote_configuration_failed">Введите корректный URL службы Fairy.</string>
     <string name="remote_protocol_failed">Fairy не может проверить или прочитать ответ Fairy. Убедитесь, что оба приложения обновлены.</string>
     <string name="remote_service_failed">Fairy не удалось выполнить запрос.</string>
     <string name="remote_save_failed">Fairy не удалось сохранить устройство. Проверьте свободное место и сохраните снова.</string>

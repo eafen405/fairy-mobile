@@ -5,8 +5,8 @@
     <string name="remote_rejected">لم يقبل Fairy الرسالة. راجع تفاصيل الخطأ قبل المحاولة مجددًا.</string>
     <string name="remote_storage_failed">تعذر على Fairy الوصول إلى بيانات Remote المحلية. تحقق من المساحة المتاحة.</string>
     <string name="remote_network_failed">تعذر الاتصال بـ Fairy. تحقق من الكمبيوتر المستهدف وعنوان الخدمة والشبكة.</string>
-    <string name="remote_auth_failed">رفض Fairy رمز الوصول. استخدم الرمز الموجود على الكمبيوتر المستهدف.</string>
-    <string name="remote_configuration_failed">أدخل عنوان URL صالحًا للخدمة ورمز وصول من 64 حرفًا.</string>
+    <string name="remote_auth_failed">رفض خادم Fairy تسجيل الدخول. تحقق من اسم المستخدم وكلمة المرور ثم سجّل الدخول مجددًا.</string>
+    <string name="remote_configuration_failed">أدخل عنوان URL صالحًا لخدمة Fairy.</string>
     <string name="remote_protocol_failed">تعذر على Fairy التحقق من استجابة Fairy أو قراءتها. تأكد من تحديث التطبيقين.</string>
     <string name="remote_service_failed">تعذر على Fairy إكمال الطلب.</string>
     <string name="remote_save_failed">تعذر على Fairy حفظ الجهاز. تحقق من المساحة ثم احفظه مجددًا.</string>

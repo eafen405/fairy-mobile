@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy không chấp nhận tin nhắn. Hãy xem chi tiết lỗi trước khi thử lại.</string>
     <string name="remote_storage_failed">Fairy không thể truy cập dữ liệu Remote cục bộ. Hãy kiểm tra dung lượng trống.</string>
     <string name="remote_network_failed">Không thể kết nối Fairy. Hãy kiểm tra máy đích, địa chỉ dịch vụ và mạng.</string>
-    <string name="remote_auth_failed">Fairy từ chối mã truy cập. Hãy dùng mã trên máy đích.</string>
-    <string name="remote_configuration_failed">Nhập URL dịch vụ hợp lệ và mã truy cập gồm 64 ký tự.</string>
+    <string name="remote_auth_failed">Máy chủ Fairy từ chối đăng nhập. Kiểm tra tên người dùng và mật khẩu rồi đăng nhập lại.</string>
+    <string name="remote_configuration_failed">Nhập URL dịch vụ Fairy hợp lệ.</string>
     <string name="remote_protocol_failed">Fairy không thể xác minh hoặc đọc phản hồi Fairy. Hãy kiểm tra bản cập nhật của cả hai ứng dụng.</string>
     <string name="remote_service_failed">Fairy không thể hoàn tất yêu cầu.</string>
     <string name="remote_save_failed">Fairy không thể lưu thiết bị. Hãy kiểm tra dung lượng rồi lưu lại.</string>

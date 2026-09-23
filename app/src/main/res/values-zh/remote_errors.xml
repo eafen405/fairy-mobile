@@ -5,8 +5,8 @@
     <string name="remote_rejected">Fairy 未接受这条消息，请查看错误详情后再尝试。</string>
     <string name="remote_storage_failed">Fairy 无法访问本地远程数据，请检查剩余存储空间。</string>
     <string name="remote_network_failed">无法连接 Fairy，请检查目标电脑、服务地址和网络。</string>
-    <string name="remote_auth_failed">Fairy 拒绝了访问令牌，请使用目标电脑上的令牌。</string>
-    <string name="remote_configuration_failed">请输入有效的服务 URL 和 64 位访问令牌。</string>
+    <string name="remote_auth_failed">Fairy 服务器拒绝了登录，请检查用户名和密码后重新登录。</string>
+    <string name="remote_configuration_failed">请输入有效的 Fairy 服务 URL。</string>
     <string name="remote_protocol_failed">Fairy 无法验证或读取 Fairy 的响应，请检查两端应用是否已更新。</string>
     <string name="remote_service_failed">Fairy 未能完成请求。</string>
     <string name="remote_save_failed">Fairy 未能保存设备，请检查存储空间后重新保存。</string>
