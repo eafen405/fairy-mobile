@@ -20,7 +20,7 @@ internal data class RemoteMessageNode(
 )
 @Serializable
 internal data class RemoteNodeActivity(val type: String, val state: String? = null, val durationMs: Long? = null,
-    val hasImage: Boolean = false)
+    val hasImage: Boolean = false, val label: String? = null)
 @Serializable
 internal data class RemotePayloadRequest(val id: String, val revision: String, val imageIndex: Int? = null)
 

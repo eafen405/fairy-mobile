@@ -134,7 +134,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
             listOf(
                 RemoteMessage("tail", "turn", null, "assistant", "Previous answer", 1),
                 RemoteMessage("tool", "turn", null, "assistant", "", 1,
-                    RemoteActivity("tool", toolName = "exec", state = "succeeded")),
+                    RemoteActivity("tool", state = "succeeded", label = "处理")),
             ), null, emptyList())
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm)

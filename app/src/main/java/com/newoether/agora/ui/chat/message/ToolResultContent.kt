@@ -155,7 +155,8 @@ internal fun ToolDetailContent(
                 }
             }
             ToolPresentationState.STOPPED -> GenerationTerminalText(
-                text = stringResource(R.string.tool_execution_stopped),
+                text = presentation.errorMessage?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.tool_execution_stopped),
                 fillWidth = true,
             )
             ToolPresentationState.EMPTY,

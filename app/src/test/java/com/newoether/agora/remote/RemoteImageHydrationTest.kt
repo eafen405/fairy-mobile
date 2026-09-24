@@ -21,7 +21,7 @@ import java.nio.file.Files
 @OptIn(ExperimentalCoroutinesApi::class)
 class RemoteImageHydrationTest {
     private val record = RemoteMessage("image", "turn", null, "assistant", "", 1,
-        activity = RemoteActivity("tool", "view_image", imagePath = "C:/native/image.png"), groupId = "group")
+        activity = RemoteActivity("tool", state = "succeeded", label = "查看图片"), groupId = "group")
     private fun snapshot() = RemoteState(deviceId = "device",
         session = RemoteSession("session", "Task", "", 1), hydrationEnabled = true,
         messageGroups = projectRemoteTopology(listOf(RemoteMessageNode("image", "turn", null, "assistant",
@@ -73,7 +73,8 @@ class RemoteImageHydrationTest {
                 ToolImageAttachment("/private/tool.png", "image/png", 128, sha256 = "hash")
             })
         val message = hydration.observeMessage(state.value.owner!!, "group").filterNotNull().first()
-        assertEquals("view_image", message.segments!!.single().toolName)
+        assertEquals("查看图片", message.segments!!.single().toolDisplayName)
+        assertEquals("a".repeat(64), message.segments.single().toolImageRequestKey)
         assertEquals(0, imageReads)
         assertTrue(message.segments.single().toolImages.isEmpty())
     }
@@ -181,7 +182,7 @@ class RemoteImageHydrationTest {
         val hydration = RemoteMessageHydration(state, { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = state.value.messageGroups.single().nodes) }, { failures++ },
             { _, _ -> throw java.io.IOException("Missing image") })
         val message = hydration.observeMessage(state.value.owner!!, "group").filterNotNull().first()
-        assertEquals("view_image", message.segments!!.single().toolName)
+        assertEquals("查看图片", message.segments!!.single().toolDisplayName)
         assertEquals(0, failures)
         try {
             hydration.loadToolImage(state.value.owner!!, "image", "a".repeat(64))

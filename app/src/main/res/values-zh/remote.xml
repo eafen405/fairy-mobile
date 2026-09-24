@@ -40,4 +40,5 @@
     <string name="remote_archive">归档</string>
     <string name="remote_archive_title">归档任务？</string>
     <string name="remote_archive_message">将此任务从 Fairy 和 Remote 的未归档列表中移除？历史记录会保留。</string>
+    <string name="remote_activity">处理中</string>
 </resources>

@@ -136,6 +136,50 @@ class RemoteMessageHydrationTest {
         assertTrue(state.value.messageGroups.isEmpty())
     }
 
+    @Test fun nodeLabelFillsAnUnlabeledActivityAndHydrationCannotRecoverInternals() = runTest {
+        val activityNode = node.copy(id = "act", textLength = 0,
+            activity = RemoteNodeActivity("tool", "failed", 8, label = "搜索网络"))
+        val record = RemoteMessage("act", "turn", null, "assistant", "", 1,
+            activity = RemoteActivity("tool", "failed", 8, note = "网络请求失败"), groupId = "group")
+        val state = MutableStateFlow(snapshot().copy(messageGroups =
+            projectRemoteTopology(listOf(activityNode), RemoteRuntime("idle"))))
+        val hydration = RemoteMessageHydration(state,
+            { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = listOf(activityNode)) },
+            { throw it })
+        val owner = state.value.owner!!
+        val loaded = hydration.loadMessages(owner, listOf("group")).single()
+        val segment = loaded.segments!!.single()
+        assertEquals("搜索网络", segment.toolDisplayName)
+        assertEquals("网络请求失败", segment.toolNote)
+        // The cache only retains what the bounded wire carries; internals are unrecoverable.
+        assertNull(segment.toolName)
+        assertNull(segment.toolArgs)
+        assertNull(segment.toolResult)
+        assertNull(segment.toolProgress)
+        assertNull(segment.toolResultText)
+        assertNull(segment.toolStructuredResult)
+        val presentation = com.newoether.agora.ui.chat.message.ToolPresentationResolver.resolve(segment)
+        assertEquals(com.newoether.agora.ui.chat.message.ToolPresentationState.FAILED, presentation.state)
+        assertEquals("网络请求失败", presentation.errorMessage)
+        assertNull(presentation.rawArguments)
+        assertNull(presentation.rawResult)
+        assertNull(presentation.liveOutput)
+    }
+
+    @Test fun recordLabelWinsOverTheNodeIndexLabel() = runTest {
+        val activityNode = node.copy(id = "act", textLength = 0,
+            activity = RemoteNodeActivity("tool", "succeeded", 8, label = "节点标签"))
+        val record = RemoteMessage("act", "turn", null, "assistant", "", 1,
+            activity = RemoteActivity("tool", "succeeded", 8, label = "记录标签"), groupId = "group")
+        val state = MutableStateFlow(snapshot().copy(messageGroups =
+            projectRemoteTopology(listOf(activityNode), RemoteRuntime("idle"))))
+        val hydration = RemoteMessageHydration(state,
+            { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = listOf(activityNode)) },
+            { throw it })
+        val loaded = hydration.loadMessages(state.value.owner!!, listOf("group")).single()
+        assertEquals("记录标签", loaded.segments!!.single().toolDisplayName)
+    }
+
     @Test fun stalePayloadRevisionIsRehydratedWhileUnchangedVisibleRowsUseOriginalCache() = runTest {
         val state = MutableStateFlow(snapshot())
         var reads = 0

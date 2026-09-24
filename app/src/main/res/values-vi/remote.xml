@@ -29,4 +29,5 @@
     <string name="remote_archive">Lưu trữ</string>
     <string name="remote_archive_title">Lưu trữ tác vụ?</string>
     <string name="remote_archive_message">Xóa tác vụ này khỏi danh sách đang hoạt động trong Fairy và Remote? Lịch sử sẽ được giữ lại.</string>
+    <string name="remote_activity">Đang xử lý</string>
 </resources>

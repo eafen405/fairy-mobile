@@ -29,4 +29,5 @@
     <string name="remote_archive">Archiver</string>
     <string name="remote_archive_title">Archiver la tâche ?</string>
     <string name="remote_archive_message">Retirer cette tâche des listes actives de Fairy et Remote ? Son historique sera conservé.</string>
+    <string name="remote_activity">Traitement en cours</string>
 </resources>

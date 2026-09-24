@@ -30,11 +30,16 @@ internal data class RemoteMessage(
     val inlineImages: Map<String, com.newoether.agora.model.MarkdownImage> = emptyMap(),
     val error: Boolean = false,
 )
+/**
+ * Server-bounded activity projection. The wire only carries a user-facing label, a
+ * lifecycle state, and an optional short outcome note on failure/stop. Tool names,
+ * arguments, results, and host paths never cross the client feedback boundary; the
+ * client drops such fields even if a payload unexpectedly contains them.
+ */
 @Serializable
 internal data class RemoteActivity(
-    val type: String, val toolName: String? = null, val arguments: String? = null,
-    val result: String? = null, val state: String? = null, val durationMs: Long? = null,
-    val imagePath: String? = null,
+    val type: String, val state: String? = null, val durationMs: Long? = null,
+    val label: String? = null, val note: String? = null,
     @kotlinx.serialization.Transient
     val images: List<com.newoether.agora.model.ToolImageAttachment> = emptyList(),
 )

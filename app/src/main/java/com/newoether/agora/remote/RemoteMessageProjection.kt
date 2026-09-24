@@ -3,7 +3,6 @@ package com.newoether.agora.remote
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.model.MessageStatus
 
 internal fun RemoteSession.displayTitle(untitled: String): String = title.takeUnless { it.isBlank() || it == id } ?: untitled
@@ -42,16 +41,19 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                 val segment = if (current.error) MessageSegment(type = "error", content = current.displayText()) else when (activity?.type) {
                     null -> MessageSegment(type = "answer", content = current.displayText(),
                         streamingTextDeltas = current.streamingTextDeltas)
-                    "thought" -> MessageSegment(type = "thought", content = current.displayText(), durationMs = activity.durationMs)
+                    // Reasoning text never crosses the client boundary; a thought record
+                    // stays invisible and the "思考中" indicator is driven by runtime state.
+                    "thought" -> MessageSegment(type = "thought", durationMs = activity.durationMs)
+                    // Bounded activity: the wire supplies only a user-facing label, a
+                    // lifecycle state, and an optional outcome note. Internal tool names,
+                    // arguments, results, and host paths are never projected into the model.
                     "tool" -> MessageSegment(
-                        type = "tool", toolName = activity.toolName, toolArgs = activity.arguments,
-                        toolCallId = current.id,
-                        // Older Filo records omit state on atomic native imageView items.
-                        toolState = activity.state ?: ToolExecutionStates.SUCCEEDED.takeIf { !activity.imagePath.isNullOrBlank() },
+                        type = "tool", toolCallId = current.id,
+                        toolDisplayName = activity.label.boundedActivityText(),
+                        toolNote = activity.note.boundedActivityText(),
+                        toolState = activity.state,
                         durationMs = activity.durationMs,
                         toolImages = activity.images,
-                        toolResult = activity.result.takeUnless { activity.state == ToolExecutionStates.RUNNING },
-                        toolProgress = activity.result.takeIf { activity.state == ToolExecutionStates.RUNNING },
                     )
                     else -> error("Unsupported Remote activity")
                 }
@@ -98,8 +100,9 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         // A persisted terminal failure must not become a generating card from stale runtime.
         if (tail?.runId == turn && tail.status == MessageStatus.ERROR) return@buildList
         if (tail?.participant == Participant.MODEL && tail.runId == turn) {
+            // Thought segments carry no content, so only a trailing tool chip narrows
+            // the run-state indicator; everything else keeps the generic "思考中" card.
             val status = when (tail.segments?.lastOrNull()?.type) {
-                "thought" -> MessageStatus.THINKING
                 "tool" -> MessageStatus.TOOL_CALLING
                 else -> MessageStatus.SENDING
             }
@@ -115,6 +118,13 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
 }
 
 internal fun RemoteMessage.displayText(): String = if (textContinues) text else text.trimEnd('\r', '\n')
+
+/**
+ * Activity label/note are server-curated display strings, but they remain untrusted
+ * input: strip control characters, bound the length, and drop blanks entirely.
+ */
+private fun String?.boundedActivityText(): String? =
+    this?.filter { !it.isISOControl() || it == '\n' }?.trim()?.take(512)?.takeIf { it.isNotBlank() }
 
 internal fun RemoteRuntime?.hasVisibleGeneration(messages: List<RemoteMessage>): Boolean =
     this?.isRunning == true && activeTurnId != null && (activeTurnHasUserMessage ||

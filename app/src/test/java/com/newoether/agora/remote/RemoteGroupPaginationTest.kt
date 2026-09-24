@@ -17,7 +17,7 @@ class RemoteGroupPaginationTest {
     private val connections = mockk<RemoteConnectionStore>(relaxed = true)
     private val session = RemoteSession("history", "History", "/workspace", 1)
     private fun tool(index: Int) = RemoteMessage("tool-$index", "turn", null, "assistant", "", 1,
-        activity = RemoteActivity("tool", "shell", result = "done", state = "succeeded"))
+        activity = RemoteActivity("tool", state = "succeeded", label = "执行命令"))
     private fun packet(range: IntRange, next: String?, continuation: String?, bookmark: String) =
         bodyPage(range.map(::tool), next, emptyList()).copy(continuationCursor = continuation, pageCursor = bookmark)
 

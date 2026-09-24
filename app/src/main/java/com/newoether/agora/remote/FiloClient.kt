@@ -224,8 +224,10 @@ internal class FiloClient(
             require(page.messages.all { it.role == "user" || it.role == "assistant" })
             require(page.messages.map { it.id }.toSet().size == page.messages.size)
             page.messages.forEach { message -> message.activity?.let { activity ->
+                // Bounded activity contract: type/state/duration are the only validated
+                // fields; label/note are optional display text, and any internal fields
+                // a payload might still carry are ignored by the decoder.
                 require(message.role == "assistant" && activity.type in setOf("thought", "tool"))
-                require(activity.type != "tool" || !activity.toolName.isNullOrBlank())
                 require(activity.durationMs == null || activity.durationMs >= 0)
                 require(activity.state == null || activity.state in setOf("running", "succeeded", "failed", "stopped"))
             } }

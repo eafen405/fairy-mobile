@@ -29,4 +29,5 @@
     <string name="remote_archive">封存</string>
     <string name="remote_archive_title">封存任務？</string>
     <string name="remote_archive_message">將此任務從 Fairy 和 Remote 的未封存清單中移除？歷史記錄會保留。</string>
+    <string name="remote_activity">處理中</string>
 </resources>

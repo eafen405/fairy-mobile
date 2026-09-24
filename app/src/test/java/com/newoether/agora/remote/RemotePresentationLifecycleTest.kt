@@ -15,7 +15,7 @@ import org.junit.Test
 class RemotePresentationLifecycleTest {
     @Test fun nativeGenerationArrivingAfterHistoryReactivatesTheLastCompletedToolCard() = runTest {
         val tool = RemoteMessage("tool", "turn", null, "assistant", "", 1,
-            activity = RemoteActivity("tool", "execute_code", state = "succeeded"))
+            activity = RemoteActivity("tool", state = "succeeded", label = "执行代码"))
         val page = bodyPage(listOf(tool), null, emptyList(), RemoteRuntime("notLoaded"))
         val controller = GroupedSegmentAutoExpansionController()
         val nodes = admitRemotePage(emptyList(), page)

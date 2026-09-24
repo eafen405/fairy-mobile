@@ -40,4 +40,5 @@
     <string name="remote_logout">Sign Out</string>
     <string name="remote_empty_message">Message cannot be empty</string>
     <string name="remote_attachments_unsupported">This service does not support attachments</string>
+    <string name="remote_activity">Processing</string>
 </resources>

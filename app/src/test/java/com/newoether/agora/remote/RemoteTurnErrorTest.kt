@@ -12,7 +12,7 @@ class RemoteTurnErrorTest {
     private val user = RemoteMessage("u", "t", null, "user", "Question", 1)
     private val answer = RemoteMessage("a", "t", null, "assistant", "Partial answer", 1)
     private val tool = RemoteMessage("tool", "t", null, "assistant", "", 1,
-        RemoteActivity("tool", "execute_shell_command", state = "succeeded"))
+        RemoteActivity("tool", state = "succeeded", label = "执行命令"))
 
     @Test fun nativeFailureUsesOriginalErrorPresentationAndPreservesExistingAnswerAndTools() {
         for (records in listOf(listOf(user, error), listOf(user, tool, error), listOf(user, answer, tool, error))) {

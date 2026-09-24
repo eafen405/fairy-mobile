@@ -29,4 +29,5 @@
     <string name="remote_archive">보관</string>
     <string name="remote_archive_title">작업을 보관할까요?</string>
     <string name="remote_archive_message">Fairy와 Remote의 활성 목록에서 이 작업을 제거할까요? 기록은 유지됩니다.</string>
+    <string name="remote_activity">처리 중</string>
 </resources>
