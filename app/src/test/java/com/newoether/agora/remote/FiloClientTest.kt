@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.flow.first
 
 class FiloClientTest {
@@ -259,9 +260,6 @@ class FiloClientTest {
         } finally { server.stop(0) }
     }
 
-    // The additive contract promises that a decoder written before the boundary fields
-    // existed still works on new payloads. These legacy mirrors reproduce the pre-change
-    // wire model and its page validation verbatim to pin down what "still works" means.
     @Serializable
     private data class LegacyActivity(
         val type: String, val toolName: String? = null, val arguments: String? = null,
@@ -270,11 +268,37 @@ class FiloClientTest {
     @Serializable
     private data class LegacyMessage(
         val id: String, val turnId: String, val clientId: String?, val role: String,
-        val text: String, val timestamp: Long, val activity: LegacyActivity? = null)
+        val text: String, val timestamp: Long, val activity: LegacyActivity? = null,
+        val groupId: String? = null,
+        val nativeId: String? = null, val textOffset: Int = 0, val textContinues: Boolean = false,
+        val imageLinks: List<String> = emptyList(), val error: Boolean = false)
+    @Serializable
+    private data class LegacyQueuedMessage(val id: String, val clientId: String, val text: String)
+    @Serializable
+    private data class LegacyRuntime(
+        val status: String, val activeTurnId: String? = null, val model: String? = null,
+        val contextTokens: Int? = null, val contextWindow: Int? = null,
+        val completedTurnId: String? = null,
+        val effort: String? = null, val serviceTier: String? = null,
+        val serviceTierKnown: Boolean = false, val activeTurnHasUserMessage: Boolean = false)
+    @Serializable
+    private data class LegacyNodeActivity(
+        val type: String, val state: String? = null, val durationMs: Long? = null,
+        val hasImage: Boolean = false)
+    @Serializable
+    private data class LegacyNode(
+        val id: String, val turnId: String, val clientId: String?, val role: String, val timestamp: Long,
+        val revision: String, val textLength: Int,
+        val groupId: String? = null, val nativeId: String? = null,
+        val textOffset: Int = 0, val textContinues: Boolean = false,
+        val activity: LegacyNodeActivity? = null, val hasContent: Boolean? = null,
+        val imageCount: Int = 0, val error: Boolean = false)
     @Serializable
     private data class LegacyPage(
         val messages: List<LegacyMessage>, val nextCursor: String?,
-        val queued: List<RemoteQueuedMessage>, val runtime: RemoteRuntime? = null)
+        val queued: List<LegacyQueuedMessage>, val runtime: LegacyRuntime? = null,
+        val pageCursor: String? = null, val continuationCursor: String? = null,
+        val nodes: List<LegacyNode> = emptyList())
 
     private fun legacyValidate(page: LegacyPage) {
         require(page.messages.all { it.role == "user" || it.role == "assistant" })
@@ -287,30 +311,51 @@ class FiloClientTest {
         } }
     }
 
-    @Test fun preBoundaryDecoderReadsBoundedPagesButItsToolNameGateRejectsActivities() {
+    @Test fun preBoundaryDecoderReadsGeneratedFairybotPageWithSafeToolNameAliases() {
         val json = Json { ignoreUnknownKeys = true }
-        val bounded = """{"messages":[
-            {"id":"u","turnId":"turn","clientId":"c","role":"user","text":"hi","timestamp":1},
-            {"id":"t","turnId":"turn","clientId":null,"role":"assistant","text":"","timestamp":2,
-             "activity":{"type":"tool","state":"failed","durationMs":9,"label":"搜索网络","note":"超时"}},
-            {"id":"a","turnId":"turn","clientId":null,"role":"assistant","text":"Done","timestamp":3}],
-            "nextCursor":null,"queued":[]}"""
-        val decoded = json.decodeFromString<LegacyPage>(bounded)
-        // Additive decode succeeds: label/note are unknown keys, internals arrive as nulls.
-        assertNull(decoded.messages[1].activity!!.toolName)
-        assertNull(decoded.messages[1].activity!!.result)
-        assertEquals("Done", decoded.messages[2].text)
-        // The retired page validator, however, refuses a tool activity without a toolName:
-        // a pre-boundary client cannot render bounded tool chips — a documented limitation.
-        assertThrows(IllegalArgumentException::class.java) { legacyValidate(decoded) }
-        // Ordinary chat pages satisfy the old contract, so basic chat remains functional.
-        val chat = """{"messages":[
-            {"id":"u","turnId":"turn","clientId":"c","role":"user","text":"hi","timestamp":1},
-            {"id":"a","turnId":"turn","clientId":null,"role":"assistant","text":"Done","timestamp":2}],
-            "nextCursor":null,"queued":[]}"""
-        val conversation = json.decodeFromString<LegacyPage>(chat)
-        legacyValidate(conversation)
-        assertEquals(listOf("u", "a"), conversation.messages.map { it.id })
+        val fixture = requireNotNull(javaClass.getResource("/remote/client-boundary-page.json"))
+            .readText()
+        val payload = json.parseToJsonElement(fixture).jsonObject.getValue("page").toString()
+        val decoded = json.decodeFromString<LegacyPage>(payload)
+        legacyValidate(decoded)
+        assertEquals("Hello Fairy", decoded.messages.first().text)
+        assertEquals("Hello back", decoded.messages.last().text)
+        assertEquals("idle", decoded.runtime?.status)
+        assertEquals("turn-1", decoded.runtime?.completedTurnId)
+        val activities = decoded.messages.mapNotNull { it.activity }
+        assertEquals(listOf("检索记忆", "一项操作", "整理待跟进事项"), activities.map { it.toolName })
+        assertEquals(listOf("succeeded", "failed", "stopped"), activities.map { it.state })
+        assertEquals(listOf(1L, 1L, null), activities.map { it.durationMs })
+        activities.forEach { activity ->
+            assertEquals("tool", activity.type)
+            assertNull(activity.arguments)
+            assertNull(activity.result)
+            assertNull(activity.imagePath)
+        }
+        val current = json.decodeFromString<RemoteConversationPage>(payload)
+        assertEquals(activities.map { it.toolName }, current.messages.mapNotNull { it.activity?.label })
+        assertEquals("操作未成功", current.messages.mapNotNull { it.activity }.single { it.state == "failed" }.note)
+        assertEquals(decoded.messages.map { it.id }, decoded.nodes.map { it.id })
+        decoded.nodes.zip(decoded.messages).forEach { (node, message) ->
+            assertTrue(node.revision.isNotBlank())
+            assertEquals(message.turnId, node.turnId)
+            assertEquals(message.text.length, node.textLength)
+            assertEquals(message.activity?.state, node.activity?.state)
+            assertEquals(message.activity?.durationMs, node.activity?.durationMs)
+            assertEquals(true, node.hasContent)
+            assertEquals(0, node.imageCount)
+            assertFalse(node.activity?.hasImage == true)
+        }
+        val wirePage = json.parseToJsonElement(payload).jsonObject
+        val wireMessages = json.decodeFromString<List<kotlinx.serialization.json.JsonObject>>(
+            wirePage.getValue("messages").toString())
+        wireMessages.mapNotNull { it["activity"]?.jsonObject }.forEach { activity ->
+            assertEquals(activity.getValue("label"), activity.getValue("toolName"))
+        }
+        listOf("PRIVATE_", "/host/private", "memory_search", "open_thread").forEach { marker ->
+            assertTrue(fixture.contains(marker))
+            assertFalse(payload.contains(marker))
+        }
     }
 
     @Test fun failuresDistinguishTransportAuthenticationAndProtocol() {

@@ -59,11 +59,8 @@ internal fun projectRemoteTopology(nodes: List<RemoteMessageNode>, runtime: Remo
         // Preserve the native failure through hydration and stale active snapshots.
         if (tail?.stub?.runId == runtime.activeTurnId && tail.stub.status == MessageStatus.ERROR) return@buildList
         if (tail?.stub?.participant == Participant.MODEL && tail.stub.runId == runtime.activeTurnId) {
-            val status = when (tail.nodes.lastOrNull()?.activity?.type) {
-                "thought" -> MessageStatus.THINKING
-                "tool" -> MessageStatus.TOOL_CALLING
-                else -> MessageStatus.SENDING
-            }
+            val activity = tail.nodes.lastOrNull()?.activity
+            val status = remoteActivityStatus(activity?.type, activity?.state)
             set(lastIndex, tail.copy(stub = tail.stub.copy(status = status, modelName = runtime.model ?: "Fairy")))
         } else add(RemoteMessageGroup(ChatMessage(id = "remote-active-${runtime.activeTurnId}",
             parentId = tail?.stub?.id, text = "", participant = Participant.MODEL,

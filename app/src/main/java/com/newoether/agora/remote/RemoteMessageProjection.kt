@@ -100,12 +100,8 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         // A persisted terminal failure must not become a generating card from stale runtime.
         if (tail?.runId == turn && tail.status == MessageStatus.ERROR) return@buildList
         if (tail?.participant == Participant.MODEL && tail.runId == turn) {
-            // Thought segments carry no content, so only a trailing tool chip narrows
-            // the run-state indicator; everything else keeps the generic "思考中" card.
-            val status = when (tail.segments?.lastOrNull()?.type) {
-                "tool" -> MessageStatus.TOOL_CALLING
-                else -> MessageStatus.SENDING
-            }
+            val activity = messages.lastOrNull()?.activity
+            val status = remoteActivityStatus(activity?.type, activity?.state)
             set(lastIndex, tail.copy(status = status, modelName = runtime.model ?: "Fairy"))
         } else {
             // Display-only empty assistant uses the existing initial-generation indicator.
@@ -118,6 +114,15 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
 }
 
 internal fun RemoteMessage.displayText(): String = if (textContinues) text else text.trimEnd('\r', '\n')
+
+internal fun remoteActivityStatus(type: String?, state: String?): MessageStatus = when (type) {
+    "thought" -> MessageStatus.THINKING
+    "tool" -> when (state) {
+        "succeeded", "failed", "stopped" -> MessageStatus.THINKING
+        else -> MessageStatus.TOOL_CALLING
+    }
+    else -> MessageStatus.SENDING
+}
 
 /**
  * Activity label/note are server-curated display strings, but they remain untrusted

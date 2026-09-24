@@ -69,6 +69,20 @@ class RemoteGenerationProjectionTest {
         assertNull(projected.thoughts)
     }
 
+    @Test fun terminalActivitiesYieldToThinkingUntilTheTurnEnds() {
+        val runtime = RemoteRuntime("active", "turn", activeTurnHasUserMessage = true)
+        for (state in listOf("running", "succeeded", "failed", "stopped")) {
+            val activity = answer.copy(text = "", activity = RemoteActivity("tool", state))
+            val expected = if (state == "running") MessageStatus.TOOL_CALLING else MessageStatus.THINKING
+            assertEquals(expected, projectRemoteMessages(listOf(activity), runtime).single().status)
+            assertEquals(MessageStatus.SUCCESS,
+                projectRemoteMessages(listOf(activity), runtime.copy(status = "idle")).single().status)
+            val thought = answer.copy(id = "thought", text = "private", activity = RemoteActivity("thought"))
+            assertEquals(MessageStatus.THINKING,
+                projectRemoteMessages(listOf(activity, thought), runtime).single().status)
+        }
+    }
+
     @Test fun pagingPreservesTheAssistantBubbleIdentity() {
         val newer = answer.copy(id = "newer", groupId = "native-group")
         val older = answer.copy(id = "older", groupId = "native-group")

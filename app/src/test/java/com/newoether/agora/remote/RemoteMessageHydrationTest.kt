@@ -180,6 +180,29 @@ class RemoteMessageHydrationTest {
         assertEquals("记录标签", loaded.segments!!.single().toolDisplayName)
     }
 
+    @Test fun reconnectHydratesTerminalActivitiesAsThinkingOnlyWhileTheTurnIsActive() = runTest {
+        for (activityState in listOf("running", "succeeded", "failed", "stopped")) {
+            val activityNode = node.copy(textLength = 0,
+                activity = RemoteNodeActivity("tool", activityState, label = "搜索网络"))
+            val record = native.copy(text = "", activity = RemoteActivity("tool", activityState, label = "搜索网络"))
+            for (runtimeStatus in listOf("active", "idle")) {
+                val runtime = RemoteRuntime(runtimeStatus, "turn", activeTurnHasUserMessage = true)
+                val groups = projectRemoteTopology(listOf(activityNode), runtime)
+                val state = MutableStateFlow(snapshot().copy(messageGroups = groups))
+                val hydration = RemoteMessageHydration(state, { _, _ -> page(listOf(record), listOf(activityNode)) }, { throw it })
+                val expected = when {
+                    runtimeStatus == "idle" -> com.newoether.agora.model.MessageStatus.SUCCESS
+                    activityState == "running" -> com.newoether.agora.model.MessageStatus.TOOL_CALLING
+                    else -> com.newoether.agora.model.MessageStatus.THINKING
+                }
+                val loaded = hydration.loadMessages(state.value.owner!!, listOf("group")).single()
+                assertEquals(expected, loaded.status)
+                assertEquals(activityState, loaded.segments!!.single().toolState)
+                assertEquals(expected, hydration.loadMessages(state.value.owner!!, listOf("group")).single().status)
+            }
+        }
+    }
+
     @Test fun stalePayloadRevisionIsRehydratedWhileUnchangedVisibleRowsUseOriginalCache() = runTest {
         val state = MutableStateFlow(snapshot())
         var reads = 0
