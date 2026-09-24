@@ -14,6 +14,8 @@ internal class RemoteFileDownloads(
     private val fileStore: RemoteFileStore?,
     private val client: (RemoteState) -> FiloClient?,
     private val trace: (String, Exception) -> RemoteFailure?,
+    // Test seam: a non-null result replaces the ContentResolver-backed SAF sink.
+    private val openSink: (android.net.Uri) -> RemoteFileSink? = { null },
 ) {
     // Staged verified downloads keyed by token; each is private until the user exports it.
     private val pending = mutableMapOf<String, StagedRemoteFile>()
@@ -65,7 +67,7 @@ internal class RemoteFileDownloads(
         val staged = pending.remove(token) ?: return false
         val store = fileStore ?: run { staged.file.delete(); return false }
         return try {
-            store.export(staged, store.uriSink(target))
+            store.export(staged, openSink(target) ?: store.uriSink(target))
             true
         } catch (cancelled: CancellationException) {
             throw cancelled

@@ -228,6 +228,8 @@ internal fun RemoteConversation(
         { file: com.newoether.agora.model.RemoteFile ->
             fileScope.launch {
                 vm.prepareFileDownload(owner, file)?.let { staged ->
+                    // A second save replaces the outstanding prompt; its staged bytes go too.
+                    pendingFileExport?.let { vm.discardPreparedFile(it.token) }
                     pendingFileExport = staged
                     createDocument.launch(staged.name)
                 }

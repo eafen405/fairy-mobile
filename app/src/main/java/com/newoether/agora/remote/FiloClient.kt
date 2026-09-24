@@ -160,6 +160,11 @@ internal class FiloClient(
         ?.retryOnConnectionFailure(false)?.followRedirects(false)?.followSslRedirects(false)
         ?.readTimeout(mutationTimeoutMillis, TimeUnit.MILLISECONDS)
         ?.callTimeout(mutationTimeoutMillis, TimeUnit.MILLISECONDS)?.build() ?: calls
+    // Downloads carry the session cookie, so the redirect policy is pinned here rather than
+    // inherited: an injected redirect-following transport must never forward it cross-origin.
+    private val fileCalls: Call.Factory = (calls as? OkHttpClient)?.newBuilder()
+        ?.retryOnConnectionFailure(true)?.followRedirects(false)?.followSslRedirects(false)
+        ?.build() ?: calls
 
     suspend fun connect(): String {
         val info = json.decodeFromString<FiloInfo>(request("v1/info"))
@@ -357,7 +362,7 @@ internal class FiloClient(
         require(fileId.isNotBlank() && fileId != "." && fileId != "..") { "Invalid Filo file id" }
         val url = endpoint.newBuilder()
             .addPathSegments("v1/files").addPathSegment(fileId).build()
-        val call = readCalls.newCall(Request.Builder().url(url).authorize().build())
+        val call = fileCalls.newCall(Request.Builder().url(url).authorize().build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {

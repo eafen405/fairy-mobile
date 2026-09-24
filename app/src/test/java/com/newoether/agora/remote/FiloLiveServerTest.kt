@@ -53,7 +53,7 @@ internal class FiloLiveServerTest {
             client.events(main.id).first { it.runtime?.status == "idle" }
         }
         // 对已结束 turn 的 stop 是确定性空操作（不抛、不崩）。
-        client.stop(main.id, turn)
+        client.stop(main.id, receipt.turnId)
 
         // 凭据复用 = 杀进程重进：新 client 持同一 cookie 直接恢复。
         val resumed = FiloClient(origin, client.sessionCredential!!)

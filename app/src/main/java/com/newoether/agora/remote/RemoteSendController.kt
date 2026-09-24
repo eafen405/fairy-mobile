@@ -149,7 +149,7 @@ internal class RemoteSendController(
             textLength == attempt.text.length
     }
 
-    fun confirmDelivery(owner: String, attempt: RemoteAttempt, fresh: List<RemoteMessageNode>) {
+    fun confirmDelivery(owner: String, attempt: RemoteAttempt, fresh: List<RemoteMessageNode> = state.value.nodes) {
         if (state.value.attempts[owner]?.clientId != attempt.clientId) return
         if (state.value.attempts[owner]?.delivery == RemoteDelivery.DELIVERED || state.value.owner != owner) return
         val message = fresh.lastOrNull { it.role == "user" && it.matchesAttempt(attempt) } ?: return
