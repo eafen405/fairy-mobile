@@ -29,4 +29,5 @@
     <string name="remote_archive">أرشفة</string>
     <string name="remote_archive_title">أرشفة المهمة؟</string>
     <string name="remote_archive_message">هل تريد إزالة هذه المهمة من القوائم النشطة في Fairy وRemote؟ سيتم الاحتفاظ بسجلها.</string>
+    <string name="remote_activity">جارٍ المعالجة</string>
 </resources>

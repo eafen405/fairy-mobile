@@ -59,7 +59,7 @@ internal class RemoteMessageHydration(
         }
     }
     private fun weight(message: RemoteMessage) = 256L + 2L * (message.text.length.toLong() +
-        (message.activity?.arguments?.length ?: 0) + (message.activity?.result?.length ?: 0)) +
+        (message.activity?.label?.length ?: 0) + (message.activity?.note?.length ?: 0)) +
         32L * message.streamingTextDeltas.size + message.imageLinks.sumOf { 32L + 2L * it.length } +
         message.inlineImages.entries.sumOf { (link, image) -> 256L + 2L * (link.length + (image.attachment?.path?.length ?: 0)) }
     internal val retainedRecordBytes: Long get() = synchronized(cacheLock) { recordBytes }
@@ -123,7 +123,17 @@ internal class RemoteMessageHydration(
     private suspend fun project(group: RemoteMessageGroup, messages: List<RemoteMessage>): ChatMessage {
         val message = projector.project {
             val imageKeys = group.nodes.filter { it.activity?.hasImage == true }.associate { it.id to it.revision }
-            val projected = projectRemoteMessages(messages.map { it.copy(groupId = group.stub.id) }).firstOrNull()
+            // The node index is the same bounded projection: its label can fill in a
+            // record that lacks one, but it can never restore tool names or payloads.
+            val nodeLabels = group.nodes.mapNotNull { node ->
+                node.activity?.label?.let { node.id to it }
+            }.toMap()
+            val projected = projectRemoteMessages(messages.map { record ->
+                val activity = record.activity
+                record.copy(groupId = group.stub.id,
+                    activity = if (activity == null || activity.label != null) activity
+                        else activity.copy(label = nodeLabels[record.id]))
+            }).firstOrNull()
                 ?.copy(id = group.stub.id, parentId = group.stub.parentId, status = group.stub.status,
                     displayPageId = group.stub.displayPageId) ?: group.stub
             projected.copy(segments = projected.segments?.map { segment ->

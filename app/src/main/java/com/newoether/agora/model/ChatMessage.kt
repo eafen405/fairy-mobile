@@ -79,6 +79,11 @@ data class MessageSegment(
     val toolResultText: String? = null,
     /** Provider-declared structured result JSON, never inferred from arbitrary text. */
     val toolStructuredResult: String? = null,
+    /**
+     * Short server-curated outcome note for a bounded remote activity, shown only on
+     * failure or stop. Never a raw error, tool output, or internal detail.
+     */
+    val toolNote: String? = null,
     /** Private-file metadata for image content returned by a tool. */
     val toolImages: List<ToolImageAttachment> = emptyList(),
     /** Opaque revision for a demand-loaded preview; never persisted or sent to a Provider. */

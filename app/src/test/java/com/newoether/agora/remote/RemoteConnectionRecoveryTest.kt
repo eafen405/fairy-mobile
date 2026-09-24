@@ -206,6 +206,33 @@ class RemoteConnectionRecoveryTest {
         vm.setVisible(false)
     }
 
+    @Test fun reconnectKeepsBoundedActivityPresentationWithoutRecoveringInternals() = runTest(dispatcher) {
+        val activity = RemoteMessage("tool", "turn", null, "assistant", "", 1,
+            RemoteActivity("tool", "failed", 30, label = "搜索网络", note = "网络请求失败"),
+            groupId = "tool-group")
+        val activityPage = bodyPage(listOf(activity), null, emptyList(), RemoteRuntime("idle"))
+        var reads = 0
+        every { client.events(any()) } answers { flow {
+            if (++reads == 1) throw IOException("connection reset")
+            emit(activityPage); awaitCancellation()
+        } }
+        val vm = open()
+        advanceTimeBy(3000); runCurrent()
+        assertEquals(2, reads)
+        val owner = vm.state.value.owner!!
+        val group = vm.state.value.messageGroups.single()
+        val segment = vm.cachedMessage(owner, group.stub.id)!!.segments!!.single()
+        // Reconnected history replays the same bounded projection: label, state, note —
+        // never a recovered tool name, argument, result, or host path.
+        assertEquals("搜索网络", segment.toolDisplayName)
+        assertEquals("网络请求失败", segment.toolNote)
+        assertEquals("failed", segment.toolState)
+        assertNull(segment.toolName)
+        assertNull(segment.toolArgs)
+        assertNull(segment.toolResult)
+        vm.setVisible(false)
+    }
+
     @Test fun historyIsReadableWhenStreamFailsButSameOwnersSnapshotIsAvailable() = runTest(dispatcher) {
         every { client.events(any()) } returns flow { throw IOException("stream unavailable") }
         val message = RemoteMessage("answer", "turn", null, "assistant", "Retained native history", 1)

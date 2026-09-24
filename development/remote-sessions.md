@@ -1,6 +1,6 @@
 # Remote Sessions
 
-Status: current owner-approved Filo integration, 2026-09-11. Earlier staged plans and
+Status: current owner-approved Remote integration, 2026-09-24. Earlier staged plans and
 superseded UI decisions are retained in Git and the single active task log.
 
 ## Ownership and protocol
@@ -189,13 +189,19 @@ body. Suspending observation is not deletion. The original bounded MessageList p
 cache retains rendered streaming bodies for the transition back to ordinary observation;
 returning must not replace the last answer with an empty stub or replay offline text.
 A real user or different turn ends an assistant group. Remote DTOs remain separate from
-ChatMessage/MessageSegment presentation; only public summaries and tool records are mapped.
-Native imageView records expose only an opaque revision until their Tool preview is actually
-expanded. That preview first reserves its fixed square geometry, then reads real image bytes by
-authenticated message identity and Crossfades from its centered circular loading state to the
-decoded image without resizing. Reuse ToolImageStore streaming validation/atomic files, original ToolImageAttachment thumbnails
-and the existing root media preview. Image files live only in the private disposable Remote
-cache (128MiB/64files, two concurrent image reads). Inline answer images use server-parsed
+ChatMessage/MessageSegment presentation; Fairy exposes normal user/assistant text and bounded
+activity feedback. The server projects each tool activity to a safe identity, a statically mapped
+user-facing `label`, `state` (`running`, `succeeded`, `failed`, `stopped`), optional genuine
+`durationMs`, and an optional short safe failure `note`. Unknown tools use a generic activity
+label. The compatibility field `toolName` equals that safe label; it never carries the internal
+tool name. Current clients consume `label`/`note` and ignore the compatibility alias.
+History, live snapshots, reconnects, metadata and hydrated bodies follow the same boundary.
+Raw tool names, arguments, results, progress output, host paths, exceptions and reasoning bodies
+must not enter Remote presentation or expandable details. Tool activities have no image preview
+or image hydration; their metadata reports `hasImage=false`. Ordinary durable tool images belong
+to Agora's separate local-conversation contract.
+
+Where supported by the service's authorized attachment contract, inline answer images use server-parsed
 message/revision/index references and the original Markdown transformer with authenticated
 private files; retain original Markdown text for copy/search and reuse root image preview.
 Inline images reserve the original generated-image300dp square viewport before download,
@@ -204,15 +210,26 @@ uses the original motion-aware28dp/3dp circular indicator and200ms opacity cross
 entry and exit; cached images do not wait for another image. Failed reads settle into the
 original broken-image presentation plus Snackbar, never an endless loading state. Geometry
 and text remain unchanged through download, decode, failure and retry.
-Metadata exposes only the image count. Native and ordinary durable tool images
-remain untouched. Each image retains the original 20MiB media-store bound. Search reads text
+Metadata exposes only the image count. Each image retains the original 20MiB media-store bound. Search reads text
 without fetching images; missing/unsupported images preserve the card and conversation and
 report a Snackbar. No base64 image data enters topology/SSE and no arbitrary path read is
 exposed. Opening another session or changing the exact message revision cancels old hydration and
-rejects stale results. Collapsed cards, body observation, paging and Search never download Tool
-images; reopening an expanded preview reuses the private image cache.
-Tool progress/results and genuine timing retain native semantics. Trim only terminal CR/LF
-in presentation text, not interior whitespace, tool payloads or original cached records.
+rejects stale results. Body observation, paging and Search never authorize internal tool-image
+downloads. Genuine activity timing retains its meaning; stopped activities remain stopped rather
+than completed. Trim only terminal CR/LF in normal presentation text, not interior whitespace or
+original cached records.
+
+### Pre-boundary decoder verification
+
+`FiloClientTest.preBoundaryDecoderReadsGeneratedFairybotPageWithSafeToolNameAliases` consumes
+the authenticated Fairybot HTTP page in `app/src/test/resources/remote/client-boundary-page.json`.
+Its independent legacy DTOs preserve all serialized fields/defaults and the page validator from
+mobile commit `19ef936d`; transient presentation-only fields are omitted. Safe `toolName=label`
+aliases satisfy that decoder's nonblank tool-name gate while `label`/`note` remain additive fields.
+The test checks normal chat, succeeded/failed/stopped activities, absent internal payloads and
+matching message/node metadata. Fixture provenance and regeneration steps are recorded beside it
+in `client-boundary-page.md`. Metadata decoding is not an end-to-end hydration or UI claim;
+those paths have separate lifecycle, hydration and presentation tests.
 
 ## Exact original ChatApp presentation
 
@@ -239,10 +256,11 @@ permanently close a card: later authoritative generation reactivates it through 
 expansion animation and layout-mutation owner. Continuous activity never repeats an expansion.
 The last card is active only when generation
 is active AND no newer block lies below it; stale tool state cannot animate a middle card.
-Use the original active-card expansion/collapse. Unknown completed thought duration uses
-exact English fallback Thought for a while; when the card contains tools it remains
-Thought for a while, called X tools. The fallback only replaces the duration, never the
-native tool count. Genuine timing retains original duration text.
+Use the original active-card expansion/collapse for public content. Reasoning is represented only
+by an active thinking status, with no reasoning body or expandable thought detail. An active turn
+may supply this status without a separate thought record. Historical reasoning records do not
+become visible transcript content. Tool feedback uses the safe activity label, truthful state and
+safe failure note through the existing presentation components, with genuine timing when supplied.
 
 Errors and unknown runtime never disable an explicit Send with nonblank input. Filo decides
 whether the original owner can accept that request; HTTP/SSE failures use stable Filo error

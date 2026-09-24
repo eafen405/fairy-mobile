@@ -13,9 +13,11 @@ import org.junit.Test
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 import java.io.IOException
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.flow.first
 
 class FiloClientTest {
@@ -110,8 +112,7 @@ class FiloClientTest {
             RemoteMessage("r", "turn", null, "assistant", "Public summary", 11, RemoteActivity("thought")),
             RemoteMessage("a", "turn", null, "assistant", "Checking", 12),
             RemoteMessage("t", "turn", null, "assistant", "", 13,
-                RemoteActivity("tool", "execute_shell_command", "{\"command\":\"pwd\"}",
-                    "{\"output\":\"workspace\",\"exit_code\":0}", "succeeded", 30)),
+                RemoteActivity("tool", "succeeded", 30, label = "执行命令")),
             RemoteMessage("r2", "turn", null, "assistant", "Result summary", 14, RemoteActivity("thought")),
             RemoteMessage("a2", "turn", null, "assistant", "Done", 15),
             RemoteMessage("a3", "turn", null, "assistant", "Details", 16),
@@ -125,23 +126,27 @@ class FiloClientTest {
         assertNull(answer.thoughtTimeMs)
         assertEquals(MessageStatus.SUCCESS, answer.status)
         val segments = mergeAdjacentSegments(answer.segments!!)
-        assertEquals(listOf("thought", "answer", "tool", "thought", "answer"), segments.map { it.type })
+        // Thought records carry no visible content across the client feedback boundary.
+        assertEquals(listOf("answer", "tool", "answer"), segments.map { it.type })
         assertEquals("Done\n\nDetails", segments.last().content)
-        val tool = segments[2]
+        val tool = segments[1]
         assertEquals("t", tool.toolCallId)
         assertEquals(30L, tool.durationMs)
+        assertEquals("执行命令", tool.toolDisplayName)
+        assertNull(tool.toolName)
         val presentation = ToolPresentationResolver.resolve(tool)
-        assertEquals(ToolKind.SHELL_EXECUTE, presentation.kind)
+        assertEquals(ToolKind.UNKNOWN, presentation.kind)
         assertEquals(ToolPresentationState.COMPLETED, presentation.state)
-        assertEquals(0, presentation.exitCode)
+        assertNull(presentation.exitCode)
     }
 
     @Test fun userAndTurnBoundariesRemainHardEvenForActivityOnlyMessages() {
         val records = listOf(
-            RemoteMessage("r", "turn1", null, "assistant", "Summary", 1, RemoteActivity("thought")),
+            RemoteMessage("r", "turn1", null, "assistant", "", 1,
+                RemoteActivity("tool", "succeeded", label = "搜索网络")),
             RemoteMessage("u", "turn1", null, "user", "Interrupt", 2),
             RemoteMessage("t", "turn1", null, "assistant", "", 3,
-                RemoteActivity("tool", "file_edit", state = "stopped")),
+                RemoteActivity("tool", state = "stopped", label = "整理文件", note = "已被手动停止")),
             RemoteMessage("a", "turn2", null, "assistant", "Next turn", 4),
         )
         val projected = projectRemoteMessages(records)
@@ -149,31 +154,33 @@ class FiloClientTest {
         assertEquals(listOf(null, "r", "u", "t"), projected.map { it.parentId })
         assertEquals("", projected.first().text)
         assertNull(projected[2].thoughtTimeMs)
-        assertEquals(ToolPresentationState.STOPPED,
-            ToolPresentationResolver.resolve(projected[2].segments!!.single()).state)
+        val stopped = ToolPresentationResolver.resolve(projected[2].segments!!.single())
+        assertEquals(ToolPresentationState.STOPPED, stopped.state)
+        assertEquals("已被手动停止", stopped.errorMessage)
     }
 
     @Test fun refreshedToolPayloadKeepsSheetIdentityAndRecordedLifecycle() {
         val summary = RemoteMessage("r", "turn", null, "assistant", "Checking", 10, RemoteActivity("thought"))
         val tool = RemoteMessage("t", "turn", null, "assistant", "", 10,
-            RemoteActivity("tool", "execute_shell_command", "{\"command\":\"test\"}",
-                "{\"output\":\"partial\"}", "running"))
+            RemoteActivity("tool", "running", label = "执行命令"))
         val before = projectRemoteMessages(listOf(summary, tool)).single()
-        val running = before.segments!!.last()
+        val running = before.segments!!.single()
         assertNull(running.toolResult)
-        assertEquals(tool.activity!!.result, running.toolProgress)
+        assertNull(running.toolProgress)
         assertEquals(ToolPresentationState.RUNNING, ToolPresentationResolver.resolve(running).state)
-        val finished = tool.copy(activity = tool.activity.copy(
-            result = "{\"output\":\"failed test\",\"exit_code\":1}", state = "failed", durationMs = 55))
+        val finished = tool.copy(activity = tool.activity!!.copy(
+            state = "failed", durationMs = 55, note = "命令超时"))
         val refreshed = listOf(summary, finished,
             RemoteMessage("a", "turn", null, "assistant", "Reported", 11))
         val after = projectRemoteMessages(refreshed).single()
         assertEquals(before.id, after.id)
-        val terminal = after.segments!![1]
+        val terminal = after.segments!!.first { it.type == "tool" }
         assertEquals(running.toolCallId, terminal.toolCallId)
         assertNull(terminal.toolProgress)
         assertEquals(55L, terminal.durationMs)
-        assertEquals(ToolPresentationState.FAILED, ToolPresentationResolver.resolve(terminal).state)
+        val presentation = ToolPresentationResolver.resolve(terminal)
+        assertEquals(ToolPresentationState.FAILED, presentation.state)
+        assertEquals("命令超时", presentation.errorMessage)
         assertEquals("Reported", after.text)
         val older = RemoteMessage("older", "previous", null, "user", "Earlier", 1)
         assertEquals(after.id, projectRemoteMessages(listOf(older) + refreshed).last().id)
@@ -188,16 +195,26 @@ class FiloClientTest {
         assertNull(projected.thoughtTimeMs)
     }
 
-    @Test fun historyOptsIntoActivityAndAcceptsBothLegacyAndRichPayloads() = runBlocking {
+    @Test fun historyOptsIntoActivityAndBoundedPayloadsNeverSurfaceInternals() = runBlocking {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val queries = mutableListOf<String>()
-        val legacy = RemoteMessage("a", "turn", null, "assistant", "Answer", 10)
-        val rich = legacy.copy(id = "t", text = "", activity = RemoteActivity(
-            "tool", "mcp/tools", "{}", "{\"structuredContent\":{\"count\":2}}", "succeeded"))
+        val plain = """{"id":"a","turnId":"turn","clientId":null,"role":"assistant","text":"Answer","timestamp":10}"""
+        // The bounded wire carries only label/state/duration — no tool internals.
+        val bounded = """{"id":"t","turnId":"turn","clientId":null,"role":"assistant","text":"",
+            "timestamp":11,"activity":{"type":"tool","state":"succeeded","durationMs":30,"label":"搜索网络"}}"""
+        // A pre-boundary (or hostile) payload may still smuggle internals; decode drops them.
+        val internals = """{"id":"o","turnId":"turn","clientId":null,"role":"assistant","text":"",
+            "timestamp":12,"activity":{"type":"tool","state":"failed","durationMs":4,"label":"搜索网络",
+            "note":"网络请求失败","toolName":"mcp/tools","arguments":"{\"command\":\"rm -rf /\"}",
+            "result":"{\"structuredContent\":{\"count\":2}}","imagePath":"C:/private.png"}}"""
+        // An old payload without label/note still renders — with the generic fallback.
+        val legacyShape = """{"id":"l","turnId":"turn","clientId":null,"role":"assistant","text":"",
+            "timestamp":13,"activity":{"type":"tool","toolName":"view_image","state":"succeeded",
+            "imagePath":"C:/old.png"}}"""
         server.createContext("/api/mobile/v1/sessions/$id") { exchange ->
             queries.add(exchange.requestURI.query)
-            val record = if (queries.size == 1) legacy else rich
-            val bytes = Json.encodeToString(RemoteConversationPage(listOf(record), null, emptyList())).toByteArray()
+            val message = listOf(plain, bounded, internals, legacyShape)[queries.size - 1]
+            val bytes = """{"messages":[$message],"nextCursor":null,"queued":[]}""".toByteArray()
             exchange.sendResponseHeaders(200, bytes.size.toLong())
             exchange.responseBody.use { it.write(bytes) }
         }
@@ -206,12 +223,139 @@ class FiloClientTest {
             val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
             assertNull(client.conversation(id).messages.single().activity)
             val loaded = client.conversation(id, "cursor + next").messages.single()
-            assertEquals(rich, loaded)
+            assertEquals(RemoteActivity("tool", "succeeded", 30, label = "搜索网络"), loaded.activity)
             assertEquals("includeActivity=true&includeMetadata=true", queries.first())
-            assertEquals("cursor=cursor + next&includeActivity=true&includeMetadata=true", queries.last())
+            assertEquals("cursor=cursor + next&includeActivity=true&includeMetadata=true", queries[1])
             val tool = projectRemoteMessages(listOf(loaded)).single().segments!!.single()
-            assertEquals(rich.activity!!.result, ToolPresentationResolver.resolve(tool).rawResult)
+            assertEquals("搜索网络", tool.toolDisplayName)
+            assertNull(tool.toolName)
+            assertNull(ToolPresentationResolver.resolve(tool).rawResult)
+            // Internals present on the wire are dropped: nothing raw reaches the model or UI.
+            val smuggled = client.conversation(id, "cursor").messages.single()
+            val segment = projectRemoteMessages(listOf(smuggled)).single().segments!!.single()
+            assertEquals("搜索网络", segment.toolDisplayName)
+            assertEquals("网络请求失败", segment.toolNote)
+            assertNull(segment.toolName)
+            assertNull(segment.toolArgs)
+            assertNull(segment.toolResult)
+            assertNull(segment.toolProgress)
+            assertNull(segment.toolResultText)
+            assertNull(segment.toolStructuredResult)
+            val presentation = ToolPresentationResolver.resolve(segment)
+            assertEquals(ToolPresentationState.FAILED, presentation.state)
+            assertEquals("网络请求失败", presentation.errorMessage)
+            assertNull(presentation.rawArguments)
+            assertNull(presentation.rawResult)
+            assertNull(presentation.liveOutput)
+            // An old payload carries internals but no label/note: still renders as a
+            // generic completed activity chip with nothing internal exposed.
+            val old = client.conversation(id, "last").messages.single()
+            val oldSegment = projectRemoteMessages(listOf(old)).single().segments!!.single()
+            assertNull(oldSegment.toolDisplayName)
+            assertNull(oldSegment.toolNote)
+            assertNull(oldSegment.toolName)
+            val oldPresentation = ToolPresentationResolver.resolve(oldSegment)
+            assertEquals(ToolPresentationState.COMPLETED, oldPresentation.state)
+            assertNull(oldPresentation.rawResult)
         } finally { server.stop(0) }
+    }
+
+    @Serializable
+    private data class LegacyActivity(
+        val type: String, val toolName: String? = null, val arguments: String? = null,
+        val result: String? = null, val state: String? = null, val durationMs: Long? = null,
+        val imagePath: String? = null)
+    @Serializable
+    private data class LegacyMessage(
+        val id: String, val turnId: String, val clientId: String?, val role: String,
+        val text: String, val timestamp: Long, val activity: LegacyActivity? = null,
+        val groupId: String? = null,
+        val nativeId: String? = null, val textOffset: Int = 0, val textContinues: Boolean = false,
+        val imageLinks: List<String> = emptyList(), val error: Boolean = false)
+    @Serializable
+    private data class LegacyQueuedMessage(val id: String, val clientId: String, val text: String)
+    @Serializable
+    private data class LegacyRuntime(
+        val status: String, val activeTurnId: String? = null, val model: String? = null,
+        val contextTokens: Int? = null, val contextWindow: Int? = null,
+        val completedTurnId: String? = null,
+        val effort: String? = null, val serviceTier: String? = null,
+        val serviceTierKnown: Boolean = false, val activeTurnHasUserMessage: Boolean = false)
+    @Serializable
+    private data class LegacyNodeActivity(
+        val type: String, val state: String? = null, val durationMs: Long? = null,
+        val hasImage: Boolean = false)
+    @Serializable
+    private data class LegacyNode(
+        val id: String, val turnId: String, val clientId: String?, val role: String, val timestamp: Long,
+        val revision: String, val textLength: Int,
+        val groupId: String? = null, val nativeId: String? = null,
+        val textOffset: Int = 0, val textContinues: Boolean = false,
+        val activity: LegacyNodeActivity? = null, val hasContent: Boolean? = null,
+        val imageCount: Int = 0, val error: Boolean = false)
+    @Serializable
+    private data class LegacyPage(
+        val messages: List<LegacyMessage>, val nextCursor: String?,
+        val queued: List<LegacyQueuedMessage>, val runtime: LegacyRuntime? = null,
+        val pageCursor: String? = null, val continuationCursor: String? = null,
+        val nodes: List<LegacyNode> = emptyList())
+
+    private fun legacyValidate(page: LegacyPage) {
+        require(page.messages.all { it.role == "user" || it.role == "assistant" })
+        require(page.messages.map { it.id }.toSet().size == page.messages.size)
+        page.messages.forEach { message -> message.activity?.let { activity ->
+            require(message.role == "assistant" && activity.type in setOf("thought", "tool"))
+            require(activity.type != "tool" || !activity.toolName.isNullOrBlank())
+            require(activity.durationMs == null || activity.durationMs >= 0)
+            require(activity.state == null || activity.state in setOf("running", "succeeded", "failed", "stopped"))
+        } }
+    }
+
+    @Test fun preBoundaryDecoderReadsGeneratedFairybotPageWithSafeToolNameAliases() {
+        val json = Json { ignoreUnknownKeys = true }
+        val fixture = requireNotNull(javaClass.getResource("/remote/client-boundary-page.json"))
+            .readText()
+        val payload = json.parseToJsonElement(fixture).jsonObject.getValue("page").toString()
+        val decoded = json.decodeFromString<LegacyPage>(payload)
+        legacyValidate(decoded)
+        assertEquals("Hello Fairy", decoded.messages.first().text)
+        assertEquals("Hello back", decoded.messages.last().text)
+        assertEquals("idle", decoded.runtime?.status)
+        assertEquals("turn-1", decoded.runtime?.completedTurnId)
+        val activities = decoded.messages.mapNotNull { it.activity }
+        assertEquals(listOf("检索记忆", "一项操作", "整理待跟进事项"), activities.map { it.toolName })
+        assertEquals(listOf("succeeded", "failed", "stopped"), activities.map { it.state })
+        assertEquals(listOf(1L, 1L, null), activities.map { it.durationMs })
+        activities.forEach { activity ->
+            assertEquals("tool", activity.type)
+            assertNull(activity.arguments)
+            assertNull(activity.result)
+            assertNull(activity.imagePath)
+        }
+        val current = json.decodeFromString<RemoteConversationPage>(payload)
+        assertEquals(activities.map { it.toolName }, current.messages.mapNotNull { it.activity?.label })
+        assertEquals("操作未成功", current.messages.mapNotNull { it.activity }.single { it.state == "failed" }.note)
+        assertEquals(decoded.messages.map { it.id }, decoded.nodes.map { it.id })
+        decoded.nodes.zip(decoded.messages).forEach { (node, message) ->
+            assertTrue(node.revision.isNotBlank())
+            assertEquals(message.turnId, node.turnId)
+            assertEquals(message.text.length, node.textLength)
+            assertEquals(message.activity?.state, node.activity?.state)
+            assertEquals(message.activity?.durationMs, node.activity?.durationMs)
+            assertEquals(true, node.hasContent)
+            assertEquals(0, node.imageCount)
+            assertFalse(node.activity?.hasImage == true)
+        }
+        val wirePage = json.parseToJsonElement(payload).jsonObject
+        val wireMessages = json.decodeFromString<List<kotlinx.serialization.json.JsonObject>>(
+            wirePage.getValue("messages").toString())
+        wireMessages.mapNotNull { it["activity"]?.jsonObject }.forEach { activity ->
+            assertEquals(activity.getValue("label"), activity.getValue("toolName"))
+        }
+        listOf("PRIVATE_", "/host/private", "memory_search", "open_thread").forEach { marker ->
+            assertTrue(fixture.contains(marker))
+            assertFalse(payload.contains(marker))
+        }
     }
 
     @Test fun failuresDistinguishTransportAuthenticationAndProtocol() {
@@ -419,10 +563,12 @@ class FiloClientTest {
         val user = RemoteMessage("u", "turn", null, "user", "go", 1)
         val thought = RemoteMessage("r", "turn", null, "assistant", "Thinking", 2, RemoteActivity("thought"))
         val tool = RemoteMessage("t", "turn", null, "assistant", "", 3,
-            RemoteActivity("tool", "shell", state = "running"))
+            RemoteActivity("tool", "running", label = "执行命令"))
         val answer = RemoteMessage("a", "turn", null, "assistant", "Hello", 4)
         val active = RemoteRuntime("active", "turn", "model")
-        assertEquals(MessageStatus.THINKING, projectRemoteMessages(listOf(user, thought), active).last().status)
+        // A thought record renders no message at all; the run-state placeholder card
+        // is the only "思考中" indicator — no reasoning text is ever shown.
+        assertEquals(MessageStatus.SENDING, projectRemoteMessages(listOf(user, thought), active).last().status)
         assertEquals(MessageStatus.TOOL_CALLING, projectRemoteMessages(listOf(user, thought, tool), active).last().status)
         val streaming = projectRemoteMessages(listOf(user, thought, tool, answer), active).last()
         val grown = projectRemoteMessages(listOf(user, thought, tool, answer.copy(text = "Hello world")), active).last()

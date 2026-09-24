@@ -29,4 +29,5 @@
     <string name="remote_archive">Архивировать</string>
     <string name="remote_archive_title">Архивировать задачу?</string>
     <string name="remote_archive_message">Убрать эту задачу из активных списков Fairy и Remote? История будет сохранена.</string>
+    <string name="remote_activity">Обработка</string>
 </resources>

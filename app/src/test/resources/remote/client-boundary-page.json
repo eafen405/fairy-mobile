@@ -1,0 +1,390 @@
+{
+  "provenance": {
+    "repository": "Fairybot",
+    "commit": "d6e727fd228dd1aa4e8369e527a8e71998c788d6",
+    "generatedOn": "2026-09-24",
+    "exports": [
+      "projectHistoryEvents",
+      "SessionProjection.create",
+      "SessionProjection.page"
+    ],
+    "legacyDecoderCommit": "19ef936d",
+    "transport": "authenticated public HTTP",
+    "method": "GET",
+    "route": "/api/mobile/v1/sessions/47f1628e-10fe-80c4-ba7b-cc0000000000?includeActivity=true&includeMetadata=true",
+    "status": 200,
+    "generationPath": [
+      "bootFairyMinimal",
+      "attachWebEntry",
+      "POST /api/register",
+      "GET /api/mobile/v1/sessions",
+      "writePersistedSession",
+      "GET /api/mobile/v1/sessions/:id?includeActivity=true&includeMetadata=true",
+      "persistedEvents",
+      "projectHistoryEvents",
+      "SessionProjection.create",
+      "SessionProjection.page"
+    ]
+  },
+  "events": [
+    {
+      "seq": 0,
+      "type": "turn/start",
+      "data": {
+        "turn": 1
+      },
+      "time": 1800000000000
+    },
+    {
+      "seq": 1,
+      "type": "user/message",
+      "data": {
+        "id": "user-1",
+        "role": "user",
+        "source": {
+          "kind": "user"
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Hello Fairy"
+          }
+        ]
+      },
+      "time": 1800000000001,
+      "surfaceOp": "append",
+      "sourceEventSeqs": [
+        0
+      ]
+    },
+    {
+      "seq": 2,
+      "type": "assistant/attempt",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "stream": [
+          {
+            "type": "reasoning",
+            "text": "PRIVATE_REASONING"
+          }
+        ]
+      },
+      "time": 1800000000002
+    },
+    {
+      "seq": 3,
+      "type": "tool/call",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "callId": "known",
+        "name": "memory_search",
+        "arguments": {
+          "query": "PRIVATE_ARGUMENT /host/private"
+        }
+      },
+      "time": 1800000000003
+    },
+    {
+      "seq": 4,
+      "type": "tool/result",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "message": {
+          "id": "result-known",
+          "role": "user",
+          "source": {
+            "kind": "tool",
+            "callId": "known"
+          },
+          "content": [
+            {
+              "type": "tool-result",
+              "toolCallId": "known",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "PRIVATE_RESULT PRIVATE_EXCEPTION /host/private"
+                }
+              ],
+              "isError": false
+            }
+          ]
+        }
+      },
+      "time": 1800000000004,
+      "surfaceOp": "append"
+    },
+    {
+      "seq": 5,
+      "type": "tool/call",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "callId": "unknown",
+        "name": "PRIVATE_TOOL",
+        "arguments": {
+          "query": "PRIVATE_ARGUMENT /host/private"
+        }
+      },
+      "time": 1800000000005
+    },
+    {
+      "seq": 6,
+      "type": "tool/result",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "message": {
+          "id": "result-unknown",
+          "role": "user",
+          "source": {
+            "kind": "tool",
+            "callId": "unknown"
+          },
+          "content": [
+            {
+              "type": "tool-result",
+              "toolCallId": "unknown",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "PRIVATE_RESULT PRIVATE_EXCEPTION /host/private"
+                }
+              ],
+              "isError": true
+            }
+          ]
+        }
+      },
+      "time": 1800000000006,
+      "surfaceOp": "append"
+    },
+    {
+      "seq": 7,
+      "type": "tool/call",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "callId": "stopped",
+        "name": "open_thread",
+        "arguments": {
+          "text": "PRIVATE_ARGUMENT"
+        }
+      },
+      "time": 1800000000007
+    },
+    {
+      "seq": 8,
+      "type": "assistant/message",
+      "data": {
+        "turn": 1,
+        "step": 1,
+        "message": {
+          "id": "answer-1",
+          "role": "assistant",
+          "source": {
+            "kind": "model",
+            "provider": "private",
+            "model": "private"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello back"
+            },
+            {
+              "type": "reasoning",
+              "text": "PRIVATE_REASONING"
+            }
+          ]
+        }
+      },
+      "time": 1800000000008,
+      "surfaceOp": "append"
+    },
+    {
+      "seq": 9,
+      "type": "turn/end",
+      "data": {
+        "turn": 1,
+        "reason": {
+          "kind": "completed"
+        }
+      },
+      "time": 1800000000009
+    }
+  ],
+  "page": {
+    "messages": [
+      {
+        "id": "e1",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "user",
+        "text": "Hello Fairy",
+        "timestamp": 1800000000001
+      },
+      {
+        "id": "e3",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "text": "",
+        "timestamp": 1800000000003,
+        "activity": {
+          "type": "tool",
+          "label": "检索记忆",
+          "toolName": "检索记忆",
+          "state": "succeeded",
+          "durationMs": 1
+        }
+      },
+      {
+        "id": "e5",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "text": "",
+        "timestamp": 1800000000005,
+        "activity": {
+          "type": "tool",
+          "label": "一项操作",
+          "toolName": "一项操作",
+          "state": "failed",
+          "note": "操作未成功",
+          "durationMs": 1
+        }
+      },
+      {
+        "id": "e7",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "text": "",
+        "timestamp": 1800000000007,
+        "activity": {
+          "type": "tool",
+          "label": "整理待跟进事项",
+          "toolName": "整理待跟进事项",
+          "state": "stopped"
+        }
+      },
+      {
+        "id": "e8",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "text": "Hello back",
+        "timestamp": 1800000000008
+      }
+    ],
+    "nodes": [
+      {
+        "id": "e1",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "user",
+        "timestamp": 1800000000001,
+        "revision": "f155687319a23f133bdca27f",
+        "textLength": 11,
+        "textOffset": 0,
+        "textContinues": false,
+        "hasContent": true,
+        "imageCount": 0,
+        "error": false
+      },
+      {
+        "id": "e3",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "timestamp": 1800000000003,
+        "revision": "0fe1c5f356b3d6e741f29c63",
+        "textLength": 0,
+        "textOffset": 0,
+        "textContinues": false,
+        "activity": {
+          "type": "tool",
+          "label": "检索记忆",
+          "toolName": "检索记忆",
+          "state": "succeeded",
+          "durationMs": 1,
+          "hasImage": false
+        },
+        "hasContent": true,
+        "imageCount": 0,
+        "error": false
+      },
+      {
+        "id": "e5",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "timestamp": 1800000000005,
+        "revision": "30eec3da35caffd4c338f839",
+        "textLength": 0,
+        "textOffset": 0,
+        "textContinues": false,
+        "activity": {
+          "type": "tool",
+          "label": "一项操作",
+          "toolName": "一项操作",
+          "state": "failed",
+          "durationMs": 1,
+          "hasImage": false
+        },
+        "hasContent": true,
+        "imageCount": 0,
+        "error": false
+      },
+      {
+        "id": "e7",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "timestamp": 1800000000007,
+        "revision": "abcb89c0026b0ba81143fff4",
+        "textLength": 0,
+        "textOffset": 0,
+        "textContinues": false,
+        "activity": {
+          "type": "tool",
+          "label": "整理待跟进事项",
+          "toolName": "整理待跟进事项",
+          "state": "stopped",
+          "hasImage": false
+        },
+        "hasContent": true,
+        "imageCount": 0,
+        "error": false
+      },
+      {
+        "id": "e8",
+        "turnId": "turn-1",
+        "clientId": null,
+        "role": "assistant",
+        "timestamp": 1800000000008,
+        "revision": "a388628e9a4c5a807a2a1cad",
+        "textLength": 10,
+        "textOffset": 0,
+        "textContinues": false,
+        "hasContent": true,
+        "imageCount": 0,
+        "error": false
+      }
+    ],
+    "nextCursor": null,
+    "queued": [],
+    "runtime": {
+      "status": "idle",
+      "completedTurnId": "turn-1",
+      "model": "fairy",
+      "activeTurnHasUserMessage": false
+    },
+    "pageCursor": null,
+    "continuationCursor": null
+  }
+}

@@ -106,6 +106,7 @@ private fun MessageSegment.estimatedHeapBytes(): Long =
         toolDisplayName.estimatedHeapBytes() +
         toolResultText.estimatedHeapBytes() +
         toolStructuredResult.estimatedHeapBytes() +
+        toolNote.estimatedHeapBytes() +
         toolTranscription.estimatedHeapBytes() +
         responseOutputItemProvider.estimatedHeapBytes() +
         toolImages.sumOf(ToolImageAttachment::estimatedHeapBytes) +

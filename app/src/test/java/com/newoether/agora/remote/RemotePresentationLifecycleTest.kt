@@ -13,9 +13,9 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RemotePresentationLifecycleTest {
-    @Test fun nativeGenerationArrivingAfterHistoryReactivatesTheLastCompletedToolCard() = runTest {
+    @Test fun nativeGenerationArrivingAfterHistoryResumesThinkingAboveTheCompletedTool() = runTest {
         val tool = RemoteMessage("tool", "turn", null, "assistant", "", 1,
-            activity = RemoteActivity("tool", "execute_code", state = "succeeded"))
+            activity = RemoteActivity("tool", state = "succeeded", label = "执行代码"))
         val page = bodyPage(listOf(tool), null, emptyList(), RemoteRuntime("notLoaded"))
         val controller = GroupedSegmentAutoExpansionController()
         val nodes = admitRemotePage(emptyList(), page)
@@ -26,9 +26,10 @@ class RemotePresentationLifecycleTest {
         val runtime = RemoteRuntime("active", "turn", activeTurnHasUserMessage = true)
         val active = projectRemoteTopology(nodes, runtime).single()
         assertEquals(key, active.stub.id)
-        assertEquals(MessageStatus.TOOL_CALLING, active.stub.status)
+        assertEquals(MessageStatus.THINKING, active.stub.status)
+        assertEquals("succeeded", active.nodes.single().activity?.state)
         assertTrue(com.newoether.agora.ui.chat.message.compactSegmentShowsLoading(
-            active.stub.status == MessageStatus.TOOL_CALLING, isCurrentCard = true))
+            active.stub.status == MessageStatus.THINKING, isCurrentCard = true))
         // An existing collapsed card uses the normal expansion/layout-mutation animation.
         assertFalse(controller.shouldPresentInitiallyExpanded(key, isActive = true, enabled = true))
         assertEquals(GroupedSegmentAutoExpansionAction.EXPAND, controller.update(key, true, true))

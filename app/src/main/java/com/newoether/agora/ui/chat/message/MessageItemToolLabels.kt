@@ -20,6 +20,12 @@ internal fun toolDisplayName(segment: MessageSegment): String {
             resolvedName = segment.toolDisplayName,
         ) ?: "MCP"
     }
+    if (toolName.isBlank()) {
+        // Bounded remote activities carry only the server's display title; a missing
+        // one resolves to a generic label, never to a protocol or host detail.
+        return segment.toolDisplayName?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.remote_activity)
+    }
     return toolBaseDisplayName(
         kind = kind,
         toolName = toolName,
@@ -127,7 +133,8 @@ internal fun toolSummary(presentation: ToolPresentation): String {
     val subject = presentation.subject
     return when (presentation.state) {
         ToolPresentationState.FAILED -> failedSummary(presentation, subject)
-        ToolPresentationState.STOPPED -> stringResource(R.string.tool_execution_stopped)
+        ToolPresentationState.STOPPED -> presentation.errorMessage?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.tool_execution_stopped)
         ToolPresentationState.BACKGROUND_RUNNING -> {
             val job = presentation.jobId ?: subject
             if (job == null) {

@@ -139,15 +139,18 @@ internal object ToolPresentationResolver {
             count = count,
             errorCode = errorCode,
         )
+        // A bounded remote activity carries no result payload; the server's short note
+        // is the only safe failure/stop detail it can ever surface.
+        val note = segment.toolNote?.takeIf { it.isNotBlank() }
         val error = if (!failed) {
-            null
+            note?.takeIf { explicitState == ToolPresentationState.STOPPED }
         } else {
             failureCode?.let { code ->
                 (resultObject.string("message") ?: resultEnvelope.string("message"))
                     ?.takeIf { it.isNotBlank() }
                     ?: code.replace('_', ' ')
             } ?: textFailure ?: (resultObject.string("message") ?: resultEnvelope.string("message"))
-                ?.takeIf { it.isNotBlank() }
+                ?.takeIf { it.isNotBlank() } ?: note
         }
         val state = when {
             segment.toolResult == null -> explicitState ?: run {
