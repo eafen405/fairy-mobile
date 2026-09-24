@@ -24,16 +24,29 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         val inlineImages = mutableMapOf<String, com.newoether.agora.model.MarkdownImage>()
         var previousAnswerId: String? = null
         var userText = first.displayText()
+        val attachments = mutableListOf<RemoteMessageAttachment>()
+        val files = mutableListOf<RemoteFileRef>()
+        var relayFrom = first.relayFrom
+        fun accumulate(message: RemoteMessage) {
+            attachments += message.attachments
+            files += message.files
+            relayFrom = relayFrom ?: message.relayFrom
+        }
+        accumulate(first)
         if (first.role == "user") {
             val nativeId = first.nativeId ?: first.id
             while (messages.getOrNull(index)?.let {
                 it.role == "user" && (it.nativeId ?: it.id) == nativeId
-            } == true) userText += messages[index++].displayText()
+            } == true) {
+                userText += messages[index].displayText()
+                accumulate(messages[index++])
+            }
         }
         val segments = if (first.role == "assistant") buildList<MessageSegment> {
             var current = first
             var previousNativeId: String? = null
             while (true) {
+                if (current.id != first.id) accumulate(current)
                 current.imageLinks.forEach { link ->
                     inlineImages[link] = current.inlineImages[link] ?: com.newoether.agora.model.MarkdownImage()
                 }
@@ -82,13 +95,31 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                 index++
             }
         } else null
-        if (segments != null && segments.isEmpty()) continue
+        // A message carrying only attachments or files still renders a non-empty card.
+        if (segments != null && segments.isEmpty() && attachments.isEmpty() && files.isEmpty()) continue
         add(ChatMessage(
             id = first.groupId ?: first.nativeId ?: first.id, parentId = lastOrNull()?.id,
             text = if (segments == null) userText else answerText.toString(),
             participant = if (first.role == "user") Participant.USER else Participant.MODEL,
             timestamp = first.timestamp, modelName = "Fairy", runId = first.turnId,
             segments = segments, markdownImages = inlineImages,
+            attachmentMeta = attachments.takeIf { it.isNotEmpty() }?.let { list ->
+                com.newoether.agora.model.AttachmentMeta(list.map { item ->
+                    com.newoether.agora.model.AttachmentItem(
+                        type = item.type.ifBlank {
+                            if (item.mime?.startsWith("image/") == true) "image" else "file"
+                        },
+                        fileName = item.name.takeIf { it.isNotBlank() },
+                        mimeType = item.mime, fileSize = item.bytes,
+                    )
+                })
+            },
+            remoteFiles = files.map { item ->
+                com.newoether.agora.model.RemoteFile(
+                    fileId = item.fileId, deliveryId = item.deliveryId, name = item.name,
+                    bytes = item.bytes, mime = item.mime, source = relayFrom,
+                )
+            },
             status = if (segments?.any { it.type == "error" } == true) MessageStatus.ERROR else MessageStatus.SUCCESS,
         ))
     }

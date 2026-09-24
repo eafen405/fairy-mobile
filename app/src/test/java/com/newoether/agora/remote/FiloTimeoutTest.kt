@@ -40,7 +40,7 @@ class FiloTimeoutTest {
         try {
             val client = FiloClient("http://127.0.0.1:${server.address.port}/", token, transport, 1000)
             val created = client.create("hello", clientId, settings = RemoteSettings(model = "model"))
-        assertEquals(id, created.id)
+        assertEquals(id, created.session.id)
             try { client.models(); fail("Ordinary reads retain their shorter deadline") }
             catch (_: IOException) { }
             assertEquals(1, posts.get())

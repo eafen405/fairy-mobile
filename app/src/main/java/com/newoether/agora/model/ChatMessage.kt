@@ -168,6 +168,22 @@ enum class Participant {
     USER, MODEL, ERROR
 }
 
+/**
+ * A file published to this device by the Remote service. Only safe display
+ * metadata lives here: [fileId] identifies the authenticated download and is
+ * never a URL, [source] is the relay origin label, and bytes stay server-side
+ * until the user explicitly saves.
+ */
+@Immutable
+data class RemoteFile(
+    val fileId: String,
+    val deliveryId: String? = null,
+    val name: String = "",
+    val bytes: Long = 0,
+    val mime: String? = null,
+    val source: String? = null,
+)
+
 enum class MessageStatus {
     TRANSCRIBING, SENDING, THINKING, TOOL_CALLING, SUCCESS, STOPPED, ERROR
 }
@@ -198,6 +214,8 @@ data class ChatMessage(
     val displayPageId: String? = null,
     /** Authenticated private files for inline Markdown images; never part of native history. */
     val markdownImages: Map<String, MarkdownImage> = emptyMap(),
+    /** Files published by the Remote service on this message; display metadata only. */
+    val remoteFiles: List<RemoteFile> = emptyList(),
     /** Disposable off-main Markdown preparation; never persisted in Room or native history. */
     val preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     val preparedMarkdownBytes: Long = 0,

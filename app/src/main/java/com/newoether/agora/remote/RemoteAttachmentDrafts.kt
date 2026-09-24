@@ -23,6 +23,13 @@ internal class RemoteAttachmentDrafts(
         if (uris.size + state.value.attachments[owner].orEmpty().size > REMOTE_ATTACHMENT_COUNT) {
             failed(owner, RemoteAttachmentException("Choose up to $REMOTE_ATTACHMENT_COUNT attachments")); return
         }
+        // Pick-time aggregate precheck on provider-declared sizes; import and
+        // submit re-verify against measured bytes.
+        val knownBytes = state.value.attachments[owner].orEmpty().sumOf { it.fileSize ?: 0L } +
+            uris.sumOf { store.declaredSize(it) ?: 0L }
+        if (knownBytes > REMOTE_ATTACHMENT_TOTAL_LIMIT || uris.any { (store.declaredSize(it) ?: 0L) > REMOTE_ATTACHMENT_LIMIT }) {
+            failed(owner, RemoteContentLimitException()); return
+        }
         val items = uris.map { SelectedAttachment(localId = UUID.randomUUID().toString(), uri = it.toString(),
             type = "file", importState = AttachmentImportState.PROCESSING) }
         state.value = state.value.copy(attachments = state.value.attachments +

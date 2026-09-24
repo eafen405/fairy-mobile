@@ -62,7 +62,8 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
     }
     @Test fun sendAcceptanceIsBoundToOriginAndDoesNotClearEditedDraft() = runTest(dispatcher) {
         val gate = CompletableDeferred<String>()
-        coEvery { client.send(any(), any(), any(), any()) } coAnswers { gate.await() }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers {
+            RemoteSendReceipt(gate.await(), arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm)
         vm.selectSession(session); vm.setVisible(true); runCurrent()
@@ -97,7 +98,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         assertNull(vm.animatedScrollRequest.value)
         coVerify(exactly = 1) { client.send(any(), any(), any(), any()) }
         vm.acknowledgeUnknown(owner)
-        assertNull(vm.state.value.attempts[owner])
+        assertEquals(RemoteDelivery.RESENDABLE, vm.state.value.attempts[owner]?.delivery)
         vm.setVisible(false)
     }
 
@@ -129,7 +130,8 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
 
     @Test fun acceptedSendRequestsOneOwnedScrollAndNavigationClearsIt() = runTest(dispatcher) {
         val gate = CompletableDeferred<String>()
-        coEvery { client.send(any(), any(), any(), any()) } coAnswers { gate.await() }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers {
+            RemoteSendReceipt(gate.await(), arg(2)) }
         coEvery { client.conversation(any(), any()) } returns bodyPage(
             listOf(
                 RemoteMessage("tail", "turn", null, "assistant", "Previous answer", 1),
@@ -163,7 +165,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         assertNull(vm.animatedScrollRequest.value)
         vm.refresh(); runCurrent()
         assertNull(vm.animatedScrollRequest.value)
-        coEvery { client.send(any(), any(), any(), any()) } returns "second-turn"
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("second-turn", arg(2)) }
         vm.editDraft(owner, "next"); vm.send(); runCurrent()
         assertNull(vm.animatedScrollRequest.value)
         val nextId = vm.state.value.attempts[owner]!!.clientId
@@ -192,7 +194,8 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val events = MutableSharedFlow<RemoteConversationPage>()
         every { client.events(any()) } returns events
         val response = CompletableDeferred<String>()
-        coEvery { client.send(any(), any(), any(), any()) } coAnswers { response.await() }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers {
+            RemoteSendReceipt(response.await(), arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.selectSession(session); vm.setVisible(true); runCurrent()
         val running = RemoteRuntime("active", "turn", "model", 1234, 256000)
@@ -385,11 +388,11 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val events = MutableSharedFlow<RemoteConversationPage>()
         coEvery { client.create(any(), any(), any(), any()) } coAnswers {
             assertEquals("hello", firstArg<String>())
-            created.await()
+            RemoteCreatedSession(created.await(), RemoteSendReceipt("turn", arg(1)))
         }
         coEvery { client.models() } returns listOf(
             RemoteModel("model", "Model", true), RemoteModel("chosen", "Chosen"))
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         every { client.events(any()) } returns events
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.setVisible(true); runCurrent()
@@ -433,7 +436,8 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
 
     @Test fun lateFirstSendCreationDoesNotNavigateOrSendAfterBack() = runTest(dispatcher) {
         val created = CompletableDeferred<RemoteSession>()
-        coEvery { client.create(any(), any(), any(), any()) } coAnswers { created.await() }
+        coEvery { client.create(any(), any(), any(), any()) } coAnswers {
+            RemoteCreatedSession(created.await(), RemoteSendReceipt("turn", arg(1))) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()
@@ -491,8 +495,9 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
     @Test fun failedModelCatalogEndsLoadingWithoutBlockingDraftSend() = runTest(dispatcher) {
         val catalog = CompletableDeferred<List<RemoteModel>>()
         coEvery { client.models() } coAnswers { catalog.await() }
-        coEvery { client.create(any(), any(), any(), any()) } returns RemoteSession("native", "New", "/host/default", 1)
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.create(any(), any(), any(), any()) } coAnswers {
+            RemoteCreatedSession(RemoteSession("native", "New", "/host/default", 1), RemoteSendReceipt("turn", arg(1))) }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.setVisible(true); runCurrent()
         vm.newSession()

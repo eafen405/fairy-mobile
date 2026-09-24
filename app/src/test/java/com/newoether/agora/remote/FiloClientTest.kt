@@ -420,7 +420,7 @@ class FiloClientTest {
             val created = client.create("hello", id, settings = RemoteSettings(model = "chosen", updateServiceTier = true))
             assertEquals("POST", method)
             assertEquals("/api/mobile/v1/sessions", path)
-            assertEquals(id, created.id)
+            assertEquals(id, created.session.id)
             assertTrue(body.contains("\"text\":\"hello\""))
             assertTrue(body.contains("\"clientId\":\"$id\""))
             assertTrue(body.contains("\"attachments\":[]"))
@@ -500,7 +500,7 @@ class FiloClientTest {
         try {
             val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
             assertEquals("fairy", client.connect())
-            assertEquals("turn", client.send(id, "hello", id))
+            assertEquals("turn", client.send(id, "hello", id).turnId)
             assertEquals(page, client.events(id).first())
             assertEquals(List(3) { "$FAIRY_LOGIN_COOKIE=$token" }, auth)
         } finally { server.stop(0) }

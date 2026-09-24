@@ -45,11 +45,18 @@ private data class FiloInfo(
 @Serializable
 private data class SendInput(val text: String, val clientId: String, val attachments: List<String> = emptyList())
 @Serializable
-private data class SendResult(val turnId: String, val clientId: String)
+private data class SendResult(val turnId: String, val clientId: String, val messageId: String? = null)
 // createSessionResponse: the full session spread plus the first-turn receipt.
 @Serializable
 private data class CreateResult(val id: String, val title: String, val cwd: String, val updatedAt: Long,
-    val status: String? = null, val turnId: String, val clientId: String)
+    val status: String? = null, val turnId: String, val clientId: String, val messageId: String? = null)
+
+/**
+ * The admission receipt for a submitted message. [messageId] is present on
+ * identity-aware services and stays null on the legacy {turnId, clientId} wire.
+ */
+internal data class RemoteSendReceipt(val turnId: String, val clientId: String, val messageId: String? = null)
+internal data class RemoteCreatedSession(val session: RemoteSession, val receipt: RemoteSendReceipt)
 
 @Serializable
 private data class FiloError(val code: String? = null, val error: String? = null)
@@ -62,6 +69,7 @@ internal fun remoteErrorDetail(error: Exception): String? = when (error) {
     is FiloHttpException -> error.detail
     is FiloStreamException -> error.detail
     is RemoteAttachmentException -> error.message
+    is RemoteFileException -> error.message
     else -> null
 }
 internal fun remoteErrorCode(error: Exception): String? = when (error) {
@@ -94,6 +102,8 @@ internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (erro
 }
 
 internal const val FAIRY_LOGIN_COOKIE = "fairy_login"
+/** Server-published files are bounded; anything larger is rejected before body reads. */
+internal const val REMOTE_FILE_LIMIT = 512L * 1024 * 1024
 
 /** A dedicated transport: credentials, redirects and retries never enter the provider client.
  *  The credential is the `fairy_login` cookie issued by /api/login|register; it is persisted
@@ -282,7 +292,7 @@ internal class FiloClient(
     }
 
     // Creation always carries the first message: no session ever exists without one.
-    suspend fun create(text: String, clientId: String, attachments: List<String> = emptyList(), settings: RemoteSettings? = null): RemoteSession {
+    suspend fun create(text: String, clientId: String, attachments: List<String> = emptyList(), settings: RemoteSettings? = null): RemoteCreatedSession {
         if ((text.isBlank() && attachments.isEmpty()) || attachments.size > REMOTE_ATTACHMENT_COUNT ||
             attachments.any { !it.matches(Regex("[a-f0-9]{32}")) }) throw FiloInputException()
         if (settings?.model.isNullOrEmpty()) throw FiloInputException()
@@ -294,7 +304,8 @@ internal class FiloClient(
         if (body.toByteArray(Charsets.UTF_8).size > 65536) throw FiloInputException()
         return json.decodeFromString<CreateResult>(request("v1/sessions", body = body))
             .also { require(it.clientId == clientId && it.turnId.isNotBlank() && it.id.isNotBlank()) }
-            .let { RemoteSession(it.id, it.title, it.cwd, it.updatedAt, it.status) }
+            .let { RemoteCreatedSession(RemoteSession(it.id, it.title, it.cwd, it.updatedAt, it.status),
+                RemoteSendReceipt(it.turnId, it.clientId, it.messageId)) }
     }
 
     // Only the three next-turn keys leave the device; a malformed body never reaches native.
@@ -323,13 +334,52 @@ internal class FiloClient(
     suspend fun upload(item: com.newoether.agora.model.SelectedAttachment): RemoteUpload =
         uploadRemoteAttachment(item) { path, method, payload -> request(path, uploadBody = payload, method = method) }
 
-    suspend fun send(id: String, text: String, clientId: String, attachments: List<String> = emptyList()): String {
+    suspend fun send(id: String, text: String, clientId: String, attachments: List<String> = emptyList()): RemoteSendReceipt {
         val body = json.encodeToString(SendInput(text, clientId, attachments))
         if ((text.isBlank() && attachments.isEmpty()) || attachments.size > REMOTE_ATTACHMENT_COUNT ||
             attachments.any { !it.matches(Regex("[a-f0-9]{32}")) } || body.toByteArray(Charsets.UTF_8).size > 65536) throw FiloInputException()
         return json.decodeFromString<SendResult>(
             request("v1/sessions/${sessionId(id)}/messages", body = body),
-        ).also { require(it.clientId == clientId && it.turnId.isNotBlank()) }.turnId
+        ).also { require(it.clientId == clientId && it.turnId.isNotBlank()) }
+            .let { RemoteSendReceipt(it.turnId, it.clientId, it.messageId) }
+    }
+
+    /**
+     * Authenticated download of a published file. The path is built only from the
+     * trusted connection endpoint plus the encoded [fileId]; redirects are never
+     * followed, so the session cookie can never leak to another origin. The caller
+     * streams [persist] to private storage and owns validation and cleanup.
+     */
+    suspend fun downloadFile(
+        fileId: String,
+        persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
+    ): Unit = suspendCancellableCoroutine { continuation ->
+        require(fileId.isNotBlank() && fileId != "." && fileId != "..") { "Invalid Filo file id" }
+        val url = endpoint.newBuilder()
+            .addPathSegments("v1/files").addPathSegment(fileId).build()
+        val call = readCalls.newCall(Request.Builder().url(url).authorize().build())
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (!continuation.isCancelled) continuation.resumeWithException(e)
+            }
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    try {
+                        captureCookies(it)
+                        if (!it.isSuccessful) throw httpError(it)
+                        val declared = it.body.contentLength()
+                        if (declared > REMOTE_FILE_LIMIT) throw RemoteContentLimitException()
+                        kotlinx.coroutines.runBlocking {
+                            persist(it.body.byteStream(), declared, it.header("Content-Type"))
+                        }
+                        continuation.resume(Unit)
+                    } catch (error: Exception) {
+                        if (!continuation.isCancelled) continuation.resumeWithException(error)
+                    }
+                }
+            }
+        })
     }
 
     private fun sessionId(id: String): String {

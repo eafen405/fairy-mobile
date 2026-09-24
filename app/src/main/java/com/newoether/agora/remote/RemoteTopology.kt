@@ -14,10 +14,19 @@ internal data class RemoteMessageNode(
     val activity: RemoteNodeActivity? = null, val hasContent: Boolean? = null,
     val imageCount: Int = 0,
     val error: Boolean = false,
+    val messageId: String? = null,
+    val attachments: List<RemoteMessageAttachment> = emptyList(),
+    val files: List<RemoteFileRef> = emptyList(),
+    val relayFrom: String? = null,
     @kotlinx.serialization.Transient val displayPageId: String? = null,
     @kotlinx.serialization.Transient val displayGroupId: String? = null,
     @kotlinx.serialization.Transient val pageCursor: String? = null,
 )
+
+/** A node is renderable once it carries any visible content, including file cards. */
+internal fun RemoteMessageNode.hasVisibleContent(): Boolean =
+    hasContent ?: (textLength > 0 || activity?.type == "tool" ||
+        attachments.isNotEmpty() || files.isNotEmpty())
 @Serializable
 internal data class RemoteNodeActivity(val type: String, val state: String? = null, val durationMs: Long? = null,
     val hasImage: Boolean = false, val label: String? = null)
@@ -43,7 +52,7 @@ internal fun projectRemoteTopology(nodes: List<RemoteMessageNode>, runtime: Remo
             group += next
             index++
         }
-        if (first.role == "assistant" && group.none { it.hasContent ?: (it.textLength > 0 || it.activity?.type == "tool") }) continue
+        if (first.role == "assistant" && group.none { it.hasVisibleContent() }) continue
         val id = first.displayGroupId ?: first.groupId ?: first.nativeId ?: first.id
         add(RemoteMessageGroup(ChatMessage(id = id, parentId = lastOrNull()?.stub?.takeIf {
                 it.displayPageId == first.displayPageId
@@ -110,4 +119,20 @@ internal fun admitRemoteNodes(
     val boundary = fresh.firstOrNull()?.id ?: return previous
     val index = previous.indexOfFirst { it.id == boundary }
     return (previous.take(if (index >= 0) index else previous.size) + fresh).distinctBy { it.id }
+}
+
+/**
+ * Drop queued entries that have already been admitted to history, matched by
+ * stable id, clientId, or messageId so a resubmitted send cannot double-render.
+ */
+internal fun mergeQueuedMessages(
+    queued: List<RemoteQueuedMessage>, nodes: List<RemoteMessageNode>,
+): List<RemoteQueuedMessage> {
+    if (queued.isEmpty() || nodes.isEmpty()) return queued
+    return queued.filterNot { entry ->
+        nodes.any { node ->
+            node.id == entry.id || node.clientId == entry.clientId ||
+                (entry.messageId != null && node.messageId == entry.messageId)
+        }
+    }
 }

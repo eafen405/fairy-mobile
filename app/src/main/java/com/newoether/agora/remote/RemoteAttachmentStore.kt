@@ -14,12 +14,22 @@ import kotlin.coroutines.coroutineContext
 
 internal const val REMOTE_ATTACHMENT_LIMIT = 128L * 1024 * 1024
 internal const val REMOTE_ATTACHMENT_COUNT = 16
+internal const val REMOTE_ATTACHMENT_TOTAL_LIMIT = 256L * 1024 * 1024
 internal class RemoteAttachmentException(message: String) : IOException(message)
 
 /** Copies original bytes into a private draft; no OCR, PDF extraction or conversion. */
 internal class RemoteAttachmentStore(context: Context) {
     private val resolver = context.applicationContext.contentResolver
     private val directory = File(context.cacheDir, "remote-attachments")
+
+    /** Provider-declared size for a pick-time aggregate precheck; null when unknown. */
+    fun declaredSize(uri: Uri): Long? =
+        resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) null
+            else cursor.getColumnIndex(OpenableColumns.SIZE)
+                .takeIf { it >= 0 && !cursor.isNull(it) }
+                ?.let { cursor.getLong(it).takeIf { size -> size >= 0 } }
+        }
 
     suspend fun import(uri: Uri, id: String): SelectedAttachment = withContext(Dispatchers.IO) {
         val mime = resolver.getType(uri) ?: "application/octet-stream"

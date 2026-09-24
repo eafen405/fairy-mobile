@@ -47,8 +47,8 @@ internal class FiloLiveServerTest {
         assertNotNull(live.runtime)
 
         // 发送：回执受理（服务端回显 clientId、返回真实 turnId）。
-        val turn = client.send(main.id, "live-probe", "live-1", emptyList())
-        assertTrue(turn.isNotBlank())
+        val receipt = client.send(main.id, "live-probe", "live-1", emptyList())
+        assertTrue(receipt.turnId.isNotBlank())
         withTimeout(15_000) {
             client.events(main.id).first { it.runtime?.status == "idle" }
         }

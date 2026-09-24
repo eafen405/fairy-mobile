@@ -27,6 +27,6 @@ class FiloEncryptedUploadInteropTest {
         assertEquals(file.length(), uploaded.size)
         assertFalse(uploaded.path.isNullOrBlank())
         val created = client.create("Read the attached file", "11111111-1111-4111-8111-111111111111", listOf(uploaded.id))
-        assertTrue(created.id.isNotBlank())
+        assertTrue(created.session.id.isNotBlank())
     }
 }

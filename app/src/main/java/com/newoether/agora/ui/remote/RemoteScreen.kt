@@ -54,7 +54,8 @@ internal fun RemoteOverlay(
         RemoteViewModel(RemoteConnectionStore(File(context.noBackupFilesDir, "remote-connections.json")),
             com.newoether.agora.tool.ToolImageStore(context, imageDirectory),
             com.newoether.agora.remote.RemoteImageCache(imageDirectory),
-            attachmentStore = com.newoether.agora.remote.RemoteAttachmentStore(context))
+            attachmentStore = com.newoether.agora.remote.RemoteAttachmentStore(context),
+            fileStore = com.newoether.agora.remote.RemoteFileStore(context))
     }
     val messageHandler by rememberUpdatedState(onMessage)
     LaunchedEffect(remote, visible) {
