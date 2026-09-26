@@ -25,12 +25,12 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         var previousAnswerId: String? = null
         var userText = first.displayText()
         val attachments = mutableListOf<RemoteMessageAttachment>()
-        val files = mutableListOf<RemoteFileRef>()
-        var relayFrom = first.relayFrom
+        // File source attribution is per record, never inherited across the group:
+        // an outbound delivery card must not wear the label of an inbound one.
+        val files = mutableListOf<Pair<RemoteFileRef, String?>>()
         fun accumulate(message: RemoteMessage) {
             attachments += message.attachments
-            files += message.files
-            relayFrom = relayFrom ?: message.relayFrom
+            message.files.forEach { files += it to message.relayFrom }
         }
         accumulate(first)
         if (first.role == "user") {
@@ -114,10 +114,10 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                     )
                 })
             },
-            remoteFiles = files.map { item ->
+            remoteFiles = files.map { (item, source) ->
                 com.newoether.agora.model.RemoteFile(
                     fileId = item.fileId, deliveryId = item.deliveryId, name = item.name,
-                    bytes = item.bytes, mime = item.mime, source = relayFrom,
+                    bytes = item.bytes, mime = item.mime, source = source,
                 )
             },
             status = if (segments?.any { it.type == "error" } == true) MessageStatus.ERROR else MessageStatus.SUCCESS,
