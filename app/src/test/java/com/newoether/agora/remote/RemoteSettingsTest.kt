@@ -63,8 +63,9 @@ class RemoteSettingsTest {
     }
 
     @Test fun draftSettingsStayLocalUntilOneCreateCarriesThemWithTheFirstMessage() = runTest(dispatcher) {
-        coEvery { client.create(any(), any(), any(), any()) } returns session
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.create(any(), any(), any(), any()) } coAnswers {
+            RemoteCreatedSession(session, RemoteSendReceipt("turn", arg(1))) }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = open(draft = true)
         vm.setThinkingLevel("ultra"); vm.setServiceTierEnabled(true); vm.refresh(); runCurrent()
         assertEquals("ultra", vm.state.value.selectedEffort)
@@ -84,8 +85,9 @@ class RemoteSettingsTest {
     }
 
     @Test fun draftWithoutExplicitChoicesStillCarriesTheNativeDefaultsInOneCreate() = runTest(dispatcher) {
-        coEvery { client.create(any(), any(), any(), any()) } returns session
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.create(any(), any(), any(), any()) } coAnswers {
+            RemoteCreatedSession(session, RemoteSendReceipt("turn", arg(1))) }
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = open(draft = true)
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
@@ -99,7 +101,7 @@ class RemoteSettingsTest {
 
     @Test fun refusedCreationKeepsTheDraftRetryableAndNothingIsEverSentWithoutAFirstMessage() = runTest(dispatcher) {
         coEvery { client.create(any(), any(), any(), any()) } throws FiloHttpException(400, detail = "drafted settings rejected")
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = open(draft = true)
         val owner = vm.state.value.owner!!
         vm.setThinkingLevel("ultra"); runCurrent()
@@ -107,7 +109,8 @@ class RemoteSettingsTest {
         assertTrue(vm.state.value.isDraft)
         assertEquals(RemoteDelivery.REJECTED, vm.state.value.attempts[owner]?.delivery)
         coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }
-        coEvery { client.create(any(), any(), any(), any()) } returns session
+        coEvery { client.create(any(), any(), any(), any()) } coAnswers {
+            RemoteCreatedSession(session, RemoteSendReceipt("turn", arg(1))) }
         vm.send(); runCurrent()
         coVerify(exactly = 2) { client.create(any(), any(), any(), any()) }
         coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }

@@ -11,6 +11,11 @@
     <string name="remote_refresh">Atualizar</string>
     <string name="remote_load_more">Carregar Mais</string>
     <string name="remote_check">Já Verifiquei</string>
+    <string name="remote_file_save">Salvar</string>
+    <string name="remote_file_saved">Salvo no local escolhido.</string>
+    <string name="remote_file_save_failed">Não foi possível salvar o arquivo. Verifique o destino e tente novamente.</string>
+    <string name="remote_file_from">De %1$s</string>
+    <string name="remote_file_unnamed">Arquivo</string>
     <string name="remote_confirm">Continuar Enviando?</string>
     <string name="remote_remove">Remover conexão</string>
     <string name="remote_add_device">Adicionar dispositivo</string>

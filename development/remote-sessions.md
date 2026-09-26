@@ -384,3 +384,48 @@ The scrollable list reserves 104dp below its last row: the 64dp action, 24dp
 bottom inset and a 16dp clear gap. The final row must scroll fully above the FAB.
 Remote exposes the native ultrafast tier when advertised for that device/model, keeps its wire ID unchanged and uses the localized Ultra Fast label. Do not invent availability for another model/account.
 While Remote Search is open, matches and count may update as pages arrive without moving the viewport. Automatic positioning is admitted once after input settles; a page, hydration or result refresh cannot renew it. Explicit Previous/Next still positions the requested match. Selection uses match identity, not a stale index into a new list. An ongoing seek must resolve the current index of that identity as pages are prepended.
+
+## File delivery loop (2026-09-24)
+
+Remote accepts at most 16 attachments per message, 128 MiB each and 256 MiB in
+aggregate. The picker pre-checks provider-declared sizes, private import re-measures
+the actual stream, and submission re-verifies before uploading; the server remains
+the final admission gate. Over-limit picks report one aggregate notice without
+silently trimming a previous valid selection.
+
+Send is a durable attempt: a snapshot of the exact input text and attachment
+localIds, a stable clientId and per-attachment completed uploadIds. Resubmitting
+identical input reuses that identity and skips finished uploads; any changed text
+or selection is a new attempt with a new clientId. Definite rejection (input,
+upload or 4xx) is REJECTED; 503 and uncertain transport outcomes are UNKNOWN and
+require the existing check acknowledgement before the same attempt may resend.
+No automatic replay.
+
+Delivery confirmation is identity-first: admitted nodes match the attempt by
+clientId/messageId. Attachment attempts and identified receipts never use the
+legacy textLength fallback; that heuristic applies only to plain-text attempts
+whose nodes carry no identity. Wire decoding tolerates absent and null
+`messageId`, `attachments`, `files` and `relayFrom`; queued optimistic entries
+deduplicate against admitted nodes by id, clientId and messageId.
+
+Inbound `attachments` render safe metadata only: name, MIME, bytes. Published
+`files` render the wire name, size and relay source with a save affordance; upload
+paths, internal refs, CAS identities and tool payloads never reach presentation.
+Saving calls `GET v1/files/{path-encoded fileId}` on the authenticated transport
+with `fairy_login`; redirects are never followed so the cookie cannot leak
+cross-origin. Downloads stage under the app-private cache through a bounded
+buffer, never a whole-file memory copy. Declared Content-Length must equal the
+card byte count, the actual stream must match it exactly and end at clean EOF;
+truncation, excess bytes, cancellation, disk and transport failure all delete the
+staging and report failure. The 512 MiB bound rejects oversized bodies before
+reading.
+
+SAF export writes staged bytes through the provider stream and reports success
+only after the write and close both succeed; partial targets are abandoned
+best-effort without claiming atomicity. The wire name is sanitized into a display
+suggestion, never a path. Staged bytes die with the owner change, a replaced
+pending export, discard, cancellation, ViewModel clear and store recreation.
+
+Client-side completion is unit/Compose-test evidence only. Real server pairing,
+production wire fixtures, endpoint availability, physical-device picker behavior
+and SAF provider acceptance remain separate required evidence.

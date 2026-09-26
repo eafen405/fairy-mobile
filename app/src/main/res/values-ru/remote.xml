@@ -11,6 +11,11 @@
     <string name="remote_refresh">Обновить</string>
     <string name="remote_load_more">Загрузить ещё</string>
     <string name="remote_check">Я проверил</string>
+    <string name="remote_file_save">Сохранить</string>
+    <string name="remote_file_saved">Сохранено в выбранное место.</string>
+    <string name="remote_file_save_failed">Не удалось сохранить файл. Проверьте место назначения и повторите попытку.</string>
+    <string name="remote_file_from">От %1$s</string>
+    <string name="remote_file_unnamed">Файл</string>
     <string name="remote_confirm">Продолжить отправку?</string>
     <string name="remote_remove">Удалить подключение</string>
     <string name="remote_add_device">Добавить устройство</string>

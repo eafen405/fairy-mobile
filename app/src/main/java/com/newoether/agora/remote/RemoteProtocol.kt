@@ -23,12 +23,34 @@ internal data class RemoteMessage(
     val activity: RemoteActivity? = null,
     val groupId: String? = null,
     val nativeId: String? = null, val textOffset: Int = 0, val textContinues: Boolean = false,
+    val messageId: String? = null,
+    val attachments: List<RemoteMessageAttachment> = emptyList(),
+    val files: List<RemoteFileRef> = emptyList(),
+    val relayFrom: String? = null,
     @kotlinx.serialization.Transient
     val streamingTextDeltas: List<com.newoether.agora.model.StreamingTextDelta> = emptyList(),
     val imageLinks: List<String> = emptyList(),
     @kotlinx.serialization.Transient
     val inlineImages: Map<String, com.newoether.agora.model.MarkdownImage> = emptyMap(),
     val error: Boolean = false,
+)
+/**
+ * Safe attachment metadata echoed on accepted user messages. Bytes stay on the
+ * server; the client only ever renders [name]/[mime]/[bytes].
+ */
+@Serializable
+internal data class RemoteMessageAttachment(
+    val type: String = "", val name: String = "", val mime: String? = null,
+    val bytes: Long = 0L,
+)
+/**
+ * A file Fairy published to this user. [fileId] is the only field used to build
+ * the authenticated download path; it is never a URL.
+ */
+@Serializable
+internal data class RemoteFileRef(
+    val fileId: String = "", val deliveryId: String? = null, val name: String = "",
+    val bytes: Long = 0L, val mime: String? = null,
 )
 /**
  * Server-bounded activity projection. The wire only carries a user-facing label, a
@@ -44,7 +66,10 @@ internal data class RemoteActivity(
     val images: List<com.newoether.agora.model.ToolImageAttachment> = emptyList(),
 )
 @Serializable
-internal data class RemoteQueuedMessage(val id: String, val clientId: String, val text: String)
+internal data class RemoteQueuedMessage(
+    val id: String, val clientId: String, val text: String,
+    val messageId: String? = null,
+)
 @Serializable
 internal data class RemoteSessionPage(
     val sessions: List<RemoteSession>, val nextCursor: String?,

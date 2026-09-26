@@ -22,7 +22,7 @@ class FiloLiveTest {
         assertTrue(client.sessions().sessions.any { it.id == thread })
         assertTrue(client.conversation(thread).messages.any { it.text == "FILO_ANDROID_READY" })
         val clientId = UUID.randomUUID().toString()
-        assertTrue(client.send(thread, "Reply with exactly FILO_ANDROID_OK.", clientId).isNotBlank())
+        assertTrue(client.send(thread, "Reply with exactly FILO_ANDROID_OK.", clientId).turnId.isNotBlank())
         val page = withTimeout(90000) {
             var result = client.conversation(thread)
             while (result.messages.none { it.role == "assistant" && it.text.trim().removeSuffix(".") == "FILO_ANDROID_OK" }) {

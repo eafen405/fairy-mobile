@@ -61,6 +61,8 @@ internal class RemoteMessageHydration(
     private fun weight(message: RemoteMessage) = 256L + 2L * (message.text.length.toLong() +
         (message.activity?.label?.length ?: 0) + (message.activity?.note?.length ?: 0)) +
         32L * message.streamingTextDeltas.size + message.imageLinks.sumOf { 32L + 2L * it.length } +
+        message.attachments.sumOf { 96L + 2L * (it.name.length + (it.mime?.length ?: 0)) } +
+        message.files.sumOf { 96L + 2L * (it.fileId.length + it.name.length + (it.mime?.length ?: 0)) } +
         message.inlineImages.entries.sumOf { (link, image) -> 256L + 2L * (link.length + (image.attachment?.path?.length ?: 0)) }
     internal val retainedRecordBytes: Long get() = synchronized(cacheLock) { recordBytes }
     internal val retainedPayloadBytes: Long get() = synchronized(cacheLock) { cache.totalWeightBytes }

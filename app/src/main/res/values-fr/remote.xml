@@ -11,6 +11,11 @@
     <string name="remote_refresh">Actualiser</string>
     <string name="remote_load_more">Charger Plus</string>
     <string name="remote_check">J’ai Vérifié</string>
+    <string name="remote_file_save">Enregistrer</string>
+    <string name="remote_file_saved">Enregistré à l’emplacement choisi.</string>
+    <string name="remote_file_save_failed">Impossible d’enregistrer le fichier. Vérifiez la destination puis réessayez.</string>
+    <string name="remote_file_from">De %1$s</string>
+    <string name="remote_file_unnamed">Fichier</string>
     <string name="remote_confirm">Continuer à Envoyer ?</string>
     <string name="remote_remove">Supprimer la connexion</string>
     <string name="remote_add_device">Ajouter un appareil</string>

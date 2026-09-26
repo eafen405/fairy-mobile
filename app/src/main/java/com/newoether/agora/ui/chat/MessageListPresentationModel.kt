@@ -47,6 +47,7 @@ internal fun ChatMessage.hasAuthoritativeRenderPayload(): Boolean =
         toolCall != null ||
         segments != null ||
         attachmentMeta != null ||
+        remoteFiles.isNotEmpty() ||
         retryText != null
 
 internal fun resolveMessagePayloadForRender(

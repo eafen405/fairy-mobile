@@ -10,5 +10,7 @@ internal fun bodyPage(
             .joinToString("") { "%02x".format(it) }, message.text.length,
         groupId = message.groupId, nativeId = message.nativeId,
         textOffset = message.textOffset, textContinues = message.textContinues, error = message.error,
+        messageId = message.messageId, attachments = message.attachments, files = message.files,
+        relayFrom = message.relayFrom,
         activity = message.activity?.let { RemoteNodeActivity(it.type, it.state, it.durationMs, label = it.label) })
 })

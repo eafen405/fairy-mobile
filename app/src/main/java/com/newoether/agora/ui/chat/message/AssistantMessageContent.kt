@@ -774,6 +774,13 @@ internal fun AssistantMessageContent(
                     }
                 }
 
+                if (message.remoteFiles.isNotEmpty()) {
+                    RemoteFileCardList(
+                        files = message.remoteFiles,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
                 if (includeOuterSpacing) Spacer(modifier = Modifier.height(16.dp))
             }
         }

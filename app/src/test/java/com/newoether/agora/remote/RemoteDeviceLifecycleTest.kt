@@ -100,7 +100,7 @@ internal class RemoteDeviceLifecycleTest : RemoteViewModelFixture() {
     @Test fun sendDuringActiveTurnAppendsToCurrentTurn() = runTest(dispatcher) {
         val events = MutableSharedFlow<RemoteConversationPage>()
         every { client.events(any()) } returns events
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.selectSession(session); runCurrent()
         events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "turn"))); runCurrent()
@@ -114,7 +114,7 @@ internal class RemoteDeviceLifecycleTest : RemoteViewModelFixture() {
     @Test fun echoedUserMessageWithoutClientIdStillConfirmsDelivery() = runTest(dispatcher) {
         val events = MutableSharedFlow<RemoteConversationPage>()
         every { client.events(any()) } returns events
-        coEvery { client.send(any(), any(), any(), any()) } returns "turn"
+        coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.selectSession(session); runCurrent()
         val running = RemoteRuntime("active", "turn")

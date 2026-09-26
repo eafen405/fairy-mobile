@@ -1,6 +1,8 @@
 package com.newoether.agora.ui.remote
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -37,7 +39,10 @@ import com.newoether.agora.ui.components.AnimatedBlobBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.gradientBlur
+import com.newoether.agora.ui.chat.message.LocalRemoteFileAction
+import com.newoether.agora.ui.chat.message.LocalRemoteFileSaving
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +77,7 @@ internal fun RemoteConversation(
     val field = remember(owner) { TextFieldState(state.drafts[owner].orEmpty()) }
     val focus = remember { FocusRequester() }
     val attempt = state.attempts[owner]
+    val attachments = state.attachments[owner].orEmpty()
     val running = state.runtime?.isRunning == true
     val stopping = state.isStopping
     val ready = state.isDraft || state.runtime?.status in setOf("idle", "active", "ready")
@@ -196,6 +202,41 @@ internal fun RemoteConversation(
     }
     val unknownDeliveryText = stringResource(R.string.remote_unknown)
     val checkedDeliveryText = stringResource(R.string.remote_check)
+    val fileSavedText = stringResource(R.string.remote_file_saved)
+    val fileSaveFailedText = stringResource(R.string.remote_file_save_failed)
+    // A staged download survives the SAF picker round-trip by token; the file
+    // name is only the suggested document name, never a path.
+    val fileScope = rememberCoroutineScope()
+    var pendingFileExport by remember(owner) {
+        mutableStateOf<com.newoether.agora.remote.StagedRemoteFile?>(null)
+    }
+    val createDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val pending = pendingFileExport
+        pendingFileExport = null
+        if (uri == null || pending == null) {
+            pending?.let { vm.discardPreparedFile(it.token) }
+        } else {
+            fileScope.launch {
+                val saved = vm.exportPreparedFile(owner, pending.token, uri)
+                onMessage(if (saved) fileSavedText else fileSaveFailedText, null, null)
+            }
+        }
+    }
+    val saveRemoteFile = remember(owner, vm) {
+        { file: com.newoether.agora.model.RemoteFile ->
+            fileScope.launch {
+                vm.prepareFileDownload(owner, file)?.let { staged ->
+                    // A second save replaces the outstanding prompt; its staged bytes go too.
+                    pendingFileExport?.let { vm.discardPreparedFile(it.token) }
+                    pendingFileExport = staged
+                    createDocument.launch(staged.name)
+                }
+            }
+            Unit
+        }
+    }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).clearFocusOnTap()
         .onSizeChanged { scroll.recordViewportHeight(it.height) }) {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -242,7 +283,11 @@ internal fun RemoteConversation(
             )
         }) { _ ->
             Box(Modifier.fillMaxSize()) {
-                CompositionLocalProvider(com.newoether.agora.ui.chat.message.LocalToolImageLoader provides loadToolImage) {
+                CompositionLocalProvider(
+                    com.newoether.agora.ui.chat.message.LocalToolImageLoader provides loadToolImage,
+                    LocalRemoteFileAction provides saveRemoteFile,
+                    LocalRemoteFileSaving provides state.savingFiles,
+                ) {
                 MessageList(messages = StableMessageList(renderMessages.value), allMessages = StableMessageList(messages),
                     authoritativeMessages = StableMessageList(messages), conversationId = owner,
                     state = scroll.listState, overscrollEffect = historyOverscroll, onMediaClick = onMediaClick, messageActionsEnabled = false, readOnlyActions = true, parseInlineDollarMath = inlineMath,
@@ -330,9 +375,22 @@ internal fun RemoteConversation(
                 statusContent = {
                     ComposerStatusColumn(state.queued, { it.id }) { QueuedMessageRow(text = it.text) }
                 },
-                attachmentContent = {},
+                attachmentContent = {
+                    if (attachments.isNotEmpty()) {
+                        AttachmentPreviewRow(
+                            attachments = attachments,
+                            editable = active && !submitting,
+                            onRemove = { vm.removeAttachment(owner, it) },
+                            onRetry = { vm.retryAttachment(owner, it) },
+                            onAllMediaClick = onMediaClick,
+                            onFileContentClick = null,
+                            onPdfPagesClick = null,
+                        )
+                    }
+                },
                 controls = {
                     ComposerControlGroup {
+                        RemoteAttachmentPicker(owner, active && !submitting, vm)
                         ComposerModelSelector(
                             displayText = (state.models.firstOrNull { it.id == state.selectedModel }?.name
                                 ?: state.selectedModel)?.replace('-', ' ') ?: stringResource(
@@ -383,9 +441,10 @@ internal fun RemoteConversation(
                             },
                         )
                     }
-                    val showStop = running && !stopping && field.text.isBlank()
+                    val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
                     ComposerSendButton(isActionable = active && !stopping && !state.controlling && !submitting &&
-                        (if (showStop) state.runtime?.activeTurnId != null else field.text.isNotBlank()),
+                        (if (showStop) state.runtime?.activeTurnId != null
+                            else field.text.isNotBlank() || attachments.isNotEmpty()),
                         isBusy = submitting || stopping, showStop = showStop,
                         onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
                         if (showStop) vm.stop()

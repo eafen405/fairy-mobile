@@ -106,6 +106,63 @@ class RemoteTopologyTest {
         assertEquals(MessageStatus.SENDING, projectRemoteTopology(nodes + answer, active).last().stub.status)
     }
 
+    @Test fun queuedEntriesAdmittedByStableIdentityNeverRedisplay() {
+        val admitted = node("u1", "user").copy(clientId = "c1", messageId = "m1")
+        val queued = listOf(
+            RemoteQueuedMessage("q1", "c1", "hi"),                       // same clientId
+            RemoteQueuedMessage("q2", "other", "hi", messageId = "m1"),  // same messageId
+            RemoteQueuedMessage("u1", "different", "hi"),                // same node id
+            RemoteQueuedMessage("q3", "fresh", "hi"),                    // still pending
+        )
+        assertEquals(listOf("q3"), mergeQueuedMessages(queued, listOf(admitted)).map { it.id })
+        assertEquals(queued, mergeQueuedMessages(queued, emptyList()))
+        assertEquals(emptyList<RemoteQueuedMessage>(), mergeQueuedMessages(emptyList(), listOf(admitted)))
+    }
+
+    @Test fun fileOnlyAndAttachmentOnlyNodesStayRenderable() {
+        val fileCard = node("f").copy(textLength = 0,
+            files = listOf(RemoteFileRef("file-1", "d1", "report.pdf", 10, "application/pdf")))
+        val attachment = node("a", "user").copy(textLength = 0,
+            attachments = listOf(RemoteMessageAttachment("file", "a.bin", "application/octet-stream", 5)))
+        val groups = projectRemoteTopology(listOf(fileCard, attachment), RemoteRuntime("idle"))
+        assertEquals(2, groups.size)
+        // A hasContent=false server hint still suppresses; missing hint falls back to payload.
+        assertTrue(projectRemoteTopology(listOf(fileCard.copy(hasContent = false)), null).isEmpty())
+    }
+
+    @Test fun pureAttachmentAndFileMessagesProjectNonEmptyCards() {
+        val user = RemoteMessage("u", "t", "c1", "user", "", 1,
+            attachments = listOf(RemoteMessageAttachment("file", "a.bin", "application/octet-stream", 5)))
+        val card = RemoteMessage("f", "t", null, "assistant", "", 1,
+            files = listOf(RemoteFileRef("file-1", "d1", "report.pdf", 2048, "application/pdf"),
+                RemoteFileRef("file-2", "d2", "img.png", 10, "image/png")),
+            relayFrom = "Alice")
+        val projected = projectRemoteMessages(listOf(user, card), null)
+        assertEquals(2, projected.size)
+        assertEquals("a.bin", projected[0].attachmentMeta!!.items.single().fileName)
+        assertEquals(5L, projected[0].attachmentMeta!!.items.single().fileSize)
+        assertEquals(listOf("file-1", "file-2"), projected[1].remoteFiles.map { it.fileId })
+        assertEquals("Alice", projected[1].remoteFiles[0].source)
+        assertTrue(projected[0].text.isEmpty() && projected[1].text.isEmpty())
+    }
+
+    @Test fun nodesDecodeCardsAndTolerateUnknownAndMissingFields() {
+        val json = Json { ignoreUnknownKeys = true }
+        val node = json.decodeFromString<RemoteMessageNode>("""{
+            "id":"n","turnId":"t","clientId":null,"role":"assistant","timestamp":1,"revision":"r",
+            "textLength":0,"messageId":"m1","relayFrom":"Alice","futureField":{"x":1},
+            "attachments":[{"type":"file","name":"in.csv","mime":"text/csv","bytes":9}],
+            "files":[{"fileId":"f1","deliveryId":"d1","name":"a.pdf","bytes":3,"mime":"application/pdf"}]}""")
+        assertEquals("m1", node.messageId)
+        assertEquals("Alice", node.relayFrom)
+        assertEquals("in.csv", node.attachments.single().name)
+        assertEquals("f1", node.files.single().fileId)
+        val legacy = json.decodeFromString<RemoteMessageNode>("""{
+            "id":"n","turnId":"t","clientId":null,"role":"user","timestamp":1,"revision":"r","textLength":5}""")
+        assertTrue(legacy.attachments.isEmpty() && legacy.files.isEmpty() &&
+            legacy.relayFrom == null && legacy.messageId == null)
+    }
+
     @Test fun pageAndStreamIncludeBodiesAndMetadataWithoutPerMessageRequests() = runBlocking {
         val session = "00000000-0000-0000-0000-000000000001"
         val message = RemoteMessage("a", "turn", null, "assistant", "body", 1)

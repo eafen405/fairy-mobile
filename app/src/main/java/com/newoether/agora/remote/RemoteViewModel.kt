@@ -26,6 +26,7 @@ internal class RemoteViewModel(
     private val imageCache: RemoteImageCache? = null,
     projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
     private val attachmentStore: RemoteAttachmentStore? = null,
+    private val fileStore: RemoteFileStore? = null,
     createClient: (String, String) -> FiloClient = { address, token -> FiloClient(address, token) },
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(RemoteState())
@@ -94,6 +95,24 @@ internal class RemoteViewModel(
         report = { stage, error -> trace(stage, error) },
     )
     private val clients get() = deviceDirectory.clients
+    private val sendController = RemoteSendController(
+        state = mutableState,
+        scope = viewModelScope,
+        attachmentStore = attachmentStore,
+        scrollRequests = scrollRequests,
+        client = { snapshot -> clients[snapshot.deviceId] },
+        epoch = { selectionEpoch },
+        sendBlocked = { !visible || state.value.controlling || state.value.isStopping },
+        stale = { selected, client -> selected != selectionEpoch || clients[state.value.deviceId] !== client },
+        trace = { stage, error -> trace(stage, error) },
+        refresh = ::refresh,
+    )
+    private val fileDownloads = RemoteFileDownloads(
+        state = mutableState,
+        fileStore = fileStore,
+        client = { snapshot -> clients[snapshot.deviceId] },
+        trace = { stage, error -> trace(stage, error) },
+    )
 
     init { trace("owner_created"); restoreConnections() }
 
@@ -128,8 +147,11 @@ internal class RemoteViewModel(
     override fun onCleared() {
         trace("owner_cleared")
         noticeChannel.close()
+        clearPendingFileExports()
         super.onCleared()
     }
+
+    private fun clearPendingFileExports() = fileDownloads.clear()
 
     fun restoreConnections() = deviceDirectory.restoreConnections()
     suspend fun usage(): RemoteUsage? {
@@ -170,7 +192,9 @@ internal class RemoteViewModel(
     private fun beginSelection() {
         scrollRequests.clear()
         selectionEpoch++
-        mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null)
+        clearPendingFileExports()
+        mutableState.value = state.value.copy(controlling = false, stoppingOwner = null, stoppingTurnId = null,
+            savingFiles = emptySet())
         invalidateReads()
     }
 
@@ -371,7 +395,7 @@ internal class RemoteViewModel(
             mutableState.value = state.value.copy(
                 nodes = nodes, messageGroups = groups, hydrationEnabled = visible,
                 historyCursor = if (old.isEmpty()) incoming.last().nextCursor else state.value.historyCursor,
-                queued = page.queued, loading = false, failure = null,
+                queued = mergeQueuedMessages(page.queued, nodes), loading = false, failure = null,
                 runtime = page.runtime.takeIf { liveControl },
                 lastKnownModel = page.runtime?.model ?: state.value.lastKnownModel,
             )
@@ -692,100 +716,24 @@ internal class RemoteViewModel(
         mutableState.value = state.value.copy(drafts = state.value.drafts + (owner to text))
     }
 
-    fun acknowledgeUnknown(owner: String) {
-        if (state.value.attempts[owner]?.delivery == RemoteDelivery.UNKNOWN) {
-            mutableState.value = state.value.copy(attempts = state.value.attempts - owner)
-        }
-    }
+    fun acknowledgeUnknown(owner: String) = sendController.acknowledgeUnknown(owner)
 
-    fun send() {
-        val snapshot = state.value
-        if (!visible || snapshot.controlling || snapshot.isStopping) return
-        val owner = snapshot.owner ?: return
-        val client = clients[snapshot.deviceId] ?: return
-        val text = snapshot.drafts[owner].orEmpty()
-        val attachments = snapshot.attachments[owner].orEmpty()
-        if ((text.isBlank() && attachments.isEmpty()) || snapshot.attempts[owner]?.delivery in
-            setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN)) return
-        if (attachments.any { it.importState != com.newoether.agora.model.AttachmentImportState.READY }) {
-            trace("send_failed", RemoteAttachmentException("Finish or remove pending attachments before sending")); return
-        }
-        val selected = selectionEpoch
-        val attempt = RemoteAttempt(UUID.randomUUID().toString(), text, RemoteDelivery.SUBMITTING)
-        mutableState.value = state.value.copy(attempts = state.value.attempts + (owner to attempt))
-        viewModelScope.launch {
-            var uploadComplete = false
-            try {
-                val uploads = attachments.map { client.upload(it) }
-                uploadComplete = true
-                if (selected != selectionEpoch || clients[snapshot.deviceId] !== client) throw FiloInputException()
-                var sessionId = snapshot.session!!.id
-                if (snapshot.isDraft) {
-                    // One mutation: the session is created together with this first message.
-                    val settingsModel = snapshot.settingsModel
-                    val settings = if (settingsModel == null) null else if (settingsModel.reasoningEfforts != null) RemoteSettings(
-                        settingsModel.id, snapshot.selectedEffort, snapshot.selectedServiceTier, updateServiceTier = true,
-                    ) else RemoteSettings(model = settingsModel.id)
-                    val created = client.create(text, attempt.clientId, uploads.map { it.id }, settings)
-                    // Creation includes the first turn, even if its owner is no longer selected.
-                    mutableState.value = state.value.copy(
-                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.id}" to owner),
-                    )
-                    if (selected != selectionEpoch || clients[snapshot.deviceId] !== client ||
-                        state.value.attempts[owner]?.clientId != attempt.clientId) {
-                        // Keep the accepted outcome on the original owner without replacing the selection.
-                        if (state.value.attempts[owner]?.clientId == attempt.clientId &&
-                            state.value.attempts[owner]?.delivery == RemoteDelivery.SUBMITTING) {
-                            mutableState.value = state.value.copy(attempts = state.value.attempts +
-                                (owner to attempt.copy(delivery = RemoteDelivery.ACCEPTED)))
-                        }
-                        return@launch
-                    }
-                    sessionId = created.id
-                    mutableState.value = state.value.copy(
-                        session = created,
-                        lastKnownModel = snapshot.selectedModel,
-                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.id}" to owner),
-                    )
-                    refresh()
-                } else if (selected != selectionEpoch || clients[snapshot.deviceId] !== client) throw FiloInputException()
-                if (!snapshot.isDraft) client.send(sessionId, text, attempt.clientId, uploads.map { it.id })
-                if (state.value.attempts[owner]?.clientId == attempt.clientId &&
-                    state.value.attempts[owner]?.delivery == RemoteDelivery.SUBMITTING) {
-                    mutableState.value = state.value.copy(attempts = state.value.attempts +
-                        (owner to attempt.copy(delivery = RemoteDelivery.ACCEPTED)))
-                    confirmDelivery(owner, attempt)
-                }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) {
-                val failure = trace("send_failed", error)
-                if (state.value.owner == owner && failure == RemoteFailure.SESSION_BUSY) {
-                    mutableState.value = state.value.copy(failure = failure)
-                }
-                if (state.value.attempts[owner]?.clientId == attempt.clientId &&
-                    state.value.attempts[owner]?.delivery == RemoteDelivery.SUBMITTING) {
-                    val rejected = !uploadComplete || error is FiloInputException ||
-                        error is FiloHttpException && error.status in setOf(400, 401, 403, 404, 409, 413, 415, 429)
-                    mutableState.value = state.value.copy(attempts = state.value.attempts +
-                        (owner to attempt.copy(delivery = if (rejected) RemoteDelivery.REJECTED else RemoteDelivery.UNKNOWN)))
-                }
-            }
-        }
-    }
+    fun send() = sendController.send()
 
-    private fun confirmDelivery(owner: String, attempt: RemoteAttempt, fresh: List<RemoteMessageNode> = state.value.nodes) {
-        if (state.value.attempts[owner]?.clientId != attempt.clientId) return
-        if (state.value.attempts[owner]?.delivery == RemoteDelivery.DELIVERED || state.value.owner != owner) return
-        // 服务端回执已确认受理；页面里 user 消息的 clientId 恒为 null（Fairy 不回显），
-        // 节点不携带正文，因此回退到按正文长度匹配最新一条用户消息来判定送达。
-        val message = fresh.lastOrNull { it.role == "user" &&
-            (it.clientId == attempt.clientId || it.clientId == null && it.textLength == attempt.text.length) } ?: return
-        state.value.attachments[owner].orEmpty().forEach { attachmentStore?.remove(it) }
-        mutableState.value = state.value.copy(
-            attachments = state.value.attachments - owner,
-            drafts = if (state.value.drafts[owner] == attempt.text) state.value.drafts - owner else state.value.drafts,
-            attempts = state.value.attempts + (owner to attempt.copy(delivery = RemoteDelivery.DELIVERED)),
-        )
-        scrollRequests.requestAbsoluteBottomAfter(owner, message.nativeId ?: message.id)
-    }
+    private fun confirmDelivery(owner: String, attempt: RemoteAttempt, fresh: List<RemoteMessageNode> = state.value.nodes) =
+        sendController.confirmDelivery(owner, attempt, fresh)
+
+    /**
+     * User-initiated file save: authenticated download into verified private
+     * staging. Returns the staged handle for the SAF prompt, or null after the
+     * failure has been reported through the notice channel.
+     */
+    suspend fun prepareFileDownload(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? =
+        fileDownloads.prepare(owner, file)
+
+    /** Final export to the user-chosen SAF document; honest false on any failure. */
+    suspend fun exportPreparedFile(owner: String, token: String, target: android.net.Uri): Boolean =
+        fileDownloads.export(owner, token, target)
+
+    fun discardPreparedFile(token: String) = fileDownloads.discard(token)
 }

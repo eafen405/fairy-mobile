@@ -13,8 +13,18 @@ internal data class RemoteDevice(
 internal data class RemoteNotice(val stage: String, val failure: RemoteFailure, val selection: Long, val detail: String? = null, val code: String? = null) {
     val canRetryRead: Boolean get() = stage in setOf("restore_failed", "check_failed", "read_failed", "page_failed", "payload_failed")
 }
-internal enum class RemoteDelivery { SUBMITTING, ACCEPTED, DELIVERED, REJECTED, UNKNOWN }
-internal data class RemoteAttempt(val clientId: String, val text: String, val delivery: RemoteDelivery)
+internal enum class RemoteDelivery { SUBMITTING, ACCEPTED, DELIVERED, REJECTED, UNKNOWN, RESENDABLE }
+/**
+ * A durable send attempt: the input snapshot, the stable [clientId], and every
+ * per-attachment uploadId completed so far. A resubmission of the same input
+ * keeps the identity and skips uploads that already finished.
+ */
+internal data class RemoteAttempt(
+    val clientId: String, val text: String, val delivery: RemoteDelivery,
+    val attachments: List<com.newoether.agora.model.SelectedAttachment> = emptyList(),
+    val uploads: Map<String, String> = emptyMap(),
+    val messageId: String? = null,
+)
 internal data class RemoteState(
     val devices: List<RemoteDevice> = emptyList(), val deviceId: String? = null,
     val sessions: List<RemoteSession> = emptyList(), val sessionCursor: String? = null,
@@ -38,6 +48,7 @@ internal data class RemoteState(
     val viewedTurns: Map<String, String> = emptyMap(),
     val settingsRevision: Long = 0,
     val stoppingOwner: String? = null, val stoppingTurnId: String? = null,
+    val savingFiles: Set<String> = emptySet(),
 ) {
     val error: Boolean get() = failure != null
     val owner: String? get() = session?.let {

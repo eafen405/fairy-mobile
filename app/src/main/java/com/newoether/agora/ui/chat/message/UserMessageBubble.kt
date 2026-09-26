@@ -265,6 +265,12 @@ internal fun UserMessageBubble(
                             }
                         }
                     }
+                    if (message.remoteFiles.isNotEmpty()) {
+                        RemoteFileCardList(
+                            files = message.remoteFiles,
+                            modifier = Modifier.padding(bottom = if (message.text.isNotEmpty()) 8.dp else 0.dp),
+                        )
+                    }
                     if (message.text.isNotEmpty()) {
                         SearchHighlightedPlainText(
                             text = message.text,

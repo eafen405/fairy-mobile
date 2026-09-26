@@ -47,13 +47,13 @@ internal class FiloLiveServerTest {
         assertNotNull(live.runtime)
 
         // 发送：回执受理（服务端回显 clientId、返回真实 turnId）。
-        val turn = client.send(main.id, "live-probe", "live-1", emptyList())
-        assertTrue(turn.isNotBlank())
+        val receipt = client.send(main.id, "live-probe", "live-1", emptyList())
+        assertTrue(receipt.turnId.isNotBlank())
         withTimeout(15_000) {
             client.events(main.id).first { it.runtime?.status == "idle" }
         }
         // 对已结束 turn 的 stop 是确定性空操作（不抛、不崩）。
-        client.stop(main.id, turn)
+        client.stop(main.id, receipt.turnId)
 
         // 凭据复用 = 杀进程重进：新 client 持同一 cookie 直接恢复。
         val resumed = FiloClient(origin, client.sessionCredential!!)

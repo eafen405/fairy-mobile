@@ -83,6 +83,39 @@ class RemoteGenerationProjectionTest {
         }
     }
 
+    @Test fun fileCardSourceComesFromItsOwnRecordNotTheGroup() {
+        fun card(id: String, name: String, relayFrom: String?) = answer.copy(id = id, text = "",
+            files = listOf(RemoteFileRef(fileId = "f-$id", name = name)), relayFrom = relayFrom)
+        val projected = projectRemoteMessages(listOf(
+            card("inbound", "report.xlsx", "user_a"),
+            card("outbound", "processed.xlsx", null),
+        )).single()
+        assertEquals(listOf("report.xlsx" to "user_a", "processed.xlsx" to null),
+            projected.remoteFiles.map { it.name to it.source })
+    }
+
+    @Test fun fileCardSourceOrderDoesNotMatter() {
+        fun card(id: String, name: String, relayFrom: String?) = answer.copy(id = id, text = "",
+            files = listOf(RemoteFileRef(fileId = "f-$id", name = name)), relayFrom = relayFrom)
+        val projected = projectRemoteMessages(listOf(
+            card("outbound", "processed.xlsx", null),
+            card("inbound", "report.xlsx", "user_a"),
+        )).single()
+        assertEquals(listOf("processed.xlsx" to null, "report.xlsx" to "user_a"),
+            projected.remoteFiles.map { it.name to it.source })
+    }
+
+    @Test fun fileCardsWithinOneRecordShareItsRelayFrom() {
+        val inbound = answer.copy(id = "inbound", text = "", relayFrom = "user_a",
+            files = listOf(RemoteFileRef(fileId = "f1", name = "one.csv"),
+                RemoteFileRef(fileId = "f2", name = "two.csv")))
+        val outbound = answer.copy(id = "outbound", text = "", relayFrom = "user_b",
+            files = listOf(RemoteFileRef(fileId = "f3", name = "three.csv")))
+        val projected = projectRemoteMessages(listOf(inbound, outbound)).single()
+        assertEquals(listOf("user_a", "user_a", "user_b"),
+            projected.remoteFiles.map { it.source })
+    }
+
     @Test fun pagingPreservesTheAssistantBubbleIdentity() {
         val newer = answer.copy(id = "newer", groupId = "native-group")
         val older = answer.copy(id = "older", groupId = "native-group")
