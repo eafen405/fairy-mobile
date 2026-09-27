@@ -457,7 +457,11 @@ internal fun MessageItem(
                             FairyEmblem(animating = emblemAnimating, size = 40.dp)
                             Spacer(Modifier.width(8.dp))
                             Column(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    // Keep at least 40dp of page background to
+                                    // the right of even a max-width bubble.
+                                    .weight(1f)
+                                    .padding(end = 40.dp),
                                 horizontalAlignment = Alignment.Start,
                             ) {
                                 // Badges sit beside the emblem so the bubble tail

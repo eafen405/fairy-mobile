@@ -156,7 +156,9 @@ internal fun ThinkingDots() {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = stringResource(R.string.thinking_ellipsis),
+            // The animated dots below already carry the trailing ellipsis.
+            text = stringResource(R.string.thinking_ellipsis)
+                .removeSuffix("...").removeSuffix("…").trimEnd(),
             style = ChatType.meta,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

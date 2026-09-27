@@ -125,7 +125,8 @@ internal fun UserMessageBubble(
     val tailColor = LocalZzzTokens.current.fairyBlue
     Column(
         horizontalAlignment = Alignment.End,
-        modifier = Modifier.then(
+        // Mirror of the Fairy side: at least 40dp of background on the left.
+        modifier = Modifier.padding(start = 40.dp).then(
             if (userBubbleSizeAnimationEnabled(sizeAnimationReady, allowSpatialTransitions)) {
                 Modifier.animateContentSize(animationSpec = tween(durationMillis = 500))
             } else {
