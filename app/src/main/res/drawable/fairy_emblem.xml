@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fairy flat emblem, 48x48, concentric from the outside in:
+  white ring (outer diameter 48, stroke 3) -> fairyBlue ring (stroke 5) ->
+  black disc -> white Q-shaped eye (ring outer diameter 20, stroke 4 with a
+  short tail toward bottom-right, round caps).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:name="ring_white"
+        android:pathData="M 24 1.5 A 22.5 22.5 0 1 1 24 46.5 A 22.5 22.5 0 1 1 24 1.5 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+
+    <path
+        android:name="ring_blue"
+        android:pathData="M 24 5.5 A 18.5 18.5 0 1 1 24 42.5 A 18.5 18.5 0 1 1 24 5.5 Z"
+        android:strokeColor="#FF1F55E0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+
+    <path
+        android:name="disc"
+        android:pathData="M 24 8 A 16 16 0 1 1 24 40 A 16 16 0 1 1 24 8 Z"
+        android:fillColor="#FF000000" />
+
+    <path
+        android:name="eye"
+        android:pathData="M 24 16 A 8 8 0 1 1 24 32 A 8 8 0 1 1 24 16 M 29.657 29.657 L 33.546 33.546"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+</vector>

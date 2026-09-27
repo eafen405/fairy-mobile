@@ -399,7 +399,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsAppearancePage.kt",
         )
         val groupKeys = listOf(
-            "appearance_theme_color",
             "appearance_motion_feedback",
             "appearance_chat_display",
             "font_title",
@@ -411,12 +410,10 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(groupIndices.all { it >= 0 })
         assertTrue(groupIndices.zipWithNext().all { (current, next) -> current < next })
         assertFalse(appearance.contains("R.string.appearance_interface"))
-        assertEquals(4, Regex("SettingsGroup\\(").findAll(appearance).count())
-        assertEquals(15, Regex("SettingsItem\\(").findAll(appearance).count())
-        assertEquals(15, Regex("leadingContent\\s*=").findAll(appearance).count())
+        assertEquals(3, Regex("SettingsGroup\\(").findAll(appearance).count())
+        assertEquals(10, Regex("SettingsItem\\(").findAll(appearance).count())
+        assertEquals(10, Regex("leadingContent\\s*=").findAll(appearance).count())
         listOf(
-            "Palette",
-            "Style",
             "BlurOn",
             "MotionPhotosOff",
             "Vibration",
@@ -447,7 +444,19 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         listOf("AccountTree", "Psychology", "UnfoldMore").forEach { oldIcon ->
             assertFalse("Appearance still uses $oldIcon", appearance.contains("Icons.Default.$oldIcon"))
         }
-        assertTrue(appearance.contains(".background(currentPrimary)"))
+        // The fixed dark theme has no user-facing theme rows anymore.
+        listOf(
+            "theme_mode",
+            "amoled_mode",
+            "dynamic_color",
+            "color_scheme",
+            "scheme_style",
+        ).forEach { key ->
+            assertFalse(
+                "Appearance still renders the $key row",
+                appearance.contains("R.string.$key"),
+            )
+        }
 
         val toolBlocksIndex = appearance.indexOf("R.string.tool_call_display_mode")
         val thinkingSegmentIndex = appearance.indexOf("R.string.thinking_segment_display_mode")

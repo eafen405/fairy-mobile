@@ -35,6 +35,16 @@ val OutfitFamily = FontFamily(
     miOutfitFont(FontWeight.Bold),
 )
 
+/** Noto Sans SC Black (subset): titles, nameplates, tabs, watermark. */
+val TitleFamily = FontFamily(
+    Font(R.font.title_black, FontWeight.Black),
+)
+
+/** Anton: small latin labels and numeric badges. */
+val AntonFamily = FontFamily(
+    Font(R.font.anton_regular, FontWeight.Normal),
+)
+
 // Geometric (modular) type scale: every distinct size is a term of a geometric
 // sequence anchored at body = 16sp with common ratio r = 1.2 (minor third).
 // Sizes: 11, 13, 16, 19, 23, 28, 33, 40, 48, 57. Line heights scale per tier

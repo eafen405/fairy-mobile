@@ -73,6 +73,51 @@ private fun DynamicScheme.toColorScheme(): ColorScheme {
     )
 }
 
+private val ZzzBackground = Color(0xFF121212)
+private val ZzzPanel = Color(0xFF1C1C1C)
+private val ZzzPill = Color(0xFF2A2A2A)
+private val ZzzPrimary = Color(0xFFFFE000)
+private val ZzzSecondary = Color(0xFF9BC400)
+private val ZzzFairyBlue = Color(0xFF1F55E0)
+private val ZzzError = Color(0xFFE53A1E)
+private val ZzzOnDark = Color(0xFFFFFFFF)
+private val ZzzMuted = Color(0xFF8A8A8A)
+private val ZzzOutline = Color(0xFF3A3A3A)
+
+/**
+ * The fixed ZZZ dark palette. [AgoraTheme] always produces this scheme,
+ * ignoring theme mode, preset, style, dynamic color, and AMOLED settings.
+ */
+fun zzzColorScheme(): ColorScheme = ColorScheme(
+    primary = ZzzPrimary, onPrimary = Color.Black,
+    primaryContainer = ZzzPill, onPrimaryContainer = ZzzPrimary,
+    secondary = ZzzSecondary, onSecondary = Color.Black,
+    secondaryContainer = ZzzPill, onSecondaryContainer = ZzzSecondary,
+    tertiary = ZzzFairyBlue, onTertiary = ZzzOnDark,
+    tertiaryContainer = ZzzFairyBlue, onTertiaryContainer = ZzzOnDark,
+    error = ZzzError, onError = Color.Black,
+    errorContainer = ZzzPill, onErrorContainer = ZzzError,
+    background = ZzzBackground, onBackground = ZzzOnDark,
+    surface = ZzzBackground, onSurface = ZzzOnDark,
+    surfaceVariant = ZzzPill, onSurfaceVariant = ZzzMuted,
+    outline = ZzzOutline, outlineVariant = Color(0xFF242424),
+    inversePrimary = ZzzFairyBlue,
+    inverseSurface = Color(0xFFF4F4F4), inverseOnSurface = ZzzPill,
+    surfaceTint = ZzzPrimary, scrim = Color.Black,
+    surfaceDim = Color(0xFF0C0C0C), surfaceBright = Color(0xFF303030),
+    surfaceContainerLowest = Color(0xFF0E0E0E),
+    surfaceContainerLow = Color(0xFF171717),
+    surfaceContainer = ZzzPanel,
+    surfaceContainerHigh = Color(0xFF232323),
+    surfaceContainerHighest = ZzzPill,
+    primaryFixed = ZzzPrimary, primaryFixedDim = Color(0xFFD4D400),
+    onPrimaryFixed = Color.Black, onPrimaryFixedVariant = Color(0xFF4B4600),
+    secondaryFixed = ZzzSecondary, secondaryFixedDim = Color(0xFF7C9A00),
+    onSecondaryFixed = Color.Black, onSecondaryFixedVariant = Color(0xFF2E3A00),
+    tertiaryFixed = ZzzFairyBlue, tertiaryFixedDim = Color(0xFF3D8BFF),
+    onTertiaryFixed = ZzzOnDark, onTertiaryFixedVariant = ZzzOnDark,
+)
+
 /** Applies the same endpoint treatment to preset and Android dynamic schemes. */
 internal fun ColorScheme.withAmoledBackground(isDark: Boolean, enabled: Boolean): ColorScheme {
     if (!enabled) return this

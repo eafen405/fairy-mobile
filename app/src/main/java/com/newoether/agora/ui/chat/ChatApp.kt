@@ -4,9 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -26,7 +24,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
@@ -42,7 +39,7 @@ import com.newoether.agora.util.gradientBlur
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
-import com.newoether.agora.ui.components.AnimatedBlobBackground
+import com.newoether.agora.ui.components.ZzzBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
@@ -140,7 +137,6 @@ fun ChatApp(
     val displayMessagesState = remember(messagesState, customProviders) { derivedStateOf { messagesState.value.map { it.forDisplay(customProviders) } } }
     val webSearchApiKeys by viewModel.settings.webSearchApiKeys.collectAsState()
     val shellDevices by viewModel.settings.shellDevices.collectAsState()
-    val amoledEnabled by viewModel.settings.amoledEnabled.collectAsState()
     val toolCallDisplayMode by viewModel.settings.toolCallDisplayMode.collectAsState()
     val thinkingSegmentDisplayMode by viewModel.settings.thinkingSegmentDisplayMode.collectAsState()
     val autoExpandActiveGroup by viewModel.settings.autoExpandActiveGroup.collectAsState()
@@ -371,16 +367,6 @@ fun ChatApp(
                 .clearFocusOnTap()
                 .onSizeChanged { scrollCoordinator.recordViewportHeight(it.height) }
         ) {
-            val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val (targetCa, targetQa) = if (!dark) {
-                0.00f to 0.00f
-            } else if (isNewChatMode) {
-                0.20f to 0.10f
-            } else {
-                0.02f to 0.01f
-            }
-            val ca by animateFloatAsState(targetCa, tween(800))
-            val qa by animateFloatAsState(targetQa, tween(800))
             val newChatMotion = newChatMotionPolicy(
                 reduceMotion = reduceMotion,
                 isNewChatMode = isNewChatMode,
@@ -388,16 +374,7 @@ fun ChatApp(
                 isSwitching = isSwitching,
                 newChatEntryId = newChatEntryId,
             )
-            if (!amoledEnabled) {
-                AnimatedBlobBackground(
-                    centerAlpha = ca,
-                    quarterAlpha = qa,
-                    blurRadius = 40f,
-                    dark = dark,
-                    blurEnabled = blurEffectsEnabled,
-                    motionEnabled = newChatMotion.animateBackground,
-                )
-            }
+            ZzzBackground()
 
             @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
             Scaffold(

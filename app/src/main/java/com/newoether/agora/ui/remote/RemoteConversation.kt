@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -35,7 +34,7 @@ import com.newoether.agora.remote.*
 import com.newoether.agora.ui.chat.*
 import com.newoether.agora.ui.chat.bottombar.*
 import com.newoether.agora.ui.common.LocalAgoraHaptics
-import com.newoether.agora.ui.components.AnimatedBlobBackground
+import com.newoether.agora.ui.components.ZzzBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.gradientBlur
@@ -65,7 +64,6 @@ internal fun RemoteConversation(
     val haptics = LocalAgoraHaptics.current
     val chatWindow = androidx.compose.ui.platform.LocalWindowInfo.current
     val blur by settings.blurEffectsEnabled.collectAsState(initial = false)
-    val amoled by settings.amoledEnabled.collectAsState(initial = false)
     val inlineMath by settings.parseInlineDollarMath.collectAsState(initial = false)
     val stickToBottom by settings.stickToBottom.collectAsState(initial = true)
     val toolCallDisplayMode by settings.toolCallDisplayMode.collectAsState()
@@ -239,10 +237,7 @@ internal fun RemoteConversation(
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).clearFocusOnTap()
         .onSizeChanged { scroll.recordViewportHeight(it.height) }) {
-        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-        if (!amoled) AnimatedBlobBackground(centerAlpha = if (dark) 0.02f else 0f,
-            quarterAlpha = if (dark) 0.01f else 0f, blurRadius = 40f, dark = dark,
-            blurEnabled = blur, motionEnabled = false)
+        ZzzBackground()
         // Insets are declared explicitly via contentWindowInsets above; the empty
         // content padding is intentional, so the Material3 usage lint does not apply.
         @Suppress("UnusedMaterial3ScaffoldPaddingParameter")

@@ -1,14 +1,10 @@
 package com.newoether.agora.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -49,29 +45,37 @@ private fun effectiveFontFamily(
 }
 
 /**
- * Builds the [Typography] with the given [FontFamily] replacing all non-mono styles.
+ * Builds the [Typography]: display/headline/title tiers always use the ZZZ title
+ * family, label tiers use the Anton label family, and body tiers follow the
+ * user's body font preference. Mono styles are untouched.
  */
 private fun typographyWithFont(family: FontFamily): Typography {
     fun TextStyle.withFamily(f: FontFamily) = copy(fontFamily = f)
     return Typography.copy(
-        displayLarge = Typography.displayLarge.withFamily(family),
-        displayMedium = Typography.displayMedium.withFamily(family),
-        displaySmall = Typography.displaySmall.withFamily(family),
-        headlineLarge = Typography.headlineLarge.withFamily(family),
-        headlineMedium = Typography.headlineMedium.withFamily(family),
-        headlineSmall = Typography.headlineSmall.withFamily(family),
-        titleLarge = Typography.titleLarge.withFamily(family),
-        titleMedium = Typography.titleMedium.withFamily(family),
-        titleSmall = Typography.titleSmall.withFamily(family),
+        displayLarge = Typography.displayLarge.withFamily(TitleFamily),
+        displayMedium = Typography.displayMedium.withFamily(TitleFamily),
+        displaySmall = Typography.displaySmall.withFamily(TitleFamily),
+        headlineLarge = Typography.headlineLarge.withFamily(TitleFamily),
+        headlineMedium = Typography.headlineMedium.withFamily(TitleFamily),
+        headlineSmall = Typography.headlineSmall.withFamily(TitleFamily),
+        titleLarge = Typography.titleLarge.withFamily(TitleFamily),
+        titleMedium = Typography.titleMedium.withFamily(TitleFamily),
+        titleSmall = Typography.titleSmall.withFamily(TitleFamily),
         bodyLarge = Typography.bodyLarge.withFamily(family),
         bodyMedium = Typography.bodyMedium.withFamily(family),
         bodySmall = Typography.bodySmall.withFamily(family),
-        labelLarge = Typography.labelLarge.withFamily(family),
-        labelMedium = Typography.labelMedium.withFamily(family),
-        labelSmall = Typography.labelSmall.withFamily(family),
+        labelLarge = Typography.labelLarge.withFamily(AntonFamily),
+        labelMedium = Typography.labelMedium.withFamily(AntonFamily),
+        labelSmall = Typography.labelSmall.withFamily(AntonFamily),
     )
 }
 
+/**
+ * The app theme is a fixed ZZZ dark scheme: theme mode, color preset, scheme
+ * style, dynamic color, and AMOLED preferences are ignored (their DataStore
+ * settings remain untouched). Status/navigation bar icons are always light;
+ * [MainActivity] sets them once.
+ */
 @Composable
 fun AgoraTheme(
     themeMode: ThemeMode = ThemeMode.FOLLOW_DEVICE,
@@ -83,34 +87,18 @@ fun AgoraTheme(
     customFontPath: String = "",
     content: @Composable () -> Unit
 ) {
-    val systemDark = isSystemInDarkTheme()
-    val darkTheme = when (themeMode) {
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-        ThemeMode.FOLLOW_DEVICE -> systemDark
-    }
-
-    val baseColorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        else -> remember(colorSchemePreset, schemeStyle, darkTheme) {
-            colorSchemeForPreset(colorSchemePreset, schemeStyle, darkTheme)
-        }
-    }
-
-    val colorScheme = remember(baseColorScheme, darkTheme, amoledEnabled) {
-        baseColorScheme.withAmoledBackground(darkTheme, amoledEnabled)
-    }
+    val colorScheme = remember { zzzColorScheme() }
+    val tokens = remember { ZzzTokens() }
 
     val fontFamily = effectiveFontFamily(fontPreference, customFontPath)
     chatFontFamily = fontFamily
     val typography = remember(fontFamily) { typographyWithFont(fontFamily) }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalZzzTokens provides tokens) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography,
+            content = content
+        )
+    }
 }
