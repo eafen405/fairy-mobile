@@ -181,9 +181,9 @@ internal var chatFontFamily: FontFamily = OutfitFamily
 object ChatType {
 
     // Title tier
-    // Brand wordmark in the new-chat capsule: prominent in the empty state, one
-    // clean step above the active-conversation title (20 → 15).
-    val brandTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp)
+    // Brand wordmark in the new-chat capsule: the Fairy title uses the heavy
+    // title face (zzz-visual), one clean step above the conversation title.
+    val brandTitle get() = TextStyle(fontFamily = TitleFamily, fontWeight = FontWeight.Black, fontSize = 20.sp, lineHeight = 26.sp)
     val sheetTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 19.sp, lineHeight = 25.sp)
     // Active-conversation title: one step below the brand wordmark (16 → 15),
     // Bold so it still reads as a title against the 15sp Normal body.

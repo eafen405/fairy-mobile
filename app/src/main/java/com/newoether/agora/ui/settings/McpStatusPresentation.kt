@@ -47,13 +47,10 @@ internal fun McpStatusDot(status: McpConnectionStatus) {
         },
     )
     val color = when (status) {
-        McpConnectionStatus.IDLE -> {
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-        }
-        McpConnectionStatus.CONNECTING -> {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-        }
-        McpConnectionStatus.CONNECTED -> MaterialTheme.colorScheme.primary
+        // ZZZ status dots: green online, yellow connecting, red offline.
+        McpConnectionStatus.IDLE -> MaterialTheme.colorScheme.error
+        McpConnectionStatus.CONNECTING -> MaterialTheme.colorScheme.primary
+        McpConnectionStatus.CONNECTED -> MaterialTheme.colorScheme.secondary
         McpConnectionStatus.ERROR -> MaterialTheme.colorScheme.error
     }
     Box(

@@ -36,4 +36,5 @@
     <string name="remote_archive_message">Retirer cette tâche des listes actives de Fairy et Remote ? Son historique sera conservé.</string>
     <string name="remote_activity">Traitement en cours</string>
     <string name="remote_relayed_from">Transmis par %1$s</string>
+    <string name="remote_connecting_status">Connexion</string>
 </resources>

@@ -47,4 +47,5 @@
     <string name="remote_attachments_unsupported">This service does not support attachments</string>
     <string name="remote_activity">Processing</string>
     <string name="remote_relayed_from">Relayed from %1$s</string>
+    <string name="remote_connecting_status">Connecting</string>
 </resources>

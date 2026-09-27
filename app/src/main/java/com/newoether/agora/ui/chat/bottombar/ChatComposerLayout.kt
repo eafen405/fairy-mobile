@@ -24,8 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.newoether.agora.R
+import com.newoether.agora.ui.components.zzzPanel
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalZzzTokens
 import com.newoether.agora.util.noOpBringIntoView
 
 /** Shared composer drawing; callers own drafts, attachment work and submission. */
@@ -46,8 +48,8 @@ internal fun ChatComposerLayout(
     controls: @Composable RowScope.() -> Unit,
 ) {
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
-    val composerOcclusionColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-    val composerOcclusionShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    val tokens = LocalZzzTokens.current
+    val composerOcclusionShape = RoundedCornerShape(28.dp)
     Box(modifier = modifier.fillMaxWidth().then(if (isExpanded) Modifier.fillMaxHeight() else Modifier).padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 12.dp)) {
         Column(modifier = Modifier.fillMaxWidth().then(if (isExpanded) Modifier.fillMaxHeight() else Modifier)) {
             AnimatedVisibility(
@@ -77,7 +79,7 @@ internal fun ChatComposerLayout(
                         },
                     )
                     .clip(composerOcclusionShape)
-                    .background(composerOcclusionColor)
+                    .zzzPanel(shape = composerOcclusionShape, color = tokens.panel)
                     .zIndex(1f),
             ) {
         attachmentContent()

@@ -1,7 +1,9 @@
 package com.newoether.agora.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -10,6 +12,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import java.io.File
 
 enum class ThemeMode { LIGHT, DARK, FOLLOW_DEVICE }
@@ -99,6 +102,11 @@ fun AgoraTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
+            // ZZZ chrome: dialogs and bottom sheets share the 24dp panel radius.
+            shapes = Shapes(
+                large = RoundedCornerShape(24.dp),
+                extraLarge = RoundedCornerShape(24.dp),
+            ),
             content = content
         )
     }

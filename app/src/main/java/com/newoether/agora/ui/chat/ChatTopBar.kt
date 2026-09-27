@@ -57,7 +57,11 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ContextBudget
+import com.newoether.agora.ui.components.FairyEmblem
+import com.newoether.agora.ui.components.ZzzBackButton
+import com.newoether.agora.ui.components.zzzPanel
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.theme.LocalZzzTokens
 import com.newoether.agora.ui.theme.ChatType
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
@@ -96,6 +100,8 @@ internal fun ChatTopBar(
     onForkConversation: () -> Unit = {},
     onShareConversation: () -> Unit = {},
     onNewChat: (() -> Unit)? = null,
+    // Remote pages pin the brand title; local chat keeps the conversation title.
+    forceBrandTitle: Boolean = false,
     trailingActions: (@Composable RowScope.() -> Unit)? = null,
     newChatEnabled: Boolean = true,
     newChatDescription: String? = null,
@@ -264,7 +270,7 @@ internal fun ChatTopBar(
                 // before the conversation/title has loaded. Both the brand TEXT and the
                 // brand font SIZE are gated on this single value, so the title never
                 // changes size before the text swaps (no transient "Agora at 17sp").
-                val resolvedTitle = if (isNewChatMode) null else {
+                val resolvedTitle = if (isNewChatMode || forceBrandTitle) null else {
                     currentConversationTitle?.takeIf { it.isNotBlank() }
                         ?: conversations.find { it.id == currentConversationId }?.title?.takeIf { it.isNotBlank() }
                 }
@@ -277,7 +283,7 @@ internal fun ChatTopBar(
                 }
                 val textMeasurer = rememberTextMeasurer()
                 val density = LocalDensity.current
-                val tokenSubtitle = if (!showBrandTitle && subtitle != null) subtitle
+                val tokenSubtitle = if (subtitle != null) subtitle
                 else if (!showBrandTitle && contextAvailable) {
                     stringResource(
                         R.string.context_usage_messages,
@@ -409,23 +415,23 @@ internal fun ChatTopBar(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Spacer(modifier = Modifier.width(5.dp))
-                            IconButton(
-                                onClick = onNavigateBack ?: onOpenDrawer,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (onNavigateBack != null) {
-                                        Icons.AutoMirrored.Filled.ArrowBack
-                                    } else {
-                                        Icons.Default.Menu
-                                    },
-                                    contentDescription = stringResource(
-                                        if (onNavigateBack != null) R.string.back else R.string.menu
-                                    ),
-                                    modifier = Modifier.size(26.dp),
-                                )
+                            if (onNavigateBack != null) {
+                                ZzzBackButton(onClick = onNavigateBack)
+                            } else {
+                                IconButton(
+                                    onClick = onOpenDrawer,
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = stringResource(R.string.menu),
+                                        modifier = Modifier.size(26.dp),
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FairyEmblem(animating = false, size = 32.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
                             Crossfade(
                                 targetState = titlePresentation,
                                 animationSpec = tween(
@@ -435,13 +441,30 @@ internal fun ChatTopBar(
                                 label = "chatTopBarTitle",
                             ) { presentation ->
                                 if (presentation.first) {
-                                    Text(
-                                        text = appName,
-                                        style = ChatType.brandTitle,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
+                                    Column(
                                         modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
-                                    )
+                                    ) {
+                                        Text(
+                                            text = appName,
+                                            style = ChatType.brandTitle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        if (tokenSubtitle != null) {
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                subtitleLeading?.invoke()
+                                                Text(
+                                                    text = tokenSubtitle,
+                                                    style = ChatType.micro.copy(
+                                                        fontFamily = LocalZzzTokens.current.labelFontFamily,
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
                                 } else {
                                     Column(
                                         modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
@@ -460,7 +483,9 @@ internal fun ChatTopBar(
                                                 subtitleLeading?.invoke()
                                                 Text(
                                                     text = tokenSubtitle,
-                                                    style = ChatType.micro,
+                                                    style = ChatType.micro.copy(
+                                                        fontFamily = LocalZzzTokens.current.labelFontFamily,
+                                                    ),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     maxLines = 1
                                                 )
@@ -574,21 +599,11 @@ private fun ChatTopBarCapsule(
 ) {
     val shape = RoundedCornerShape(50)
     Box(
-        modifier = modifier,
+        modifier = modifier.zzzPanel(
+            shape = shape,
+            color = LocalZzzTokens.current.panel,
+        ),
         propagateMinConstraints = true,
-    ) {
-        Surface(
-            modifier = Modifier.matchParentSize(),
-            shape = shape,
-            color = Color.Transparent,
-            shadowElevation = shadowElevation,
-        ) {}
-        Surface(
-            shape = shape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 4.dp,
-            shadowElevation = 0.dp,
-            content = content,
-        )
-    }
+        content = { content() },
+    )
 }

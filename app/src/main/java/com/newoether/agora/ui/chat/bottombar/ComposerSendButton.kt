@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
@@ -30,6 +33,8 @@ import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.chat.message.COMPOSER_ICON_CROSSFADE_DURATION_MS
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
+import com.newoether.agora.ui.motion.zzzPress
+import com.newoether.agora.ui.theme.LocalZzzTokens
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
@@ -125,20 +130,22 @@ internal fun ComposerSendButton(
             latestBusyShown?.invoke()
         }
     }
+    val tokens = LocalZzzTokens.current
+    val interactionSource = remember { MutableInteractionSource() }
     val containerColor by animateColorAsState(
-        targetValue = if (isActionable) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
+        targetValue = when {
+            !isActionable -> MaterialTheme.colorScheme.surfaceVariant
+            showStop -> tokens.danger
+            else -> tokens.fairyBlue
         },
         animationSpec = tween(durationMillis = 400),
         label = "fabContainer",
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isActionable) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        targetValue = when {
+            !isActionable -> MaterialTheme.colorScheme.onSurfaceVariant
+            showStop -> Color.Black
+            else -> Color.White
         },
         animationSpec = tween(durationMillis = 400),
         label = "fabContent",
@@ -147,7 +154,8 @@ internal fun ComposerSendButton(
     Surface(
         onClick = onClick,
         enabled = isActionable,
-        modifier = Modifier.size(46.dp),
+        interactionSource = interactionSource,
+        modifier = Modifier.size(46.dp).zzzPress(interactionSource),
         shape = CircleShape,
         color = containerColor,
         contentColor = contentColor,
@@ -172,9 +180,9 @@ internal fun ComposerSendButton(
                         modifier = Modifier.size(24.dp),
                     )
                     ComposerActionIcon.SEND -> Icon(
-                        Icons.Default.ArrowUpward,
+                        Icons.AutoMirrored.Filled.Send,
                         stringResource(R.string.action),
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }

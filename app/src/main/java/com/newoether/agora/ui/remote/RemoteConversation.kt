@@ -261,6 +261,7 @@ internal fun RemoteConversation(
                 onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
                 onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
                 onNavigateBack = onBack, onOpenDrawer = onBack, onSystemPromptClick = {},
+                forceBrandTitle = true,
                 moreMenuContent = { dismiss ->
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.conversation_search)) },

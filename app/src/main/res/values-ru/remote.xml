@@ -36,4 +36,5 @@
     <string name="remote_archive_message">Убрать эту задачу из активных списков Fairy и Remote? История будет сохранена.</string>
     <string name="remote_activity">Обработка</string>
     <string name="remote_relayed_from">Переслано от %1$s</string>
+    <string name="remote_connecting_status">Подключение</string>
 </resources>
