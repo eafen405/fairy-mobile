@@ -133,16 +133,16 @@ private fun DrawScope.drawFairyEmblem(
     )
     // Black disc.
     drawCircle(color = Color.Black, radius = 16f * unit, center = center)
-    // Q-shaped eye: ring diameter 20 (centerline r = 8), stroke 4, tail to
-    // bottom-right, round caps; breathes 1.00 -> 1.04.
+    // Q-shaped eye: ring outer diameter 22 (centerline r = 8.75), stroke 4.5;
+    // the tail runs INWARD from the centerline at 45 degrees lower-right to
+    // r = 3.5, stroke 4, round caps; the whole eye breathes 1.00 -> 1.04.
     val eyeScale = 1f + 0.04f * breath
-    val eyeRadius = 8f * unit * eyeScale
-    val eyeStroke = 4f * unit * eyeScale
+    val eyeRadius = 8.75f * unit * eyeScale
     drawCircle(
         color = Color.White,
         radius = eyeRadius,
         center = center,
-        style = Stroke(width = eyeStroke, cap = StrokeCap.Round),
+        style = Stroke(width = 4.5f * unit * eyeScale, cap = StrokeCap.Round),
     )
     val diagonal = 0.70710678f
     drawLine(
@@ -152,10 +152,10 @@ private fun DrawScope.drawFairyEmblem(
             center.y + eyeRadius * diagonal,
         ),
         end = Offset(
-            center.x + 13.5f * unit * eyeScale * diagonal,
-            center.y + 13.5f * unit * eyeScale * diagonal,
+            center.x + 3.5f * unit * eyeScale * diagonal,
+            center.y + 3.5f * unit * eyeScale * diagonal,
         ),
-        strokeWidth = eyeStroke,
+        strokeWidth = 4f * unit * eyeScale,
         cap = StrokeCap.Round,
     )
 }

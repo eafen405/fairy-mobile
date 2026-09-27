@@ -45,9 +45,10 @@ private fun effectiveFontFamily(
 }
 
 /**
- * Builds the [Typography]: display/headline/title tiers always use the ZZZ title
- * family, label tiers use the Anton label family, and body tiers follow the
- * user's body font preference. Mono styles are untouched.
+ * Builds the [Typography]: display/headline/title/label tiers always use the
+ * ZZZ title family and body tiers follow the user's body font preference.
+ * Anton ([ZzzTokens.labelFontFamily]) is applied only explicitly at call sites
+ * for small Latin/numeric labels — it has no CJK glyphs. Mono styles untouched.
  */
 private fun typographyWithFont(family: FontFamily): Typography {
     fun TextStyle.withFamily(f: FontFamily) = copy(fontFamily = f)
@@ -64,9 +65,9 @@ private fun typographyWithFont(family: FontFamily): Typography {
         bodyLarge = Typography.bodyLarge.withFamily(family),
         bodyMedium = Typography.bodyMedium.withFamily(family),
         bodySmall = Typography.bodySmall.withFamily(family),
-        labelLarge = Typography.labelLarge.withFamily(AntonFamily),
-        labelMedium = Typography.labelMedium.withFamily(AntonFamily),
-        labelSmall = Typography.labelSmall.withFamily(AntonFamily),
+        labelLarge = Typography.labelLarge.withFamily(TitleFamily),
+        labelMedium = Typography.labelMedium.withFamily(TitleFamily),
+        labelSmall = Typography.labelSmall.withFamily(TitleFamily),
     )
 }
 

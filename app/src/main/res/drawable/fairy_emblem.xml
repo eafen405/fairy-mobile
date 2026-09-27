@@ -32,7 +32,14 @@
 
     <path
         android:name="eye"
-        android:pathData="M 24 16 A 8 8 0 1 1 24 32 A 8 8 0 1 1 24 16 M 29.657 29.657 L 33.546 33.546"
+        android:pathData="M 24 15.25 A 8.75 8.75 0 1 1 24 32.75 A 8.75 8.75 0 1 1 24 15.25"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round" />
+
+    <path
+        android:name="eye_tail"
+        android:pathData="M 30.19 30.19 L 26.47 26.47"
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="4"
         android:strokeLineCap="round" />

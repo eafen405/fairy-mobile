@@ -99,4 +99,18 @@ class ZzzVisualScreenshotTest {
     fun `background alone`() {
         shot("s1-background") { ZzzBackground() }
     }
+
+    @Test
+    fun `emblem closeup at 160dp`() {
+        shot("s1-emblem-closeup") {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                FairyEmblem(
+                    animating = false,
+                    size = 160.dp,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        }
+    }
 }
