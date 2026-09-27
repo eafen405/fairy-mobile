@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
@@ -69,8 +68,6 @@ fun ZzzBackground(modifier: Modifier = Modifier) {
             .drawWithCache {
                 val layout = textMeasurer.measure("HDD", textStyle, softWrap = false)
                 val glowColor = tokens.deepDecor
-                val bandColor = tokens.deepDecorBand.copy(alpha = 0.35f)
-                val bandWidth = 3.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
                 onDrawBehind {
                     // Deep-blue radial glows: top-right corner (alpha 0.45,
@@ -96,24 +93,6 @@ fun ZzzBackground(modifier: Modifier = Modifier) {
                         radius = size.width * 0.6f,
                         center = Offset(-size.width * 0.02f, size.height * 1.02f),
                     )
-                    // One thin -20 deg accent band through the lower third,
-                    // running off both screen edges.
-                    val angle = Math.toRadians(-20.0).toFloat()
-                    val dir = Offset(kotlin.math.cos(angle), kotlin.math.sin(angle))
-                    val nrm = Offset(-dir.y, dir.x)
-                    val run = (size.width + size.height) * 1.5f
-                    val anchor = Offset(size.width * 0.5f, size.height * 0.67f)
-                    run {
-                        val u = Offset(dir.x * run / 2f, dir.y * run / 2f)
-                        val v = Offset(nrm.x * bandWidth / 2f, nrm.y * bandWidth / 2f)
-                        val p = Path()
-                        p.moveTo(anchor.x - u.x - v.x, anchor.y - u.y - v.y)
-                        p.lineTo(anchor.x + u.x - v.x, anchor.y + u.y - v.y)
-                        p.lineTo(anchor.x + u.x + v.x, anchor.y + u.y + v.y)
-                        p.lineTo(anchor.x - u.x + v.x, anchor.y - u.y + v.y)
-                        p.close()
-                        drawPath(p, bandColor)
-                    }
                     // 45 deg hatch: one tiled shader rect (or the line loop
                     // where bitmaps are unavailable).
                     if (hatchBrush != null) {

@@ -22,7 +22,6 @@ data class ZzzTokens(
     val watermarkText: Color = Color(0xFF171717),
     /** Deep-blue decorative glow color on the background. */
     val deepDecor: Color = Color(0xFF0E2350),
-    val deepDecorBand: Color = Color(0xFF1A3A8A),
     /** Panel / top-bar / card / input-bar surface. */
     val panel: Color = Color(0xFF1C1C1C),
     /** List items, secondary pills, file cards. */

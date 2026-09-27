@@ -128,32 +128,42 @@ class ZzzVisualScreenshotTest {
 
     @Test
     fun `emblem side by side with reference`() {
+        val refPath = "/mnt/d/file/Fufu/Fairy/细节.png"
+        val ref = android.graphics.BitmapFactory.decodeFile(refPath)
+        assertTrue("reference not readable: $refPath", ref != null)
+        // Render the emblem at the reference's pixel size (xxhdpi = 2.75),
+        // then crop the centered square so both sides compare 1:1.
+        val emblemDp = ref.height / 2.75f
         compose.setContent {
             AgoraTheme {
                 Box(
                     Modifier.fillMaxSize().background(Color(0xFF121212)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    FairyEmblem(animating = false, size = 192.dp, breathOverride = 0f)
+                    FairyEmblem(
+                        animating = false,
+                        size = emblemDp.dp,
+                        breathOverride = 0f,
+                    )
                 }
             }
         }
         compose.waitForIdle()
         val rendered: Bitmap = compose.activity.window.decorView.drawToBitmap()
-        val refPath = "/mnt/d/file/Fufu/Fairy/细节.png"
-        val ref = android.graphics.BitmapFactory.decodeFile(refPath)
-        assertTrue("reference not readable: $refPath", ref != null)
-        // Composite: reference left (scaled to match height), ours right.
-        val scale = rendered.height.toFloat() / ref.height
-        val refW = (ref.width * scale).toInt()
-        val scaled = Bitmap.createScaledBitmap(ref, refW, rendered.height, true)
+        val side = ref.height
+        val crop = Bitmap.createBitmap(
+            rendered,
+            (rendered.width - side) / 2,
+            (rendered.height - side) / 2,
+            side, side,
+        )
         val out = Bitmap.createBitmap(
-            refW + rendered.width, rendered.height, Bitmap.Config.ARGB_8888,
+            ref.width + side, side, Bitmap.Config.ARGB_8888,
         )
         val canvas = android.graphics.Canvas(out)
         canvas.drawColor(0xFF121212.toInt())
-        canvas.drawBitmap(scaled, 0f, 0f, null)
-        canvas.drawBitmap(rendered, refW.toFloat(), 0f, null)
+        canvas.drawBitmap(ref, 0f, 0f, null)
+        canvas.drawBitmap(crop, ref.width.toFloat(), 0f, null)
         val file = ZzzScreenshots.savePng("s1-emblem-sidebyside", out)
         assertTrue(file.isFile && file.length() > 0)
     }

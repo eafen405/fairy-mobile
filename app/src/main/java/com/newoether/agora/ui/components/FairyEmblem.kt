@@ -30,9 +30,10 @@ import kotlin.math.sin
 private const val BREATH_PERIOD_MS = 4200f
 private const val SETTLE_MS = 300
 
-private val EmblemRingOuter = Color(0xFF3A6AF0)
-private val EmblemRingInner = Color(0xFF1F55E0)
-private val EmblemRingOuterBreath = Color(0xFF7FB0FF)
+private val EmblemRingTop = Color(0xFF3D8AE6)
+private val EmblemRingBottom = Color(0xFF1A35D6)
+private val EmblemRingTopBreath = Color(0xFF7FB8FF)
+private val EmblemPupilTop = Color(0xFF0A1830)
 
 /** Breathing cycle value: 0 at 0 ms, 0.5 at 1050 ms, 1 at 2100 ms, 0 at 4200 ms. */
 fun emblemBreath(elapsedMs: Long): Float {
@@ -132,54 +133,68 @@ private fun DrawScope.drawFairyEmblem(
         )
     }
 
-    // White outer ring: r 24 -> 22 (centerline 23, width 2).
+    // White outer ring: r 24 -> 20.6 (centerline 22.3, width 3.4).
     drawCircle(
         color = Color.White,
-        radius = 23f * unit,
+        radius = 22.3f * unit,
         center = center,
-        style = Stroke(width = 2f * unit),
+        style = Stroke(width = 3.4f * unit),
     )
-    // Blue ring r 22 -> 16 (centerline 19, width 6): radial gradient, lighter
-    // outside; breathing lerps both stops toward fairyGlow tones.
+    // Blue ring r 20.6 -> 15.6 (centerline 18.1, width 5): vertical linear
+    // gradient #3D8AE6 top -> #1A35D6 bottom; breathing brightens both stops
+    // (#7FB8FF / fairyGlow).
+    val ringR = 18.1f * unit
     drawCircle(
-        brush = Brush.radialGradient(
-            0f to lerp(EmblemRingInner, fairyGlow, breath),
-            1f to lerp(EmblemRingOuter, EmblemRingOuterBreath, breath),
-            center = center,
-            radius = 19f * unit,
+        brush = Brush.linearGradient(
+            0f to lerp(EmblemRingTop, EmblemRingTopBreath, breath),
+            1f to lerp(EmblemRingBottom, fairyGlow, breath),
+            start = Offset(center.x, center.y - ringR),
+            end = Offset(center.x, center.y + ringR),
         ),
-        radius = 19f * unit,
+        radius = ringR,
         center = center,
-        style = Stroke(width = 6f * unit),
+        style = Stroke(width = 5f * unit),
     )
-    // Black disc with four pointed compass bumps.
+    // Black disc r 15.6 with four right-angled triangular compass tips
+    // (straight 45deg sides, tip r 19.0, base ~6.4 wide, ~0.4 rounded apex).
     drawPath(disc, Color.Black)
-    // Eye: white ring outer r 9.6 (centerline 8.0, width 3.2), black pupil
-    // r 6.4, white tail-dot r 2.5 centered at r 6.6, 45deg lower-right.
+    // Eye: white ring outer r 12.5 (centerline 10.3, width 4.4), pupil r 8.1
+    // (vertical gradient #0A1830 -> #000), tail-dot r 3.4 at r 6.1, 45deg
+    // lower-right; the group breathes 1.00 -> 1.04.
     val eyeScale = 1f + 0.04f * breath
     drawCircle(
         color = Color.White,
-        radius = 8f * unit * eyeScale,
+        radius = 10.3f * unit * eyeScale,
         center = center,
-        style = Stroke(width = 3.2f * unit * eyeScale, cap = StrokeCap.Round),
+        style = Stroke(width = 4.4f * unit * eyeScale, cap = StrokeCap.Round),
     )
-    drawCircle(color = Color.Black, radius = 6.4f * unit * eyeScale, center = center)
+    val pupilR = 8.1f * unit * eyeScale
+    drawCircle(
+        brush = Brush.verticalGradient(
+            0f to EmblemPupilTop,
+            1f to Color.Black,
+            startY = center.y - pupilR,
+            endY = center.y + pupilR,
+        ),
+        radius = pupilR,
+        center = center,
+    )
     val diagonal = 0.70710678f
     drawCircle(
         color = Color.White,
-        radius = 2.5f * unit * eyeScale,
+        radius = 3.4f * unit * eyeScale,
         center = Offset(
-            center.x + 6.6f * unit * eyeScale * diagonal,
-            center.y + 6.6f * unit * eyeScale * diagonal,
+            center.x + 6.1f * unit * eyeScale * diagonal,
+            center.y + 6.1f * unit * eyeScale * diagonal,
         ),
     )
 }
 
 /** Disc-with-compass-bumps path matching `fairy_emblem.xml`'s `disc` path. */
 private fun discPath(unit: Float, center: Offset): Path {
-    val r = 15f * unit
-    val tipR = 19.5f * unit
-    val betaDeg = Math.toDegrees(kotlin.math.atan2(4f * unit, r).toDouble()).toFloat()
+    val r = 15.6f * unit
+    val tipR = 19f * unit
+    val betaDeg = Math.toDegrees(kotlin.math.atan2(3.2f * unit, r).toDouble()).toFloat()
     fun pt(radius: Float, angleDeg: Float) = Offset(
         center.x + radius * cos(Math.toRadians(angleDeg.toDouble())).toFloat(),
         center.y + radius * sin(Math.toRadians(angleDeg.toDouble())).toFloat(),
@@ -190,14 +205,6 @@ private fun discPath(unit: Float, center: Offset): Path {
         val b = pt(r, deg - betaDeg)
         val e = pt(r, deg + betaDeg)
         val t = pt(tipR, deg)
-        val c1 = Offset(
-            (b.x + t.x) / 2f + (center.x - (b.x + t.x) / 2f) * 0.25f,
-            (b.y + t.y) / 2f + (center.y - (b.y + t.y) / 2f) * 0.25f,
-        )
-        val c2 = Offset(
-            (t.x + e.x) / 2f + (center.x - (t.x + e.x) / 2f) * 0.25f,
-            (t.y + e.y) / 2f + (center.y - (t.y + e.y) / 2f) * 0.25f,
-        )
         if (i == 0) {
             path.moveTo(b.x, b.y)
         } else {
@@ -208,8 +215,17 @@ private fun discPath(unit: Float, center: Offset): Path {
                 forceMoveTo = false,
             )
         }
-        path.quadraticTo(c1.x, c1.y, t.x, t.y)
-        path.quadraticTo(c2.x, c2.y, e.x, e.y)
+        // Straight 45deg sides to the tip, with a ~0.4-unit rounded apex.
+        val apex = 0.4f * unit
+        val d1x = (t.x - b.x); val d1y = (t.y - b.y)
+        val d1l = kotlin.math.hypot(d1x, d1y)
+        val d2x = (e.x - t.x); val d2y = (e.y - t.y)
+        val d2l = kotlin.math.hypot(d2x, d2y)
+        val p1x = t.x - d1x / d1l * apex; val p1y = t.y - d1y / d1l * apex
+        val p2x = t.x + d2x / d2l * apex; val p2y = t.y + d2y / d2l * apex
+        path.lineTo(p1x, p1y)
+        path.quadraticTo(t.x, t.y, p2x, p2y)
+        path.lineTo(e.x, e.y)
     }
     path.arcTo(
         rect = Rect(center, r),
