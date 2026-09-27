@@ -96,6 +96,24 @@ internal fun streamingTailPresentation(
     )
 }
 
+private val emblemAnimatingStatuses = setOf(
+    MessageStatus.SENDING,
+    MessageStatus.THINKING,
+    MessageStatus.TOOL_CALLING,
+)
+
+/**
+ * The Fairy avatar breathes only on the conversation tail while generation is
+ * visible: MODEL participant, tail item, and an in-flight status. The Remote
+ * flow's display-only tail stub (status SENDING) therefore animates too.
+ */
+internal fun isEmblemAnimating(
+    isLoading: Boolean,
+    message: ChatMessage,
+    isTail: Boolean,
+): Boolean = isLoading && isTail && message.participant == Participant.MODEL &&
+    message.status in emblemAnimatingStatuses
+
 internal fun shouldShowStreamingTailIndicator(
     isLoading: Boolean,
     isStopping: Boolean,

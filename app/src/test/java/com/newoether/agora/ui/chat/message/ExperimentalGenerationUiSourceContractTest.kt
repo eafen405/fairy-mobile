@@ -368,7 +368,7 @@ class ExperimentalGenerationUiSourceContractTest {
         assertTrue(assets.contains("lineHeightStyle = LineHeightStyle("))
         assertTrue(assets.contains("alignment = LineHeightStyle.Alignment.Center"))
         assertTrue(assets.contains("trim = LineHeightStyle.Trim.Both"))
-        assertTrue(assets.contains("val markdownBodyStyle = scaledMarkdownTextStyle(ChatType.body)"))
+        assertTrue(assets.contains("ChatType.body.copy(fontWeight = bodyFontWeight)"))
         assertTrue(assets.contains("val thoughtMarkdownBodyStyle = scaledMarkdownTextStyle(ChatType.thoughtBody)"))
         assertTrue(assets.contains("h1 = scaledMarkdownTextStyle(ChatType.mdH1)"))
         assertTrue(assets.contains("h6 = scaledMarkdownTextStyle(ChatType.mdH6)"))

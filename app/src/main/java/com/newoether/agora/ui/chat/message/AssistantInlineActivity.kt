@@ -14,8 +14,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.newoether.agora.ui.chat.GenerationActivityDot
 import com.newoether.agora.ui.chat.StreamingTailAnchorHeight
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.newoether.agora.R
+import com.newoether.agora.ui.chat.rememberGenerationActivityDotBreathingScale
+import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalZzzTokens
 
 private val AssistantInlineActivityHeight = StreamingTailAnchorHeight
 
@@ -114,7 +126,7 @@ internal fun AssistantInlineActivity(
                         if (visibleMode == AssistantInlineActivityMode.RETRY) {
                             RetryActivityIndicator(label = visibleRetryText.orEmpty() + "...")
                         } else {
-                            GenerationActivityDot()
+                            ThinkingDots()
                         }
                     }
                 } else if (terminalIsError) {
@@ -127,6 +139,38 @@ internal fun AssistantInlineActivity(
                     GenerationTerminalText(visibleTerminalText)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Pre-answer placeholder inside the Fairy bubble: gray "思考中" small text and
+ * three breathing fairyGlow dots.
+ */
+@Composable
+internal fun ThinkingDots() {
+    val breathingScale = rememberGenerationActivityDotBreathingScale()
+    val color = LocalZzzTokens.current.fairyGlow
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.thinking_ellipsis),
+            style = ChatType.meta,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .graphicsLayer {
+                        scaleX = breathingScale
+                        scaleY = breathingScale
+                        clip = false
+                    }
+                    .background(color, CircleShape),
+            )
         }
     }
 }

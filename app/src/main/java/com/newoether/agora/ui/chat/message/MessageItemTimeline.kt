@@ -42,7 +42,9 @@ import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.ui.components.*
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
+import androidx.compose.foundation.BorderStroke
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalZzzTokens
 import com.newoether.agora.util.noOpBringIntoView
 
 // ── Timeline / segment rendering (extracted from MessageItem.kt) ──────────────
@@ -312,10 +314,17 @@ internal fun CompactSegmentBlock(
             label = "compactSegmentDisclosureRotation",
         )
 
+        val activityAccent = LocalZzzTokens.current.fairyGlow
         StartAnchoredHorizontalOverflowHost {
             Surface(
                 tonalElevation = 2.dp,
                 shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = if (showLoading) {
+                    BorderStroke(1.dp, activityAccent.copy(alpha = 0.6f))
+                } else {
+                    null
+                },
             modifier = Modifier
                 .offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)
                 .width(cardWidth)
@@ -357,23 +366,28 @@ internal fun CompactSegmentBlock(
                     label = "compactSegmentIcon:$expansionKey",
                     modifier = Modifier.size(18.dp),
                 ) { icon ->
+                    val iconTint = if (showLoading) {
+                        activityAccent
+                    } else {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    }
                     when (icon) {
                         CompactSegmentIcon.LOADING -> CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            color = iconTint,
                             strokeWidth = 2.dp,
                         )
                         CompactSegmentIcon.TOOL -> Icon(
                             Icons.Default.Build,
                             null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            tint = iconTint,
                         )
                         CompactSegmentIcon.IMAGE -> Icon(
                             Icons.Filled.Image,
                             null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            tint = iconTint,
                         )
                         CompactSegmentIcon.THINKING -> Icon(
                             androidx.compose.ui.res.painterResource(
@@ -381,7 +395,7 @@ internal fun CompactSegmentBlock(
                             ),
                             null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            tint = iconTint,
                         )
                     }
                 }

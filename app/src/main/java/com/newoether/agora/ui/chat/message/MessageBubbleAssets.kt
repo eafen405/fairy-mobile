@@ -157,6 +157,7 @@ internal fun rememberChatMarkdownAssets(
     inlineImages: Map<String, com.newoether.agora.model.MarkdownImage> = emptyMap(),
     onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
+    bodyFontWeight: FontWeight = FontWeight.Normal,
 ): ChatMarkdownAssets {
     val linkColor = MaterialTheme.colorScheme.primary
     val linkTextStyles = remember(linkColor) { chatLinkTextStyles(linkColor) }
@@ -164,7 +165,9 @@ internal fun rememberChatMarkdownAssets(
     // Outfit's large x-height means 15sp reads like ~16sp Roboto.
     // Heading steps of 3sp (h1→h2→h3) and 2sp (h3→h4) create
     // a visible but not jarring hierarchy during long-form reading.
-    val markdownBodyStyle = scaledMarkdownTextStyle(ChatType.body)
+    val markdownBodyStyle = scaledMarkdownTextStyle(
+        ChatType.body.copy(fontWeight = bodyFontWeight),
+    )
     val thoughtMarkdownBodyStyle = scaledMarkdownTextStyle(ChatType.thoughtBody)
     val customTypography = markdownTypography(
         text = markdownBodyStyle,

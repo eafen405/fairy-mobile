@@ -39,7 +39,7 @@ class Phase25UiSourceContractTest {
         ))
         assertTrue(activity.contains(".heightIn(min = AssistantInlineActivityHeight)"))
         assertTrue(assistantActivity.contains("clip = false"))
-        assertTrue(assistantActivity.contains("GenerationActivityDot()"))
+        assertTrue(assistantActivity.contains("ThinkingDots()"))
         assertTrue(assistantActivity.contains("Crossfade("))
         assertTrue(assistantActivity.contains("targetState = terminalText"))
         assertTrue(assistantActivity.contains(

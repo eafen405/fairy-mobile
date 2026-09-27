@@ -118,6 +118,31 @@ fun zzzColorScheme(): ColorScheme = ColorScheme(
     onTertiaryFixed = ZzzOnDark, onTertiaryFixedVariant = ZzzOnDark,
 )
 
+/**
+ * Local scheme inside a Fairy (white) bubble: dark text, gray secondary,
+ * #E6E6E6 containers for code/quote blocks, fairyBlue links/accents.
+ */
+fun fairyBubbleScheme(): ColorScheme = zzzColorScheme().copy(
+    primary = ZzzFairyBlue, onPrimary = ZzzOnDark,
+    primaryContainer = Color(0xFFE6E6E6), onPrimaryContainer = ZzzFairyBlue,
+    secondary = ZzzSecondary, onSecondary = Color.Black,
+    secondaryContainer = Color(0xFFE6E6E6), onSecondaryContainer = ZzzPill,
+    tertiary = ZzzFairyBlue, onTertiary = ZzzOnDark,
+    error = ZzzError, onError = Color.Black,
+    errorContainer = Color(0xFFE6E6E6), onErrorContainer = ZzzError,
+    background = Color(0xFFF4F4F4), onBackground = Color(0xFF2A2A2A),
+    surface = Color(0xFFF4F4F4), onSurface = Color(0xFF2A2A2A),
+    surfaceVariant = Color(0xFFE6E6E6), onSurfaceVariant = Color(0xFF5A5A5A),
+    outline = Color(0xFFCFCFCF), outlineVariant = Color(0xFFDCDCDC),
+    surfaceTint = ZzzFairyBlue,
+    surfaceDim = Color(0xFFE6E6E6), surfaceBright = Color(0xFFF4F4F4),
+    surfaceContainerLowest = Color(0xFFF8F8F8),
+    surfaceContainerLow = Color(0xFFF0F0F0),
+    surfaceContainer = Color(0xFFE6E6E6),
+    surfaceContainerHigh = Color(0xFFE0E0E0),
+    surfaceContainerHighest = Color(0xFFDADADA),
+)
+
 /** Applies the same endpoint treatment to preset and Android dynamic schemes. */
 internal fun ColorScheme.withAmoledBackground(isDark: Boolean, enabled: Boolean): ColorScheme {
     if (!enabled) return this

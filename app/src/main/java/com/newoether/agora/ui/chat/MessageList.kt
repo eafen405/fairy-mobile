@@ -224,6 +224,7 @@ internal fun MessageList(
     val pageSpacing = remember(presentationMessages) { messageListPageTrailingSpacing(presentationMessages) }
     val tailAnchorKey = messageListTailAnchorKey(turns)
     val tailHolderKey = messageListTailHolderKey(turns)
+    val tailMessageId = turns.lastOrNull()?.messages?.lastOrNull()?.id
     LaunchedEffect(conversationId, turns, searchQuery) { onSearchTurnsChanged(turns) }
 
     MessageListEditScrollEffect(
@@ -554,6 +555,11 @@ internal fun MessageList(
             // Every active MODEL owns its streaming renderer until its own terminal status.
             // Appending a queued USER must not dispose the previous turn's incremental renderer.
             isStreaming = messageIsStreaming,
+            emblemAnimating = isEmblemAnimating(
+                isLoading = isLoading,
+                message = message,
+                isTail = message.id == tailMessageId,
+            ),
             liveCompactPreview = compactPreview.takeIf {
                 isCompacting &&
                     message.isContextCompact() &&

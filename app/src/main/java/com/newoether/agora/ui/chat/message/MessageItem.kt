@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import com.newoether.agora.R
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
@@ -102,6 +103,7 @@ internal fun MessageItem(
     outerPadding: PaddingValues = PaddingValues(vertical = 8.dp),
     includeAssistantOuterSpacing: Boolean = true,
     isStreaming: Boolean = false,
+    emblemAnimating: Boolean = false,
     liveCompactPreview: StateFlow<String>? = null,
     isLoading: Boolean = false,
     isStopping: Boolean = false,
@@ -245,20 +247,21 @@ internal fun MessageItem(
         Participant.ERROR -> Alignment.CenterHorizontally
     }
 
+    val zzzTokens = com.newoether.agora.ui.theme.LocalZzzTokens.current
     val backgroundColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.primaryContainer
+        Participant.USER -> zzzTokens.fairyBlue
         Participant.MODEL -> Color.Transparent
         Participant.ERROR -> MaterialTheme.colorScheme.errorContainer
     }
 
     val textColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.onPrimaryContainer
+        Participant.USER -> Color.White
         Participant.MODEL -> MaterialTheme.colorScheme.onSurface
         Participant.ERROR -> MaterialTheme.colorScheme.onErrorContainer
     }
 
     val shape = when (message.participant) {
-        Participant.USER -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
+        Participant.USER -> RoundedCornerShape(topStart = 20.dp, topEnd = 6.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
         Participant.MODEL -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
         Participant.ERROR -> RoundedCornerShape(12.dp)
     }
@@ -386,48 +389,88 @@ internal fun MessageItem(
                         searchHighlight = searchHighlight,
                     )
                 } else {
-                    AssistantMessageContent(
-                        message = displayMessage,
-                        includeOuterSpacing = includeAssistantOuterSpacing,
-                        segmentAppearanceRegistry = segmentAppearanceRegistry,
-                        contextAlpha = contextAlpha,
-                        isStreaming = isStreaming,
-                        isLoading = isLoading,
-                        isStopping = isStopping,
-                        isRegenerationExiting = isRegenerationExiting,
-                        isEditingAllowed = isEditingAllowed,
-                        showActions = showActions,
-                        actionCopyText = displayActionCopyText,
-                        showBranchSelector = showBranchSelector,
-                        toolCallDisplayMode = toolCallDisplayMode,
-                        thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
-                        autoExpandActiveGroup = autoExpandActiveGroup &&
-                            ThinkingSegmentDisplayModes.allowsAutoExpand(
-                                thinkingSegmentDisplayMode,
-                                toolCallDisplayMode,
-                            ),
+                    val assistantContent: @Composable (ChatMarkdownRenderContext) -> Unit = { ctx ->
+                        AssistantMessageContent(
+                            message = displayMessage,
+                            includeOuterSpacing = includeAssistantOuterSpacing,
+                            segmentAppearanceRegistry = segmentAppearanceRegistry,
+                            contextAlpha = contextAlpha,
+                            isStreaming = isStreaming,
+                            isLoading = isLoading,
+                            isStopping = isStopping,
+                            isRegenerationExiting = isRegenerationExiting,
+                            isEditingAllowed = isEditingAllowed,
+                            showActions = showActions,
+                            actionCopyText = displayActionCopyText,
+                            showBranchSelector = showBranchSelector,
+                            toolCallDisplayMode = toolCallDisplayMode,
+                            thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
+                            autoExpandActiveGroup = autoExpandActiveGroup &&
+                                ThinkingSegmentDisplayModes.allowsAutoExpand(
+                                    thinkingSegmentDisplayMode,
+                                    toolCallDisplayMode,
+                                ),
 
-                        groupedSegmentAutoExpansionController =
-                            groupedSegmentAutoExpansionController,
-                        thoughtExpandedStates = thoughtExpandedStates,
-                        renderContext = markdownRenderContext,
-                        searchHighlight = searchHighlight,
-                        branchIndex = branchIndex,
-                        totalBranches = totalBranches,
-                        onSwitchBranch = onSwitchBranch,
-                        onRegenerate = onRegenerate,
-                        onFork = { onFork(message.id) },
-                        onShare = { onShare(message.id) },
-                        onMediaClick = onMediaClick,
-                        onShowInfo = { showInfoDialog = true },
-                        onShowDelete = onShowDelete,
-                        onSegmentSelected = { indices, showListFirst ->
-                            onSegmentDetailRequest(message.id, indices, showListFirst)
-                        },
-                        onLayoutMutationStarted = onLayoutMutationStarted,
-                        onLayoutMutationSettled = onLayoutMutationSettled,
-                        setThoughtBlockHeight = {},
-                    )
+                            groupedSegmentAutoExpansionController =
+                                groupedSegmentAutoExpansionController,
+                            thoughtExpandedStates = thoughtExpandedStates,
+                            renderContext = ctx,
+                            searchHighlight = searchHighlight,
+                            branchIndex = branchIndex,
+                            totalBranches = totalBranches,
+                            onSwitchBranch = onSwitchBranch,
+                            onRegenerate = onRegenerate,
+                            onFork = { onFork(message.id) },
+                            onShare = { onShare(message.id) },
+                            onMediaClick = onMediaClick,
+                            onShowInfo = { showInfoDialog = true },
+                            onShowDelete = onShowDelete,
+                            onSegmentSelected = { indices, showListFirst ->
+                                onSegmentDetailRequest(message.id, indices, showListFirst)
+                            },
+                            onLayoutMutationStarted = onLayoutMutationStarted,
+                            onLayoutMutationSettled = onLayoutMutationSettled,
+                            setThoughtBlockHeight = {},
+                        )
+                    }
+                    if (message.participant == Participant.MODEL) {
+                        // Fairy avatar column + white bubble, per zzz-visual.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            FairyEmblem(animating = emblemAnimating, size = 40.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.Start,
+                            ) {
+                                displayMessage.remoteFiles
+                                    .mapNotNullTo(linkedSetOf()) {
+                                        it.source?.takeIf(String::isNotBlank)
+                                    }
+                                    .forEach { source ->
+                                        FairyRelayBadge(
+                                            source,
+                                            Modifier.padding(bottom = 4.dp),
+                                        )
+                                    }
+                                FairyBubble {
+                                    val bubbleAssets = rememberChatMarkdownAssets(
+                                        textColor = MaterialTheme.colorScheme.onSurface,
+                                        parseInlineDollarMath = parseInlineDollarMath,
+                                        inlineImages = message.markdownImages,
+                                        onMediaClick = onMediaClick,
+                                        preparedMarkdown = message.preparedMarkdown,
+                                        bodyFontWeight = FontWeight.Bold,
+                                    )
+                                    assistantContent(bubbleAssets.renderContext)
+                                }
+                            }
+                        }
+                    } else {
+                        assistantContent(markdownRenderContext)
+                    }
                 }
             }
             if (selectionMode) {

@@ -42,6 +42,7 @@ import com.newoether.agora.ui.chat.resolveAttachmentType
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalZzzTokens
 
 /**
  * The right-aligned user message bubble: attachment thumbnails, the message text
@@ -121,6 +122,7 @@ internal fun UserMessageBubble(
         if (isEditing) editFocusRequester.requestFocus()
     }
 
+    val tailColor = LocalZzzTokens.current.fairyBlue
     Column(
         horizontalAlignment = Alignment.End,
         modifier = Modifier.then(
@@ -131,7 +133,7 @@ internal fun UserMessageBubble(
             },
         ),
     ) {
-        Box {
+        Box(Modifier.drawBubbleTail(tailColor, tailAtTopEnd = true)) {
             Surface(
             shape = shape,
             color = backgroundColor,
