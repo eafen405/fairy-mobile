@@ -58,6 +58,7 @@ import com.newoether.agora.ui.common.LocalAgoraHaptics
 import java.util.Locale
 
 internal val SPEECH_CANCEL_THRESHOLD = 80.dp
+private const val SPEECH_FINALIZE_TIMEOUT_MS = 8_000L
 
 /**
  * Speech input scoped to the active composer owner: the recognizer is created on
@@ -70,6 +71,7 @@ internal fun rememberRemoteSpeechController(
     owner: String,
     field: TextFieldState,
     active: Boolean,
+    persistDraft: (String) -> Unit = {},
 ): SpeechSessionController {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -91,6 +93,9 @@ internal fun rememberRemoteSpeechController(
                     replace(0, length, text)
                     placeCursorAtEnd()
                 }
+                // The field→drafts sync can already be gone during owner disposal;
+                // the persisted draft is what a later visit restores the field from.
+                persistDraft(text)
             },
             cancelThresholdPx = threshold,
         )
@@ -106,6 +111,10 @@ internal fun rememberRemoteSpeechController(
     }
     LaunchedEffect(controller.phase) {
         if (controller.exclusive) focusManager.clearFocus()
+        if (controller.phase == SpeechInputPhase.FINALIZING) {
+            kotlinx.coroutines.delay(SPEECH_FINALIZE_TIMEOUT_MS)
+            controller.finalizeExpired()
+        }
     }
     LaunchedEffect(active) {
         if (!active) controller.dispose()

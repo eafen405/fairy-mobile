@@ -123,6 +123,14 @@ internal class SpeechSessionController(
         }
     }
 
+    /**
+     * The provider should always answer [stopListening] with a final result or an
+     * error; if it never does, the composer must not stay exclusive forever.
+     */
+    fun finalizeExpired() {
+        if (phase == SpeechInputPhase.FINALIZING) fail(SpeechInputFailure.FAILED)
+    }
+
     /** Owning UI leaving composition or the owner switching: end the session and restore the draft. */
     fun dispose() {
         if (exclusive) discard() else {

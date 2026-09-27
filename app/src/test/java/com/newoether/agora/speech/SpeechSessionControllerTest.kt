@@ -206,6 +206,19 @@ class SpeechSessionControllerTest {
         assertEquals(2, h.engine?.started)
     }
 
+    @Test fun aProviderThatNeverFinalizesReleasesTheComposerOnTimeout() {
+        val h = Harness(draft = "draft")
+        h.controller.pressStarted()
+        h.partial("partial")
+        h.controller.pressReleased()
+        assertEquals(SpeechInputPhase.FINALIZING, h.controller.phase)
+        assertTrue(h.controller.exclusive)
+        h.controller.finalizeExpired()
+        assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
+        assertEquals(SpeechInputFailure.FAILED, h.controller.failure)
+        assertEquals("draft", h.draft)
+    }
+
     @Test fun aStartThrowMapsToAFailureWithoutLosingTheDraft() {
         val engine = FakeEngine().apply { startFailure = SecurityException("denied") }
         val h = Harness(engine = engine, draft = "draft")
