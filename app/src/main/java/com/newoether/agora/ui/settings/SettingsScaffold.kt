@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
-import com.newoether.agora.ui.components.CircularBackButton
+import com.newoether.agora.ui.components.ZzzBackButton
 import com.newoether.agora.ui.components.clearFocusOnTap
 
 // ── Shared geometry for the iOS-style collapsing large title, used by the
@@ -142,9 +142,8 @@ internal fun CollapsingSettingsTitleBar(
         }
 
         if (LocalSettingsPaneBackButtonVisible.current) {
-            CircularBackButton(
+            ZzzBackButton(
                 onClick = onBack,
-                contentDescription = backDescription,
                 modifier = Modifier.padding(start = 16.dp, top = statusBarTop + 12.dp)
             )
         }

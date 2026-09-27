@@ -13,6 +13,7 @@ class StreamingMarkdownMessageSourceContractTest {
         val wrapper = source(root, "StreamingMarkdownMessage.kt")
         val incremental = source(root, "IncrementalStreamingMarkdown.kt")
         val assistant = source(root, "AssistantMessageContent.kt")
+        val actionRow = source(root, "AssistantActionRow.kt")
         val timeline = source(root, "MessageItemTimeline.kt") +
             source(root, "TimelineSegmentsContent.kt")
         val detail = source(root, "SegmentDetailSheet.kt")
@@ -59,7 +60,7 @@ class StreamingMarkdownMessageSourceContractTest {
         assertTrue(incremental.contains("textDeltas = published.textDeltas,"))
         assertTrue(incremental.contains("LaunchedEffect(state, content, isStreaming, textDeltas)"))
         assertTrue(lifecycle.contains("val informationVisible = !isStreaming && !regenerateRequested"))
-        assertTrue(assistant.contains("informationVisible = actionAvailability.informationVisible"))
+        assertTrue(actionRow.contains("informationVisible = actionAvailability.informationVisible"))
         assertFalse(incremental.contains("internal class StreamingInteractionCommitGate"))
         assertTrue(interaction.contains("internal class StreamingInteractionCommitGate"))
         assertTrue(wrapper.contains("emptyStreamingTextStyle: TextStyle"))

@@ -33,7 +33,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w360dp-h780dp-mdpi")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w393dp-h851dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.LEGACY)
 class ZzzVisualScreenshotTest {

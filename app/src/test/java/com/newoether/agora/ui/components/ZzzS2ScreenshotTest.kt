@@ -37,7 +37,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w360dp-h780dp-mdpi")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w393dp-h851dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.LEGACY)
 class ZzzS2ScreenshotTest {
@@ -105,6 +105,50 @@ class ZzzS2ScreenshotTest {
                         text = "主人，我复核了一遍。文件层面没有变化。",
                         participant = Participant.MODEL,
                     )
+                }
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "zh-rCN-w393dp-h851dp-xxhdpi")
+    fun `conversation question and answer zh`() {
+        shot("s2-qa-zh") {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                Column(Modifier.fillMaxWidth().padding(8.dp).align(Alignment.TopCenter)) {
+                    item(
+                        text = "帮我复核一下这次的改动。",
+                        participant = Participant.USER,
+                    )
+                    item(
+                        text = "主人，我复核了一遍。文件层面没有变化。",
+                        participant = Participant.MODEL,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "zh-rCN-w393dp-h851dp-xxhdpi")
+    fun `thinking tail zh`() {
+        shot("s2-thinking-tail-zh", freezeClock = true) {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    item(
+                        text = "先整理一下日志文件。",
+                        participant = Participant.USER,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        FairyEmblem(animating = false, size = 40.dp, breathOverride = 1f)
+                        Spacer(Modifier.width(8.dp))
+                        FairyBubble { ThinkingDots() }
+                    }
                 }
             }
         }

@@ -103,7 +103,8 @@ fun zzzColorScheme(): ColorScheme = ColorScheme(
     outline = ZzzOutline, outlineVariant = Color(0xFF242424),
     inversePrimary = ZzzFairyBlue,
     inverseSurface = Color(0xFFF4F4F4), inverseOnSurface = ZzzPill,
-    surfaceTint = ZzzPrimary, scrim = Color.Black,
+    // Neutral surfaces only: tonal elevation must not tint panels olive.
+    surfaceTint = Color.Transparent, scrim = Color.Black,
     surfaceDim = Color(0xFF0C0C0C), surfaceBright = Color(0xFF303030),
     surfaceContainerLowest = Color(0xFF0E0E0E),
     surfaceContainerLow = Color(0xFF171717),

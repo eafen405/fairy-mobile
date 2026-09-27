@@ -114,6 +114,7 @@ class Phase24UiSourceContractTest {
     fun `generation sources render directly without a follower`() {
         val list = source("MessageList.kt")
         val assistant = source("message/AssistantMessageContent.kt")
+        val actionRow = source("message/AssistantActionRow.kt")
         val retry = source("message/RetryActivityIndicator.kt")
         val follower = sourceOrEmpty("message/InlineActivityDotFollower.kt")
         val tail = source("StreamingTailIndicator.kt")
@@ -121,7 +122,7 @@ class Phase24UiSourceContractTest {
         assertTrue(follower.isEmpty())
         assertFalse(list.contains("InlineActivityDotFollower"))
         assertFalse(list.contains("LocalInlineActivityDotOverlayState"))
-        assertTrue(assistant.contains("GenerationActivityDot()"))
+        assertTrue(actionRow.contains("GenerationActivityDot()"))
         assertFalse(assistant.contains("InlineActivityDotMarker"))
         assertTrue(retry.contains("GenerationActivityDot("))
         assertTrue(retry.contains("clip = false"))

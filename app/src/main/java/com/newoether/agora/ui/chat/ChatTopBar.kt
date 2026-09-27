@@ -313,8 +313,9 @@ internal fun ChatTopBar(
                     val leadingWidth = if (subtitleLeading != null && tokenSubtitle != null) 14.dp else 0.dp
                     minOf(maxOf(primaryWidth, subtitleWidth + leadingWidth), 180.dp)
                 }
+                // Leading slot is back/drawer (44) + emblem (32) + spacing (8+8).
                 val targetTitleCapsuleWidth = minOf(
-                    5.dp + 44.dp + 5.dp + targetTitleContentWidth + 20.dp,
+                    5.dp + 44.dp + 8.dp + 32.dp + 8.dp + targetTitleContentWidth + 20.dp,
                     TITLE_CAPSULE_MAX_WIDTH_DP.dp,
                 )
                 val latestTargetTitleCapsuleWidth by rememberUpdatedState(targetTitleCapsuleWidth)

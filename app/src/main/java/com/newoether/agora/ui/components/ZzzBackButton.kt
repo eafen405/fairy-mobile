@@ -38,7 +38,7 @@ fun ZzzBackButton(
 ) {
     val tokens = LocalZzzTokens.current
     val interactionSource = remember { MutableInteractionSource() }
-    val corner = 10.dp
+    val corner = 6.dp
     val outlineWidth = 2.dp
     // Skew matrix applied to a plain rounded rect produces a rounded
     // parallelogram; the content width is reduced by the skew span so the

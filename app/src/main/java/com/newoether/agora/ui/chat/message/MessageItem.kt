@@ -51,6 +51,7 @@ import com.newoether.agora.model.Participant
 import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
+import com.newoether.agora.model.citationRecords
 import com.newoether.agora.ui.chat.ConversationSearchMatch
 import com.newoether.agora.ui.chat.conversationSearchMatchRanges
 import com.newoether.agora.ui.chat.deletionRemovesEntireConversation
@@ -389,7 +390,11 @@ internal fun MessageItem(
                         searchHighlight = searchHighlight,
                     )
                 } else {
-                    val assistantContent: @Composable (ChatMarkdownRenderContext) -> Unit = { ctx ->
+                    val assistantContent: @Composable (
+                        ChatMarkdownRenderContext,
+                        Boolean,
+                        AssistantCitationUiState,
+                    ) -> Unit = { ctx, inBubble, citationUi ->
                         AssistantMessageContent(
                             message = displayMessage,
                             includeOuterSpacing = includeAssistantOuterSpacing,
@@ -416,6 +421,9 @@ internal fun MessageItem(
                             thoughtExpandedStates = thoughtExpandedStates,
                             renderContext = ctx,
                             searchHighlight = searchHighlight,
+                            fillAvailableWidth = !inBubble,
+                            actionsOutside = inBubble,
+                            citationUi = citationUi,
                             branchIndex = branchIndex,
                             totalBranches = totalBranches,
                             onSwitchBranch = onSwitchBranch,
@@ -434,7 +442,14 @@ internal fun MessageItem(
                         )
                     }
                     if (message.participant == Participant.MODEL) {
-                        // Fairy avatar column + white bubble, per zzz-visual.
+                        // Fairy avatar column + wrap-content white bubble; the
+                        // action row sits below the bubble on the page
+                        // background, aligned with the bubble's start edge.
+                        val citationUi = rememberAssistantCitationUi(message.id)
+                        val relaySources = displayMessage.remoteFiles
+                            .mapNotNullTo(linkedSetOf()) {
+                                it.source?.takeIf(String::isNotBlank)
+                            }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top,
@@ -445,16 +460,11 @@ internal fun MessageItem(
                                 modifier = Modifier.weight(1f),
                                 horizontalAlignment = Alignment.Start,
                             ) {
-                                displayMessage.remoteFiles
-                                    .mapNotNullTo(linkedSetOf()) {
-                                        it.source?.takeIf(String::isNotBlank)
-                                    }
-                                    .forEach { source ->
-                                        FairyRelayBadge(
-                                            source,
-                                            Modifier.padding(bottom = 4.dp),
-                                        )
-                                    }
+                                // Badges sit beside the emblem so the bubble tail
+                                // stays beside the emblem's lower edge.
+                                relaySources.forEach { source ->
+                                    FairyRelayBadge(source)
+                                }
                                 FairyBubble {
                                     val bubbleAssets = rememberChatMarkdownAssets(
                                         textColor = MaterialTheme.colorScheme.onSurface,
@@ -464,12 +474,43 @@ internal fun MessageItem(
                                         preparedMarkdown = message.preparedMarkdown,
                                         bodyFontWeight = FontWeight.Bold,
                                     )
-                                    assistantContent(bubbleAssets.renderContext)
+                                    assistantContent(
+                                        bubbleAssets.renderContext,
+                                        true,
+                                        citationUi,
+                                    )
+                                }
+                                if (showActions) {
+                                    AssistantActionRow(
+                                        message = displayMessage,
+                                        citations = displayMessage.citationRecords(),
+                                        citationUi = citationUi,
+                                        isStreaming = isStreaming,
+                                        isLoading = isLoading,
+                                        isStopping = isStopping,
+                                        isRegenerationExiting = isRegenerationExiting,
+                                        isEditingAllowed = isEditingAllowed,
+                                        actionCopyText = displayActionCopyText,
+                                        showBranchSelector = showBranchSelector,
+                                        branchIndex = branchIndex,
+                                        totalBranches = totalBranches,
+                                        iconTint = zzzTokens.textMuted,
+                                        onSwitchBranch = onSwitchBranch,
+                                        onRegenerate = onRegenerate,
+                                        onFork = { onFork(message.id) },
+                                        onShare = { onShare(message.id) },
+                                        onShowInfo = { showInfoDialog = true },
+                                        onShowDelete = onShowDelete,
+                                    )
                                 }
                             }
                         }
                     } else {
-                        assistantContent(markdownRenderContext)
+                        assistantContent(
+                            markdownRenderContext,
+                            false,
+                            rememberAssistantCitationUi(message.id),
+                        )
                     }
                 }
             }

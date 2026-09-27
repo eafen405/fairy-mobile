@@ -12,6 +12,7 @@ class ExperimentalGenerationUiSourceContractTest {
         val root = locateMainSourceRoot()
         val assistant = source(root, "message/AssistantMessageContent.kt")
         val activity = source(root, "message/AssistantInlineActivity.kt")
+        val actionRow = source(root, "message/AssistantActionRow.kt")
         val terminalBar = source(root, "message/GenerationErrorBar.kt")
         val retry = source(root, "message/RetryActivityIndicator.kt")
         val tail = source(root, "StreamingTailIndicator.kt")
@@ -45,7 +46,7 @@ class ExperimentalGenerationUiSourceContractTest {
         ))
         assertTrue(assistant.contains("retainExitLayout = inlineActivityPresentation.retainLayout"))
         assertTrue(activity.contains("clip = false"))
-        assertTrue(assistant.contains("GenerationActivityDot()"))
+        assertTrue(actionRow.contains("GenerationActivityDot()"))
         val messageContent = assistant.substringAfter("internal fun AssistantMessageContent(")
         val fixedSpacerIndex = messageContent.indexOf(
             "Spacer(modifier = Modifier.height(FormerAssistantStatusSpacerHeight))"
@@ -256,7 +257,7 @@ class ExperimentalGenerationUiSourceContractTest {
     @Test
     fun `Sources summary shares information action fade without scale or measured host`() {
         val root = locateMainSourceRoot()
-        val assistant = source(root, "message/AssistantMessageContent.kt")
+        val assistant = source(root, "message/AssistantActionRow.kt")
         val transitionHost = source(root, "message/CitationTerminalProjectionHost.kt")
         val citations = source(root, "message/CitationMessageContent.kt")
         val summary = assistant
@@ -269,7 +270,7 @@ class ExperimentalGenerationUiSourceContractTest {
         assertTrue(summary.contains("CitationSourcesSummaryCapsule("))
         assertTrue(summary.contains("visible = sourcesSummaryVisible"))
         assertTrue(summary.contains("enabled = sourcesSummaryVisible"))
-        assertTrue(summary.contains("showCitationSources = true"))
+        assertTrue(summary.contains("citationUi.showSources = true"))
         assertFalse(summary.contains("haptics."))
         assertTrue(summary.contains(".offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)"))
         assertTrue(summary.contains(".padding(top = 12.dp)"))

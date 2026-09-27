@@ -33,7 +33,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w360dp-h780dp-mdpi")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w393dp-h851dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.LEGACY)
 class ZzzS3ScreenshotTest {
@@ -90,6 +90,59 @@ class ZzzS3ScreenshotTest {
                     onOpenDrawer = {},
                     onSystemPromptClick = {},
                     forceBrandTitle = true,
+                )
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "zh-rCN-w393dp-h851dp-xxhdpi")
+    fun `top bar remote normal zh`() {
+        shot("s3-topbar-zh") {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                ChatTopBar(
+                    isNewChatMode = false,
+                    conversations = emptyList(),
+                    currentConversationId = "s1",
+                    currentConversationTitle = "测试会话",
+                    totalTokens = 0,
+                    contextTokenBudget = 0,
+                    subtitle = "已连接",
+                    subtitleLeading = { McpStatusDot(McpConnectionStatus.CONNECTED) },
+                    onNavigateBack = {},
+                    onOpenDrawer = {},
+                    onSystemPromptClick = {},
+                    forceBrandTitle = true,
+                )
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "zh-rCN-w393dp-h851dp-xxhdpi")
+    fun `connecting page zh`() {
+        shot("s3-connecting-zh", freezeClock = true) {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                RemoteConnecting(
+                    state = RemoteState(loading = true, restoring = false),
+                    vm = fakeRemote(),
+                )
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "zh-rCN-w393dp-h851dp-xxhdpi")
+    fun `login page zh`() {
+        shot("s3-login-zh") {
+            Box(Modifier.fillMaxSize()) {
+                ZzzBackground()
+                FairyLogin(
+                    state = RemoteState(restoring = false),
+                    vm = fakeRemote(),
+                    onBack = {},
                 )
             }
         }

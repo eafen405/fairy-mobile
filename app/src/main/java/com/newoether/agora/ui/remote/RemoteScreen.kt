@@ -247,14 +247,6 @@ internal fun FairyLogin(state: RemoteState, vm: RemoteViewModel, onBack: () -> U
                 fontSize = 24.sp,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(
-                    if (registering) R.string.remote_register else R.string.remote_sign_in,
-                ),
-                color = tokens.textMuted,
-                style = MaterialTheme.typography.bodyMedium,
-            )
         }
         SettingsGroup(
             title = stringResource(R.string.remote_connection),

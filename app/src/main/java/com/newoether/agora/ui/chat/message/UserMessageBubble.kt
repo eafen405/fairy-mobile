@@ -133,7 +133,7 @@ internal fun UserMessageBubble(
             },
         ),
     ) {
-        Box(Modifier.drawBubbleTail(tailColor, tailAtTopEnd = true)) {
+        Box(Modifier.padding(end = 9.dp).drawBubbleTail(tailColor, tailAtTopEnd = true)) {
             Surface(
             shape = shape,
             color = backgroundColor,
