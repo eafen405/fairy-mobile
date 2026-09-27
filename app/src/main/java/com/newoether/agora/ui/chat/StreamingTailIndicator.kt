@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -263,13 +264,16 @@ internal fun StreamingTailIndicator(
     }
 }
 
-/** One breathing-scale sample used by every direct generation-dot source. */
+/**
+ * Breathing-scale state shared by every direct generation-dot source. The
+ * value is intentionally read inside draw/graphicsLayer lambdas only, so the
+ * per-frame animation invalidates drawing instead of recomposing.
+ */
 @Composable
-internal fun rememberGenerationActivityDotBreathingScale(): Float {
+internal fun rememberGenerationActivityDotBreathingScale(): State<Float> {
     val allowContinuousMotion = LocalAgoraMotionPolicy.current.allowContinuousMotion
     return if (allowContinuousMotion) {
-        val breathing = rememberInfiniteTransition(label = "GenerationActivityBreathing")
-        val animatedScale by breathing.animateFloat(
+        rememberInfiniteTransition(label = "GenerationActivityBreathing").animateFloat(
             initialValue = 0.55f,
             targetValue = 1.30f,
             animationSpec = infiniteRepeatable(
@@ -278,9 +282,8 @@ internal fun rememberGenerationActivityDotBreathingScale(): Float {
             ),
             label = "GenerationActivityBreathingScale",
         )
-        animatedScale
     } else {
-        1f
+        remember { mutableStateOf(1f) }
     }
 }
 
@@ -288,14 +291,14 @@ internal fun rememberGenerationActivityDotBreathingScale(): Float {
 @Composable
 internal fun GenerationActivityDot(
     modifier: Modifier = Modifier,
-    breathingScale: Float = rememberGenerationActivityDotBreathingScale(),
+    breathingScale: State<Float> = rememberGenerationActivityDotBreathingScale(),
 ) {
     Box(
         modifier = modifier
             .size(GenerationActivityDotSize)
             .graphicsLayer {
-                scaleX = breathingScale
-                scaleY = breathingScale
+                scaleX = breathingScale.value
+                scaleY = breathingScale.value
                 clip = false
             }
             .background(

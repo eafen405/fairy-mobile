@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Fairy flat emblem, 48x48, concentric from the outside in:
-  white ring (outer diameter 48, stroke 3) -> fairyBlue ring (stroke 5) ->
-  black disc -> white Q-shaped eye (ring outer diameter 20, stroke 4 with a
-  short tail toward bottom-right, round caps).
+  Fairy flat emblem, 48x48 viewport, center (24,24), radii from center:
+  white outer ring r 24 -> 22 (width 2) -> blue ring r 22 -> 16 (radial
+  gradient #3A6AF0 outside -> #1F55E0 inside) -> black disc r 15 with four
+  pointed compass bumps (base ~8 wide at r 15, tip r 19.5, concave sides)
+  extending the disc to r 16 under the ring -> white eye ring outer r 9.6
+  (width 3.2) -> black pupil r 6.4 -> white dot r 2.5 centered at r 6.6,
+  45deg lower-right (the Q tail as a filled dot biting the pupil).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
@@ -13,34 +17,39 @@
 
     <path
         android:name="ring_white"
-        android:pathData="M 24 1.5 A 22.5 22.5 0 1 1 24 46.5 A 22.5 22.5 0 1 1 24 1.5 Z"
+        android:pathData="M 24 1 A 23 23 0 1 1 24 47 A 23 23 0 1 1 24 1 Z"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round" />
+        android:strokeWidth="2" />
 
     <path
         android:name="ring_blue"
-        android:pathData="M 24 5.5 A 18.5 18.5 0 1 1 24 42.5 A 18.5 18.5 0 1 1 24 5.5 Z"
-        android:strokeColor="#FF1F55E0"
-        android:strokeWidth="5"
-        android:strokeLineCap="round" />
+        android:pathData="M 24 5 A 19 19 0 1 1 24 43 A 19 19 0 1 1 24 5 Z"
+        android:strokeWidth="6">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:centerX="24"
+                android:centerY="24"
+                android:gradientRadius="19"
+                android:type="radial">
+                <item android:offset="0" android:color="#FF1F55E0" />
+                <item android:offset="1" android:color="#FF3A6AF0" />
+            </gradient>
+        </aapt:attr>
+    </path>
 
     <path
         android:name="disc"
-        android:pathData="M 24 8 A 16 16 0 1 1 24 40 A 16 16 0 1 1 24 8 Z"
+        android:pathData="M 20.14 9.51 Q 22.55 11.25 24.00 4.50 Q 25.45 11.25 27.86 9.51 A 15.0 15.0 0 0 1 38.49 20.14 Q 36.75 22.55 43.50 24.00 Q 36.75 25.45 38.49 27.86 A 15.0 15.0 0 0 1 27.86 38.49 Q 25.45 36.75 24.00 43.50 Q 22.55 36.75 20.14 38.49 A 15.0 15.0 0 0 1 9.51 27.86 Q 11.25 25.45 4.50 24.00 Q 11.25 22.55 9.51 20.14 A 15.0 15.0 0 0 1 20.14 9.51 Z"
         android:fillColor="#FF000000" />
 
     <path
         android:name="eye"
-        android:pathData="M 24 15.25 A 8.75 8.75 0 1 1 24 32.75 A 8.75 8.75 0 1 1 24 15.25"
+        android:pathData="M 24 16 A 8 8 0 1 1 24 32 A 8 8 0 1 1 24 16"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="4.5"
-        android:strokeLineCap="round" />
+        android:strokeWidth="3.2" />
 
     <path
-        android:name="eye_tail"
-        android:pathData="M 30.19 30.19 L 26.47 26.47"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round" />
+        android:name="eye_dot"
+        android:pathData="M 26.17 28.67 A 2.5 2.5 0 1 1 31.17 28.67 A 2.5 2.5 0 1 1 26.17 28.67 Z"
+        android:fillColor="#FFFFFFFF" />
 </vector>

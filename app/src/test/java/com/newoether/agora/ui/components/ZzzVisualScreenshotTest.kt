@@ -14,7 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.view.drawToBitmap
@@ -101,16 +103,58 @@ class ZzzVisualScreenshotTest {
     }
 
     @Test
-    fun `emblem closeup at 160dp`() {
+    fun `emblem closeup at 192dp`() {
         shot("s1-emblem-closeup") {
-            Box(Modifier.fillMaxSize()) {
-                ZzzBackground()
-                FairyEmblem(
-                    animating = false,
-                    size = 160.dp,
-                    modifier = Modifier.align(Alignment.Center),
-                )
+            Box(
+                Modifier.fillMaxSize().background(Color(0xFF121212)),
+                contentAlignment = Alignment.Center,
+            ) {
+                FairyEmblem(animating = false, size = 192.dp, breathOverride = 0f)
             }
         }
+    }
+
+    @Test
+    fun `emblem at 40dp`() {
+        shot("s1-emblem-40dp") {
+            Box(
+                Modifier.fillMaxSize().background(Color(0xFF121212)),
+                contentAlignment = Alignment.Center,
+            ) {
+                FairyEmblem(animating = false, size = 40.dp, breathOverride = 0f)
+            }
+        }
+    }
+
+    @Test
+    fun `emblem side by side with reference`() {
+        compose.setContent {
+            AgoraTheme {
+                Box(
+                    Modifier.fillMaxSize().background(Color(0xFF121212)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    FairyEmblem(animating = false, size = 192.dp, breathOverride = 0f)
+                }
+            }
+        }
+        compose.waitForIdle()
+        val rendered: Bitmap = compose.activity.window.decorView.drawToBitmap()
+        val refPath = "/mnt/d/file/Fufu/Fairy/细节.png"
+        val ref = android.graphics.BitmapFactory.decodeFile(refPath)
+        assertTrue("reference not readable: $refPath", ref != null)
+        // Composite: reference left (scaled to match height), ours right.
+        val scale = rendered.height.toFloat() / ref.height
+        val refW = (ref.width * scale).toInt()
+        val scaled = Bitmap.createScaledBitmap(ref, refW, rendered.height, true)
+        val out = Bitmap.createBitmap(
+            refW + rendered.width, rendered.height, Bitmap.Config.ARGB_8888,
+        )
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawColor(0xFF121212.toInt())
+        canvas.drawBitmap(scaled, 0f, 0f, null)
+        canvas.drawBitmap(rendered, refW.toFloat(), 0f, null)
+        val file = ZzzScreenshots.savePng("s1-emblem-sidebyside", out)
+        assertTrue(file.isFile && file.length() > 0)
     }
 }

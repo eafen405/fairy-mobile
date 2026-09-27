@@ -167,8 +167,8 @@ internal fun ThinkingDots() {
                 modifier = Modifier
                     .size(5.dp)
                     .graphicsLayer {
-                        scaleX = breathingScale
-                        scaleY = breathingScale
+                        scaleX = breathingScale.value
+                        scaleY = breathingScale.value
                         clip = false
                     }
                     .background(color, CircleShape),

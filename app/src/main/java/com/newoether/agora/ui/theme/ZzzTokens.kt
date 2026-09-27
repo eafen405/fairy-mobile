@@ -16,8 +16,13 @@ import androidx.compose.ui.unit.dp
  */
 @Immutable
 data class ZzzTokens(
-    /** Diagonal watermark text and hatch color on the page background. */
+    /** Hatch color on the page background. */
     val watermark: Color = Color(0xFF1B1B1B),
+    /** The big "HDD" watermark text, slightly fainter than the hatch. */
+    val watermarkText: Color = Color(0xFF171717),
+    /** Deep-blue decorative glow color on the background. */
+    val deepDecor: Color = Color(0xFF0E2350),
+    val deepDecorBand: Color = Color(0xFF1A3A8A),
     /** Panel / top-bar / card / input-bar surface. */
     val panel: Color = Color(0xFF1C1C1C),
     /** List items, secondary pills, file cards. */
