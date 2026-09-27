@@ -35,4 +35,16 @@
     <string name="remote_archive_title">Lưu trữ tác vụ?</string>
     <string name="remote_archive_message">Xóa tác vụ này khỏi danh sách đang hoạt động trong Fairy và Remote? Lịch sử sẽ được giữ lại.</string>
     <string name="remote_activity">Đang xử lý</string>
+    <string name="remote_voice_input">Nhập bằng giọng nói</string>
+    <string name="remote_voice_hold_hint">Giữ để nói</string>
+    <string name="remote_voice_listening">Đang nghe… trượt lên để hủy</string>
+    <string name="remote_voice_release_cancel">Thả ra để hủy</string>
+    <string name="remote_voice_processing">Đang nhận dạng…</string>
+    <string name="remote_voice_permission_request">Cần quyền truy cập micrô để nhập bằng giọng nói</string>
+    <string name="remote_voice_permission_denied">Quyền micrô bị từ chối — bật trong Cài đặt</string>
+    <string name="remote_voice_unavailable">Nhập bằng giọng nói không khả dụng trên thiết bị này</string>
+    <string name="remote_voice_no_match">Không nghe rõ — giữ để thử lại</string>
+    <string name="remote_voice_network">Nhận dạng giọng nói cần kết nối mạng</string>
+    <string name="remote_voice_failed">Nhập bằng giọng nói thất bại — giữ để thử lại</string>
+    <string name="remote_voice_open_settings">Mở cài đặt</string>
 </resources>

@@ -46,4 +46,16 @@
     <string name="remote_archive_title">归档任务？</string>
     <string name="remote_archive_message">将此任务从 Fairy 和 Remote 的未归档列表中移除？历史记录会保留。</string>
     <string name="remote_activity">处理中</string>
+    <string name="remote_voice_input">语音输入</string>
+    <string name="remote_voice_hold_hint">按住说话</string>
+    <string name="remote_voice_listening">正在聆听…上滑取消</string>
+    <string name="remote_voice_release_cancel">松开取消</string>
+    <string name="remote_voice_processing">识别中…</string>
+    <string name="remote_voice_permission_request">语音输入需要麦克风权限</string>
+    <string name="remote_voice_permission_denied">麦克风权限被拒绝——请在系统设置中开启</string>
+    <string name="remote_voice_unavailable">此设备不支持语音输入</string>
+    <string name="remote_voice_no_match">没有听清——按住重试</string>
+    <string name="remote_voice_network">语音识别需要可用的网络连接</string>
+    <string name="remote_voice_failed">语音输入失败——按住重试</string>
+    <string name="remote_voice_open_settings">打开设置</string>
 </resources>

@@ -35,4 +35,16 @@
     <string name="remote_archive_title">タスクをアーカイブしますか？</string>
     <string name="remote_archive_message">このタスクを Fairy と Remote のアクティブな一覧から削除しますか？履歴は保持されます。</string>
     <string name="remote_activity">処理中</string>
+    <string name="remote_voice_input">音声入力</string>
+    <string name="remote_voice_hold_hint">長押しで話す</string>
+    <string name="remote_voice_listening">聞き取り中… 上にスライドでキャンセル</string>
+    <string name="remote_voice_release_cancel">指を離してキャンセル</string>
+    <string name="remote_voice_processing">認識中…</string>
+    <string name="remote_voice_permission_request">音声入力にはマイクへのアクセスが必要です</string>
+    <string name="remote_voice_permission_denied">マイクの権限が拒否されました — 設定で有効にしてください</string>
+    <string name="remote_voice_unavailable">このデバイスでは音声入力を利用できません</string>
+    <string name="remote_voice_no_match">聞き取れませんでした — 長押しでやり直し</string>
+    <string name="remote_voice_network">音声認識にはネットワーク接続が必要です</string>
+    <string name="remote_voice_failed">音声入力に失敗しました — 長押しでやり直し</string>
+    <string name="remote_voice_open_settings">設定を開く</string>
 </resources>
