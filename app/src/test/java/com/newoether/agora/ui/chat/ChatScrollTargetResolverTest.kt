@@ -288,6 +288,7 @@ class ChatScrollTargetResolverTest {
         },
         messageLifecycleAppearanceRegistry = MessageLifecycleAppearanceRegistry(),
         streamingTailController = StreamingTailController(),
+        activeAnchorState = mutableStateOf(null),
     )
 
     private fun message(

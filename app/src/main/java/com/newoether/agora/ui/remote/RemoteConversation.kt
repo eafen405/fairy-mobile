@@ -67,7 +67,6 @@ internal fun RemoteConversation(
     val blur by settings.blurEffectsEnabled.collectAsState(initial = false)
     val amoled by settings.amoledEnabled.collectAsState(initial = false)
     val inlineMath by settings.parseInlineDollarMath.collectAsState(initial = false)
-    val stickToBottom by settings.stickToBottom.collectAsState(initial = true)
     val toolCallDisplayMode by settings.toolCallDisplayMode.collectAsState()
     val thinkingSegmentDisplayMode by settings.thinkingSegmentDisplayMode.collectAsState()
     val autoExpandActiveGroup by settings.autoExpandActiveGroup.collectAsState()
@@ -174,11 +173,16 @@ internal fun RemoteConversation(
             initiallyPositioned = true
         }
     }
-    val follow = streamingTailAvailability(
-        generationActive = generationVisible,
-        blocked = switching || interaction.searchActive || !motion.allowProgrammaticScrollMotion,
-        programmaticHandoff = scroll.imeBottomAnchorState.active ||
-            scroll.absoluteBottomScrollPhase.isActive || animatedScrollRequest?.conversationId == owner,
+    // A proactive or relayed turn lands on its own MODEL tail. While the reader is at the
+    // bottom that new tail takes over the anchor; otherwise only the bottom button signals it.
+    BindIncomingTurnAnchorEffect(
+        conversationId = owner,
+        messages = messages,
+        enabled = initiallyPositioned && active && !interaction.searchActive,
+        hasPendingAttempt = attempt?.delivery in
+            setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN),
+        withinAttachThreshold = { scroll.isWithinAbsoluteBottomAttachThreshold },
+        onRequestAnchor = vm::requestAnchor,
     )
     val historyStartId = messages.firstOrNull()?.id
     val atHistoryBoundary by remember(scroll.listState, historyStartId) {
@@ -298,8 +302,8 @@ internal fun RemoteConversation(
                     searchScrollRequestKey = interaction.searchScrollRequestKey,
                     onSearchMatchDistance = interaction::recordSearchMatchDistance,
                     onSearchTurnsChanged = interaction::recordSearchTurns,
-                    streamingAutoFollowEnabled = follow.enabled && stickToBottom,
-                    streamingAutoFollowPaused = follow.paused,
+                    streamingAutoFollowEnabled = false,
+                    streamingAutoFollowPaused = false,
                     streamingTailWithinAttachThreshold = scroll.isWithinAbsoluteBottomAttachThreshold,
                     streamingTailController = scroll.streamingTailController,
                     toolCallDisplayMode = toolCallDisplayMode, thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
@@ -312,6 +316,7 @@ internal fun RemoteConversation(
                     onMessageHydrated = scroll::recordMessageHydrated,
                     lifecycleAppearanceRegistry = scroll.messageLifecycleAppearanceRegistry,
                     lifecycleEntranceTargetMessageId = animatedScrollRequest?.takeIf { it.conversationId == owner }?.targetMessageId,
+                    anchoredMessageId = scroll.activeAnchor?.takeIf { it.conversationId == owner }?.messageId,
                     leadingContentLayer = {
                         Box(
                             modifier = Modifier.matchParentSize().offset(y = (-30).dp),
