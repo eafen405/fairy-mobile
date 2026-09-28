@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -96,7 +96,7 @@ private fun FairyEmblemFrame(
     size: Dp = 40.dp,
     breath: () -> Float,
 ) {
-    val tokens = LocalZzzTokens.current
+    val tokens = LocalFairyTokens.current
     val fairyGlow = tokens.fairyGlow
     Spacer(
         modifier.size(size).drawWithCache {
@@ -191,10 +191,16 @@ private fun DrawScope.drawFairyEmblem(
 }
 
 /** Disc-with-compass-bumps path matching `fairy_emblem.xml`'s `disc` path. */
-private fun discPath(unit: Float, center: Offset): Path {
-    val r = 15.6f * unit
-    val tipR = 19f * unit
-    val betaDeg = Math.toDegrees(kotlin.math.atan2(3.2f * unit, r).toDouble()).toFloat()
+internal fun discPath(
+    unit: Float,
+    center: Offset,
+    discRadius: Float = 15.6f,
+    tipRadius: Float = 19f,
+    halfBase: Float = 3.2f,
+): Path {
+    val r = discRadius * unit
+    val tipR = tipRadius * unit
+    val betaDeg = Math.toDegrees(kotlin.math.atan2(halfBase * unit, r).toDouble()).toFloat()
     fun pt(radius: Float, angleDeg: Float) = Offset(
         center.x + radius * cos(Math.toRadians(angleDeg.toDouble())).toFloat(),
         center.y + radius * sin(Math.toRadians(angleDeg.toDouble())).toFloat(),
@@ -236,3 +242,79 @@ private fun discPath(unit: Float, center: Offset): Path {
     path.close()
     return path
 }
+
+private val EyeRingTop = Color(0xFF3D7BE8)
+private val EyeRingBottom = Color(0xFF1A45C8)
+private val EyeNotchDisc = Color(0xFF0B2A78)
+private val EyeQRing = Color(0xFFEEF3FF)
+private val EyeInnerRing = Color(0xFF8FB2F2)
+private val EyePupilTop = Color(0xFF0D3490)
+private val EyePupilBottom = Color(0xFF07205F)
+
+/**
+ * The CRT-screen eye: the emblem's concentric geometry in screen colors —
+ * outer blue ring, dark disc with four notches, white Q ring, pale inner
+ * ring, deep-blue pupil and the lower-right white dot. [disc] comes from
+ * [discPath] with the eye radii (see [eyeDiscPath]) so frames allocate no
+ * paths. Units are 1/48 of the eye diameter.
+ */
+internal fun DrawScope.drawFairyEye(
+    center: Offset,
+    unit: Float,
+    disc: Path,
+    alpha: Float = 1f,
+) {
+    val ringR = 21.75f * unit
+    drawCircle(
+        brush = Brush.verticalGradient(
+            0f to EyeRingTop,
+            1f to EyeRingBottom,
+            startY = center.y - 24f * unit,
+            endY = center.y + 24f * unit,
+        ),
+        radius = ringR,
+        center = center,
+        style = Stroke(width = 4.5f * unit),
+        alpha = alpha,
+    )
+    drawPath(disc, EyeNotchDisc, alpha = alpha)
+    drawCircle(
+        color = EyeQRing,
+        radius = 12.6f * unit,
+        center = center,
+        style = Stroke(width = 5.6f * unit),
+        alpha = alpha,
+    )
+    drawCircle(
+        color = EyeInnerRing,
+        radius = 8.9f * unit,
+        center = center,
+        style = Stroke(width = 1.8f * unit),
+        alpha = alpha,
+    )
+    drawCircle(
+        brush = Brush.verticalGradient(
+            0f to EyePupilTop,
+            1f to EyePupilBottom,
+            startY = center.y - 8f * unit,
+            endY = center.y + 8f * unit,
+        ),
+        radius = 8f * unit,
+        center = center,
+        alpha = alpha,
+    )
+    val angle = Math.toRadians(50.0)
+    drawCircle(
+        color = EyeQRing,
+        radius = 3.2f * unit,
+        center = Offset(
+            center.x + 6.6f * unit * cos(angle).toFloat(),
+            center.y + 6.6f * unit * sin(angle).toFloat(),
+        ),
+        alpha = alpha,
+    )
+}
+
+/** The notched dark disc behind the eye's Q ring. */
+internal fun eyeDiscPath(unit: Float, center: Offset): Path =
+    discPath(unit, center, discRadius = 19.5f, tipRadius = 22.5f, halfBase = 3.6f)

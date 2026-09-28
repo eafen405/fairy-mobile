@@ -59,10 +59,11 @@ import com.newoether.agora.R
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.ui.components.FairyEmblem
-import com.newoether.agora.ui.components.ZzzBackButton
-import com.newoether.agora.ui.components.zzzPanel
+import com.newoether.agora.ui.components.FairyWindowState
+import com.newoether.agora.ui.components.FairyWindowTopBar
+import com.newoether.agora.ui.components.fairyPanel
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import com.newoether.agora.ui.theme.ChatType
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
@@ -107,6 +108,8 @@ internal fun ChatTopBar(
     newChatEnabled: Boolean = true,
     newChatDescription: String? = null,
     moreMenuContent: (@Composable ColumnScope.(dismiss: () -> Unit) -> Unit)? = null,
+    // Remote draws Fairy's window bar; local chat keeps the capsule bar.
+    fairyWindow: FairyWindowState? = null,
 ) {
     var moreMenuOpen by remember { mutableStateOf(false) }
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
@@ -119,6 +122,29 @@ internal fun ChatTopBar(
             withFrameNanos { }
             searchFocusRequester.requestFocus()
         }
+    }
+    if (fairyWindow != null) {
+        FairyWindowTopBar(
+            window = fairyWindow,
+            subtitle = subtitle,
+            subtitleLeading = subtitleLeading,
+            searchActive = searchActive,
+            onNavigateBack = onNavigateBack ?: onOpenDrawer,
+            moreMenuContent = moreMenuContent,
+            searchContent = {
+                ChatTopBarSearchRow(
+                    searchQuery = searchQuery,
+                    searchMatchIndex = searchMatchIndex,
+                    searchMatchCount = searchMatchCount,
+                    searchFocusRequester = searchFocusRequester,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onSearchPrevious = onSearchPrevious,
+                    onSearchNext = onSearchNext,
+                    onSearchDismiss = onSearchDismiss,
+                )
+            },
+        )
+        return
     }
     Column(
         modifier = Modifier
@@ -188,83 +214,16 @@ internal fun ChatTopBar(
                     ChatTopBarCapsule(
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Spacer(Modifier.width(5.dp))
-                            IconButton(
-                                onClick = onSearchDismiss,
-                                modifier = Modifier.size(44.dp),
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(R.string.back),
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = onSearchQueryChange,
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Search,
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .focusRequester(searchFocusRequester),
-                                decorationBox = { inner ->
-                                    Box(contentAlignment = Alignment.CenterStart) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                stringResource(R.string.conversation_search_hint),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    .copy(alpha = 0.6f),
-                                                maxLines = 1,
-                                            )
-                                        }
-                                        inner()
-                                    }
-                                },
-                            )
-                            Text(
-                                text = if (searchMatchCount == 0) {
-                                    "0/0"
-                                } else {
-                                    "${searchMatchIndex + 1}/$searchMatchCount"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp),
-                            )
-                            IconButton(
-                                enabled = searchMatchIndex > 0,
-                                onClick = onSearchPrevious,
-                                modifier = Modifier.size(38.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowUp,
-                                    contentDescription = null,
-                                )
-                            }
-                            IconButton(
-                                enabled = searchMatchIndex >= 0 &&
-                                    searchMatchIndex < searchMatchCount - 1,
-                                onClick = onSearchNext,
-                                modifier = Modifier.size(38.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                )
-                            }
-                            Spacer(Modifier.width(5.dp))
-                        }
+                        ChatTopBarSearchRow(
+                            searchQuery = searchQuery,
+                            searchMatchIndex = searchMatchIndex,
+                            searchMatchCount = searchMatchCount,
+                            searchFocusRequester = searchFocusRequester,
+                            onSearchQueryChange = onSearchQueryChange,
+                            onSearchPrevious = onSearchPrevious,
+                            onSearchNext = onSearchNext,
+                            onSearchDismiss = onSearchDismiss,
+                        )
                     }
                 } else {
                 // Resolve the active conversation's title; null in new-chat mode OR
@@ -418,7 +377,16 @@ internal fun ChatTopBar(
                         ) {
                             Spacer(modifier = Modifier.width(5.dp))
                             if (onNavigateBack != null) {
-                                ZzzBackButton(onClick = onNavigateBack)
+                                IconButton(
+                                    onClick = onNavigateBack,
+                                    modifier = Modifier.size(44.dp),
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(R.string.back),
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
                             } else {
                                 IconButton(
                                     onClick = onOpenDrawer,
@@ -459,7 +427,7 @@ internal fun ChatTopBar(
                                                 Text(
                                                     text = tokenSubtitle,
                                                     style = ChatType.micro.copy(
-                                                        fontFamily = LocalZzzTokens.current.labelFontFamily,
+                                                        fontFamily = LocalFairyTokens.current.labelFontFamily,
                                                     ),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     maxLines = 1
@@ -486,7 +454,7 @@ internal fun ChatTopBar(
                                                 Text(
                                                     text = tokenSubtitle,
                                                     style = ChatType.micro.copy(
-                                                        fontFamily = LocalZzzTokens.current.labelFontFamily,
+                                                        fontFamily = LocalFairyTokens.current.labelFontFamily,
                                                     ),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     maxLines = 1
@@ -533,9 +501,10 @@ internal fun ChatTopBar(
                             DropdownMenu(
                                 expanded = moreMenuOpen,
                                 onDismissRequest = { moreMenuOpen = false },
-                                shape = RoundedCornerShape(12.dp),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 16.dp,
+                                shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+                                containerColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelOpaque,
+                                tonalElevation = 0.dp,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
                             ) {
                                 if (moreMenuContent != null) moreMenuContent { moreMenuOpen = false } else {
                                 DropdownMenuItem(
@@ -601,9 +570,9 @@ private fun ChatTopBarCapsule(
 ) {
     val shape = RoundedCornerShape(50)
     Box(
-        modifier = modifier.zzzPanel(
+        modifier = modifier.fairyPanel(
             shape = shape,
-            color = LocalZzzTokens.current.panel,
+            color = LocalFairyTokens.current.panel,
         ),
         propagateMinConstraints = true,
     ) {
@@ -615,4 +584,94 @@ private fun ChatTopBarCapsule(
             content()
         }
     }
+}
+
+@Composable
+private fun ChatTopBarSearchRow(
+    searchQuery: String,
+    searchMatchIndex: Int,
+    searchMatchCount: Int,
+    searchFocusRequester: FocusRequester,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchPrevious: () -> Unit,
+    onSearchNext: () -> Unit,
+    onSearchDismiss: () -> Unit,
+) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.width(5.dp))
+            IconButton(
+                onClick = onSearchDismiss,
+                modifier = Modifier.size(44.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Search,
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(searchFocusRequester),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                stringResource(R.string.conversation_search_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    .copy(alpha = 0.6f),
+                                maxLines = 1,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+            Text(
+                text = if (searchMatchCount == 0) {
+                    "0/0"
+                } else {
+                    "${searchMatchIndex + 1}/$searchMatchCount"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp),
+            )
+            IconButton(
+                enabled = searchMatchIndex > 0,
+                onClick = onSearchPrevious,
+                modifier = Modifier.size(38.dp),
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                )
+            }
+            IconButton(
+                enabled = searchMatchIndex >= 0 &&
+                    searchMatchIndex < searchMatchCount - 1,
+                onClick = onSearchNext,
+                modifier = Modifier.size(38.dp),
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                )
+            }
+            Spacer(Modifier.width(5.dp))
+        }
 }

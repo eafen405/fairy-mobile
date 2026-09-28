@@ -96,23 +96,23 @@ internal fun streamingTailPresentation(
     )
 }
 
-private val emblemAnimatingStatuses = setOf(
-    MessageStatus.SENDING,
-    MessageStatus.THINKING,
-    MessageStatus.TOOL_CALLING,
-)
-
 /**
- * The Fairy avatar breathes only on the conversation tail while generation is
- * visible: MODEL participant, tail item, and an in-flight status. The Remote
- * flow's display-only tail stub (status SENDING) therefore animates too.
+ * The Fairy accent bar glows only on the conversation tail while generation is
+ * visible. Derived from [fairyPresence]: a connected MODEL tail whose status is
+ * in flight is THINKING/SPEAKING. The Remote flow's display-only tail stub
+ * (status SENDING) therefore animates too.
  */
 internal fun isEmblemAnimating(
     isLoading: Boolean,
     message: ChatMessage,
     isTail: Boolean,
 ): Boolean = isLoading && isTail && message.participant == Participant.MODEL &&
-    message.status in emblemAnimatingStatuses
+    com.newoether.agora.ui.components.fairyPresence(
+        connection = com.newoether.agora.mcp.McpConnectionStatus.CONNECTED,
+        tailParticipant = message.participant,
+        tailStatus = message.status,
+        tailTextGrowing = false,
+    ).isWorking
 
 internal fun shouldShowStreamingTailIndicator(
     isLoading: Boolean,
