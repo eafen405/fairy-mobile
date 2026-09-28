@@ -158,7 +158,7 @@ internal class RemoteViewModelTest : RemoteViewModelFixture() {
         val request = vm.animatedScrollRequest.value!!
         assertEquals(owner, request.conversationId)
         assertEquals("sent", request.targetMessageId)
-        assertEquals(com.newoether.agora.viewmodel.AnimatedScrollDestination.ABSOLUTE_BOTTOM, request.destination)
+        assertEquals(com.newoether.agora.viewmodel.AnimatedScrollDestination.ANCHOR, request.destination)
         vm.completeAnimatedScroll(request.id + 1)
         assertEquals(request, vm.animatedScrollRequest.value)
         vm.completeAnimatedScroll(request.id)

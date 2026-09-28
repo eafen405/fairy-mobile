@@ -38,6 +38,9 @@ internal fun rememberChatScrollCoordinator(
         )
     }
     val viewportHeightState = remember { mutableIntStateOf(0) }
+    val activeAnchorState = remember(currentConversationId) {
+        mutableStateOf<ChatScrollAnchor?>(null)
+    }
     val messageHeights = remember(currentConversationId) { mutableStateMapOf<String, Int>() }
     val hydratedMessageIds = remember(currentConversationId) { mutableStateMapOf<String, Unit>() }
     val messageLifecycleAppearanceRegistry = remember { MessageLifecycleAppearanceRegistry() }
@@ -53,6 +56,7 @@ internal fun rememberChatScrollCoordinator(
         composerInputFocusedState,
         imeBottomAnchorStateHolder,
         viewportHeightState,
+        activeAnchorState,
         messageHeights,
         hydratedMessageIds,
         messageLifecycleAppearanceRegistry,
@@ -69,6 +73,7 @@ internal fun rememberChatScrollCoordinator(
             composerInputFocusedState = composerInputFocusedState,
             imeBottomAnchorStateHolder = imeBottomAnchorStateHolder,
             viewportHeightState = viewportHeightState,
+            activeAnchorState = activeAnchorState,
             messageHeights = messageHeights,
             hydrationRegistry = ConversationHydrationRegistry(
                 conversationId = currentConversationId,

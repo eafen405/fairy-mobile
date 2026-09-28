@@ -67,6 +67,10 @@ internal class RemoteViewModel(
     private val scrollRequests = ScrollRequestCoordinator()
     val animatedScrollRequest = scrollRequests.request
     fun completeAnimatedScroll(id: Long) = scrollRequests.complete(id)
+    /** Trigger for a proactive-turn anchor: the UI supplies the target and the threshold check. */
+    fun requestAnchor(messageId: String) {
+        scrollRequests.requestAnchor(state.value.owner, messageId)
+    }
     private val checkSlots = Semaphore(2)
     private var epoch = 0L
     private var selectionEpoch = 0L
