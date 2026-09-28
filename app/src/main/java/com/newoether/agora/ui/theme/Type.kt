@@ -35,6 +35,16 @@ val OutfitFamily = FontFamily(
     miOutfitFont(FontWeight.Bold),
 )
 
+/** Noto Sans SC Black (subset): titles, nameplates, tabs, watermark. */
+val TitleFamily = FontFamily(
+    Font(R.font.title_black, FontWeight.Black),
+)
+
+/** Anton: small latin labels and numeric badges. */
+val AntonFamily = FontFamily(
+    Font(R.font.anton_regular, FontWeight.Normal),
+)
+
 // Geometric (modular) type scale: every distinct size is a term of a geometric
 // sequence anchored at body = 16sp with common ratio r = 1.2 (minor third).
 // Sizes: 11, 13, 16, 19, 23, 28, 33, 40, 48, 57. Line heights scale per tier
@@ -171,9 +181,9 @@ internal var chatFontFamily: FontFamily = OutfitFamily
 object ChatType {
 
     // Title tier
-    // Brand wordmark in the new-chat capsule: prominent in the empty state, one
-    // clean step above the active-conversation title (20 → 15).
-    val brandTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp)
+    // Brand wordmark: the Fairy title uses the heavy title face, one clean
+    // step above the conversation title.
+    val brandTitle get() = TextStyle(fontFamily = TitleFamily, fontWeight = FontWeight.Black, fontSize = 20.sp, lineHeight = 26.sp)
     val sheetTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 19.sp, lineHeight = 25.sp)
     // Active-conversation title: one step below the brand wordmark (16 → 15),
     // Bold so it still reads as a title against the 15sp Normal body.
@@ -187,8 +197,9 @@ object ChatType {
     val input get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp, letterSpacing = 0.5.sp)
 
     // Body tier
-    val body get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp)
-    val userBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 24.2.sp)
+    // Fairy and user message text share 16sp Regular with a relaxed 26sp line.
+    val body get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp)
+    val userBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp)
     val thoughtBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp)
     val thoughtTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 19.sp)
     val errorBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp)

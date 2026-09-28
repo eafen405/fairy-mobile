@@ -31,6 +31,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,7 +58,12 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ContextBudget
+import com.newoether.agora.ui.components.FairyEmblem
+import com.newoether.agora.ui.components.FairyWindowState
+import com.newoether.agora.ui.components.FairyWindowTopBar
+import com.newoether.agora.ui.components.fairyPanel
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import com.newoether.agora.ui.theme.ChatType
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
@@ -96,10 +102,14 @@ internal fun ChatTopBar(
     onForkConversation: () -> Unit = {},
     onShareConversation: () -> Unit = {},
     onNewChat: (() -> Unit)? = null,
+    // Remote pages pin the brand title; local chat keeps the conversation title.
+    forceBrandTitle: Boolean = false,
     trailingActions: (@Composable RowScope.() -> Unit)? = null,
     newChatEnabled: Boolean = true,
     newChatDescription: String? = null,
     moreMenuContent: (@Composable ColumnScope.(dismiss: () -> Unit) -> Unit)? = null,
+    // Remote draws Fairy's window bar; local chat keeps the capsule bar.
+    fairyWindow: FairyWindowState? = null,
 ) {
     var moreMenuOpen by remember { mutableStateOf(false) }
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
@@ -112,6 +122,29 @@ internal fun ChatTopBar(
             withFrameNanos { }
             searchFocusRequester.requestFocus()
         }
+    }
+    if (fairyWindow != null) {
+        FairyWindowTopBar(
+            window = fairyWindow,
+            subtitle = subtitle,
+            subtitleLeading = subtitleLeading,
+            searchActive = searchActive,
+            onNavigateBack = onNavigateBack ?: onOpenDrawer,
+            moreMenuContent = moreMenuContent,
+            searchContent = {
+                ChatTopBarSearchRow(
+                    searchQuery = searchQuery,
+                    searchMatchIndex = searchMatchIndex,
+                    searchMatchCount = searchMatchCount,
+                    searchFocusRequester = searchFocusRequester,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onSearchPrevious = onSearchPrevious,
+                    onSearchNext = onSearchNext,
+                    onSearchDismiss = onSearchDismiss,
+                )
+            },
+        )
+        return
     }
     Column(
         modifier = Modifier
@@ -181,90 +214,23 @@ internal fun ChatTopBar(
                     ChatTopBarCapsule(
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Spacer(Modifier.width(5.dp))
-                            IconButton(
-                                onClick = onSearchDismiss,
-                                modifier = Modifier.size(44.dp),
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(R.string.back),
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = onSearchQueryChange,
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Search,
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .focusRequester(searchFocusRequester),
-                                decorationBox = { inner ->
-                                    Box(contentAlignment = Alignment.CenterStart) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                stringResource(R.string.conversation_search_hint),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    .copy(alpha = 0.6f),
-                                                maxLines = 1,
-                                            )
-                                        }
-                                        inner()
-                                    }
-                                },
-                            )
-                            Text(
-                                text = if (searchMatchCount == 0) {
-                                    "0/0"
-                                } else {
-                                    "${searchMatchIndex + 1}/$searchMatchCount"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp),
-                            )
-                            IconButton(
-                                enabled = searchMatchIndex > 0,
-                                onClick = onSearchPrevious,
-                                modifier = Modifier.size(38.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowUp,
-                                    contentDescription = null,
-                                )
-                            }
-                            IconButton(
-                                enabled = searchMatchIndex >= 0 &&
-                                    searchMatchIndex < searchMatchCount - 1,
-                                onClick = onSearchNext,
-                                modifier = Modifier.size(38.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                )
-                            }
-                            Spacer(Modifier.width(5.dp))
-                        }
+                        ChatTopBarSearchRow(
+                            searchQuery = searchQuery,
+                            searchMatchIndex = searchMatchIndex,
+                            searchMatchCount = searchMatchCount,
+                            searchFocusRequester = searchFocusRequester,
+                            onSearchQueryChange = onSearchQueryChange,
+                            onSearchPrevious = onSearchPrevious,
+                            onSearchNext = onSearchNext,
+                            onSearchDismiss = onSearchDismiss,
+                        )
                     }
                 } else {
                 // Resolve the active conversation's title; null in new-chat mode OR
                 // before the conversation/title has loaded. Both the brand TEXT and the
                 // brand font SIZE are gated on this single value, so the title never
                 // changes size before the text swaps (no transient "Agora at 17sp").
-                val resolvedTitle = if (isNewChatMode) null else {
+                val resolvedTitle = if (isNewChatMode || forceBrandTitle) null else {
                     currentConversationTitle?.takeIf { it.isNotBlank() }
                         ?: conversations.find { it.id == currentConversationId }?.title?.takeIf { it.isNotBlank() }
                 }
@@ -277,7 +243,7 @@ internal fun ChatTopBar(
                 }
                 val textMeasurer = rememberTextMeasurer()
                 val density = LocalDensity.current
-                val tokenSubtitle = if (!showBrandTitle && subtitle != null) subtitle
+                val tokenSubtitle = if (subtitle != null) subtitle
                 else if (!showBrandTitle && contextAvailable) {
                     stringResource(
                         R.string.context_usage_messages,
@@ -307,8 +273,9 @@ internal fun ChatTopBar(
                     val leadingWidth = if (subtitleLeading != null && tokenSubtitle != null) 14.dp else 0.dp
                     minOf(maxOf(primaryWidth, subtitleWidth + leadingWidth), 180.dp)
                 }
+                // Leading slot is back/drawer (44) + emblem (32) + spacing (8+8).
                 val targetTitleCapsuleWidth = minOf(
-                    5.dp + 44.dp + 5.dp + targetTitleContentWidth + 20.dp,
+                    5.dp + 44.dp + 8.dp + 32.dp + 8.dp + targetTitleContentWidth + 20.dp,
                     TITLE_CAPSULE_MAX_WIDTH_DP.dp,
                 )
                 val latestTargetTitleCapsuleWidth by rememberUpdatedState(targetTitleCapsuleWidth)
@@ -409,23 +376,32 @@ internal fun ChatTopBar(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Spacer(modifier = Modifier.width(5.dp))
-                            IconButton(
-                                onClick = onNavigateBack ?: onOpenDrawer,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (onNavigateBack != null) {
-                                        Icons.AutoMirrored.Filled.ArrowBack
-                                    } else {
-                                        Icons.Default.Menu
-                                    },
-                                    contentDescription = stringResource(
-                                        if (onNavigateBack != null) R.string.back else R.string.menu
-                                    ),
-                                    modifier = Modifier.size(26.dp),
-                                )
+                            if (onNavigateBack != null) {
+                                IconButton(
+                                    onClick = onNavigateBack,
+                                    modifier = Modifier.size(44.dp),
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(R.string.back),
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = onOpenDrawer,
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = stringResource(R.string.menu),
+                                        modifier = Modifier.size(26.dp),
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FairyEmblem(animating = false, size = 32.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
                             Crossfade(
                                 targetState = titlePresentation,
                                 animationSpec = tween(
@@ -435,13 +411,30 @@ internal fun ChatTopBar(
                                 label = "chatTopBarTitle",
                             ) { presentation ->
                                 if (presentation.first) {
-                                    Text(
-                                        text = appName,
-                                        style = ChatType.brandTitle,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
+                                    Column(
                                         modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
-                                    )
+                                    ) {
+                                        Text(
+                                            text = appName,
+                                            style = ChatType.brandTitle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        if (tokenSubtitle != null) {
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                subtitleLeading?.invoke()
+                                                Text(
+                                                    text = tokenSubtitle,
+                                                    style = ChatType.micro.copy(
+                                                        fontFamily = LocalFairyTokens.current.labelFontFamily,
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
                                 } else {
                                     Column(
                                         modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
@@ -460,7 +453,9 @@ internal fun ChatTopBar(
                                                 subtitleLeading?.invoke()
                                                 Text(
                                                     text = tokenSubtitle,
-                                                    style = ChatType.micro,
+                                                    style = ChatType.micro.copy(
+                                                        fontFamily = LocalFairyTokens.current.labelFontFamily,
+                                                    ),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     maxLines = 1
                                                 )
@@ -506,9 +501,10 @@ internal fun ChatTopBar(
                             DropdownMenu(
                                 expanded = moreMenuOpen,
                                 onDismissRequest = { moreMenuOpen = false },
-                                shape = RoundedCornerShape(12.dp),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 16.dp,
+                                shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+                                containerColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelOpaque,
+                                tonalElevation = 0.dp,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
                             ) {
                                 if (moreMenuContent != null) moreMenuContent { moreMenuOpen = false } else {
                                 DropdownMenuItem(
@@ -574,21 +570,108 @@ private fun ChatTopBarCapsule(
 ) {
     val shape = RoundedCornerShape(50)
     Box(
-        modifier = modifier,
+        modifier = modifier.fairyPanel(
+            shape = shape,
+            color = LocalFairyTokens.current.panel,
+        ),
         propagateMinConstraints = true,
     ) {
-        Surface(
-            modifier = Modifier.matchParentSize(),
-            shape = shape,
-            color = Color.Transparent,
-            shadowElevation = shadowElevation,
-        ) {}
-        Surface(
-            shape = shape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 4.dp,
-            shadowElevation = 0.dp,
-            content = content,
-        )
+        // The old tonal Surface provided onSurface as LocalContentColor; keep
+        // that contract so titles and icons stay readable on the panel.
+        CompositionLocalProvider(
+            LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+        ) {
+            content()
+        }
     }
+}
+
+@Composable
+private fun ChatTopBarSearchRow(
+    searchQuery: String,
+    searchMatchIndex: Int,
+    searchMatchCount: Int,
+    searchFocusRequester: FocusRequester,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchPrevious: () -> Unit,
+    onSearchNext: () -> Unit,
+    onSearchDismiss: () -> Unit,
+) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.width(5.dp))
+            IconButton(
+                onClick = onSearchDismiss,
+                modifier = Modifier.size(44.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Search,
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(searchFocusRequester),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                stringResource(R.string.conversation_search_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    .copy(alpha = 0.6f),
+                                maxLines = 1,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+            Text(
+                text = if (searchMatchCount == 0) {
+                    "0/0"
+                } else {
+                    "${searchMatchIndex + 1}/$searchMatchCount"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp),
+            )
+            IconButton(
+                enabled = searchMatchIndex > 0,
+                onClick = onSearchPrevious,
+                modifier = Modifier.size(38.dp),
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                )
+            }
+            IconButton(
+                enabled = searchMatchIndex >= 0 &&
+                    searchMatchIndex < searchMatchCount - 1,
+                onClick = onSearchNext,
+                modifier = Modifier.size(38.dp),
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                )
+            }
+            Spacer(Modifier.width(5.dp))
+        }
 }

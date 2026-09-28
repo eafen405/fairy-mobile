@@ -33,8 +33,20 @@ import com.newoether.agora.remote.RemoteDeviceStatus
 import com.newoether.agora.ui.settings.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import com.newoether.agora.ui.motion.MotionAwareLinearProgressIndicator
+import com.newoether.agora.ui.motion.fairyPress
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
+import com.newoether.agora.ui.components.FairyDotProgressBar
+import com.newoether.agora.ui.components.FairyPresence
+import com.newoether.agora.ui.components.FairyScreen
+import com.newoether.agora.ui.components.LocalFairyBreathOverride
+import com.newoether.agora.ui.components.fairyPanel
+import com.newoether.agora.ui.theme.LocalFairyTokens
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun RemoteOverlay(
@@ -146,30 +158,64 @@ private fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, acti
 
 /** 等待连接/主会话落地的过渡面：进度、失败与重试。 */
 @Composable
-private fun RemoteConnecting(state: RemoteState, vm: RemoteViewModel) {
+internal fun RemoteConnecting(state: RemoteState, vm: RemoteViewModel) {
+    val tokens = LocalFairyTokens.current
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val failed = state.failure != null || state.devices.any { it.status == RemoteDeviceStatus.ERROR }
-        if (failed) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.remote_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { vm.refresh() }) { Text(stringResource(R.string.retry)) }
+        val empty = !failed && !state.loading && state.sessions.isEmpty() && state.deviceId != null &&
+            state.devices.firstOrNull { it.id == state.deviceId }?.status == RemoteDeviceStatus.CONNECTED
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            FairyScreen(
+                presence = if (failed || empty) FairyPresence.OFFLINE else FairyPresence.CONNECTING,
+                eyeSize = 110.dp,
+                modifier = Modifier.size(width = 200.dp, height = 150.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                fontFamily = tokens.titleFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 28.sp,
+                color = tokens.textPrimary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    when {
+                        failed -> R.string.remote_failed
+                        empty -> R.string.remote_empty
+                        else -> R.string.remote_connecting_status
+                    },
+                ),
+                color = tokens.textMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+            if (failed || empty) {
+                val retryInteraction = remember { MutableInteractionSource() }
+                Surface(
+                    onClick = { vm.refresh() },
+                    shape = RoundedCornerShape(50),
+                    color = tokens.primary,
+                    modifier = Modifier.fairyPress(retryInteraction),
+                    interactionSource = retryInteraction,
+                ) {
+                    Text(
+                        text = stringResource(R.string.retry),
+                        color = tokens.onPrimary,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                        fontFamily = tokens.titleFontFamily,
+                    )
+                }
+            } else {
+                FairyDotProgressBar()
             }
-        } else if (!state.loading && state.sessions.isEmpty() && state.deviceId != null &&
-            state.devices.firstOrNull { it.id == state.deviceId }?.status == RemoteDeviceStatus.CONNECTED) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.remote_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { vm.refresh() }) { Text(stringResource(R.string.retry)) }
-            }
-        } else {
-            MotionAwareCircularProgressIndicator(Modifier.size(48.dp), strokeWidth = 5.dp,
-                color = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 /** 登录/注册页：origin + 用户名/密码（注册加邀请码），替换上游 Add-Device 表单。 */
 @Composable
-private fun FairyLogin(state: RemoteState, vm: RemoteViewModel, onBack: () -> Unit) {
+internal fun FairyLogin(state: RemoteState, vm: RemoteViewModel, onBack: () -> Unit) {
     val initial = remember { vm.editorConnection() }
     var origin by remember { mutableStateOf(initial?.address.orEmpty()) }
     var username by remember { mutableStateOf(initial?.name.orEmpty()) }
@@ -186,7 +232,40 @@ private fun FairyLogin(state: RemoteState, vm: RemoteViewModel, onBack: () -> Un
                 Icon(Icons.Default.Save, stringResource(R.string.save))
             } },
     ) {
-        SettingsGroup(title = stringResource(R.string.remote_connection), items = buildList {
+        val tokens = LocalFairyTokens.current
+        val formReady = origin.isNotBlank() && username.isNotBlank() && password.isNotBlank() &&
+            (!registering || invite.isNotBlank())
+        // Fairy header: a still mini screen, the wordmark, the page title as subtitle.
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // A still frame: the header never runs the window's frame loop.
+            CompositionLocalProvider(LocalFairyBreathOverride provides 0.5f) {
+                FairyScreen(
+                    presence = FairyPresence.IDLE,
+                    eyeSize = 54.dp,
+                    modifier = Modifier.size(width = 96.dp, height = 72.dp),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                fontFamily = tokens.titleFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 24.sp,
+                color = tokens.textPrimary,
+            )
+            Text(
+                text = stringResource(if (registering) R.string.remote_register else R.string.remote_sign_in),
+                color = tokens.textMuted,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        SettingsGroup(
+            title = stringResource(R.string.remote_connection),
+            modifier = Modifier.fairyPanel(shape = tokens.panelShape),
+            items = buildList {
             add {
                 SettingsIconContent(Icons.Default.Link) {
                     McpLabeledField(label = stringResource(R.string.remote_address), value = origin,
@@ -225,5 +304,32 @@ private fun FairyLogin(state: RemoteState, vm: RemoteViewModel, onBack: () -> Un
                 )
             }
         })
+        // Primary action mirrors the top-bar save icon: same login call.
+        val loginInteraction = remember { MutableInteractionSource() }
+        Surface(
+            onClick = {
+                vm.login(origin.trim(), username.trim(), password,
+                    if (registering) invite.trim() else null)
+            },
+            enabled = !state.restoring && !state.saving && formReady,
+            shape = RoundedCornerShape(50),
+            color = tokens.primary,
+            contentColor = tokens.onPrimary,
+            interactionSource = loginInteraction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .fairyPress(loginInteraction),
+        ) {
+            Text(
+                text = stringResource(
+                    if (registering) R.string.remote_register else R.string.remote_sign_in,
+                ),
+                color = if (!state.restoring && !state.saving && formReady) tokens.onPrimary else tokens.onPrimary.copy(alpha = 0.5f),
+                fontFamily = tokens.titleFontFamily,
+                modifier = Modifier.padding(vertical = 14.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
     }
 }

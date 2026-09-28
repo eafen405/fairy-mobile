@@ -35,6 +35,13 @@
     <string name="remote_archive_title">Архивировать задачу?</string>
     <string name="remote_archive_message">Убрать эту задачу из активных списков Fairy и Remote? История будет сохранена.</string>
     <string name="remote_activity">Обработка</string>
+    <string name="remote_relayed_from">Переслано от %1$s</string>
+    <string name="remote_connecting_status">Подключение</string>
+    <string name="remote_greeting">Я здесь. Что мне сделать?</string>
+    <string name="remote_quick_today">Какие планы на сегодня</string>
+    <string name="remote_quick_research">Поищи для меня информацию</string>
+    <string name="remote_quick_file">Посмотри этот файл</string>
+    <string name="remote_context_usage">Контекст %1$s / %2$s</string>
     <string name="remote_voice_input">Голосовой ввод</string>
     <string name="remote_voice_hold_hint">Удерживайте для речи</string>
     <string name="remote_voice_listening">Слушаю… проведите вверх для отмены</string>

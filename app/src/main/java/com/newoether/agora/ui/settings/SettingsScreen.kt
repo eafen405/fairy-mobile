@@ -97,7 +97,9 @@ fun SettingsGroup(
                 }
                 Surface(
                     shape = shape,
-                    color = MaterialTheme.colorScheme.surface,
+                    // Rows sit on the pill tone so they read above the panel
+                    // (surface is the page background #121212 → hole look).
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     tonalElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {

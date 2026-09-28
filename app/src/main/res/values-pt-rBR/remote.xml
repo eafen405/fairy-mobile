@@ -35,6 +35,13 @@
     <string name="remote_archive_title">Arquivar tarefa?</string>
     <string name="remote_archive_message">Remover esta tarefa das listas ativas do Fairy e do Remote? O histórico será mantido.</string>
     <string name="remote_activity">Processando</string>
+    <string name="remote_relayed_from">Repassado de %1$s</string>
+    <string name="remote_connecting_status">Conectando</string>
+    <string name="remote_greeting">Estou aqui. O que quer que eu faça?</string>
+    <string name="remote_quick_today">O que tem para hoje</string>
+    <string name="remote_quick_research">Pesquise algo para mim</string>
+    <string name="remote_quick_file">Veja este arquivo</string>
+    <string name="remote_context_usage">Contexto %1$s / %2$s</string>
     <string name="remote_voice_input">Entrada de voz</string>
     <string name="remote_voice_hold_hint">Segure para falar</string>
     <string name="remote_voice_listening">Ouvindo… deslize para cima para cancelar</string>

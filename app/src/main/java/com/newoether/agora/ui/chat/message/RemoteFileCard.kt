@@ -16,6 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
+import androidx.compose.ui.graphics.Color
+import com.newoether.agora.ui.components.fairyPanel
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
@@ -53,13 +56,16 @@ internal fun RemoteFileCardList(files: List<RemoteFile>, modifier: Modifier = Mo
 @Composable
 private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFile) -> Unit)?) {
     val haptics = LocalAgoraHaptics.current
+    val tokens = LocalFairyTokens.current
+    // Pill-toned fairyPanel capsule: type icon, name, size, save action.
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .fairyPanel(shape = RoundedCornerShape(50), color = tokens.pill),
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FileThumbnail(
@@ -74,7 +80,7 @@ private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFi
                 Text(
                     text = file.name.ifBlank { stringResource(R.string.remote_file_unnamed) },
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = tokens.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -86,8 +92,9 @@ private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFi
                             append(stringResource(R.string.remote_file_from, it))
                         }
                     },
+                    fontFamily = tokens.labelFontFamily,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = tokens.textMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

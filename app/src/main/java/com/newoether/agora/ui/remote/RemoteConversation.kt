@@ -11,6 +11,7 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.placeCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Logout
@@ -20,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -35,7 +35,11 @@ import com.newoether.agora.remote.*
 import com.newoether.agora.ui.chat.*
 import com.newoether.agora.ui.chat.bottombar.*
 import com.newoether.agora.ui.common.LocalAgoraHaptics
-import com.newoether.agora.ui.components.AnimatedBlobBackground
+import com.newoether.agora.ui.components.FairyBackground
+import com.newoether.agora.ui.components.FairyWindowBarHeight
+import com.newoether.agora.ui.components.FairyWindowState
+import com.newoether.agora.ui.components.fairyPresence
+import com.newoether.agora.ui.components.rememberFairyTextGrowth
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.gradientBlur
@@ -64,8 +68,6 @@ internal fun RemoteConversation(
     val motion = LocalAgoraMotionPolicy.current
     val haptics = LocalAgoraHaptics.current
     val chatWindow = androidx.compose.ui.platform.LocalWindowInfo.current
-    val blur by settings.blurEffectsEnabled.collectAsState(initial = false)
-    val amoled by settings.amoledEnabled.collectAsState(initial = false)
     val inlineMath by settings.parseInlineDollarMath.collectAsState(initial = false)
     val toolCallDisplayMode by settings.toolCallDisplayMode.collectAsState()
     val thinkingSegmentDisplayMode by settings.thinkingSegmentDisplayMode.collectAsState()
@@ -93,9 +95,8 @@ internal fun RemoteConversation(
         it.status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)
     }
     val generationVisible = tail != null
+    val tailMessage = messages.lastOrNull()
     var activeMenu by remember(owner) { mutableStateOf<String?>(null) }
-    var lastModelDismissTime by remember(owner) { mutableLongStateOf(0L) }
-    var lastContextDismissTime by remember(owner) { mutableLongStateOf(0L) }
     LaunchedEffect(active) {
         if (!active) activeMenu = null
     }
@@ -129,6 +130,36 @@ internal fun RemoteConversation(
             val flow = remember(owner, message.id) { vm.observeMessage(owner, message.id).filterNotNull() }
             val payload by flow.collectAsState(initial = vm.cachedMessage(owner, message.id))
             payload
+        }
+    }
+    val textGrowth = rememberFairyTextGrowth(
+        key = tail?.id,
+        visibleLength = if (tail != null) streaming?.text?.length ?: 0 else 0,
+    )
+    val presence = fairyPresence(
+        connection = connectionStatus,
+        tailParticipant = tailMessage?.participant,
+        tailStatus = tailMessage?.status,
+        tailTextGrowing = textGrowth.growing,
+    )
+    // Reply completion: one selection tick when the tail assistant message
+    // leaves its generating status for SUCCESS while this window is focused
+    // and uncovered.
+    var generatingTailId by remember(owner) { mutableStateOf<String?>(null) }
+    LaunchedEffect(tailMessage?.id, tailMessage?.status) {
+        val id = tailMessage?.id
+        val status = tailMessage?.status
+        if (tailMessage?.participant == com.newoether.agora.model.Participant.MODEL &&
+            status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)
+        ) {
+            generatingTailId = id
+        } else {
+            if (id != null && id == generatingTailId && status == MessageStatus.SUCCESS &&
+                active && chatWindow.isWindowFocused && activeMenu == null
+            ) {
+                haptics.selection()
+            }
+            generatingTailId = null
         }
     }
     val messageState = rememberUpdatedState(messages)
@@ -242,12 +273,13 @@ internal fun RemoteConversation(
             Unit
         }
     }
+    val windowExpanded = messages.isEmpty() && initiallyPositioned && !state.loading
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val contextUsed = state.runtime?.contextTokens
+    val contextWindow = state.runtime?.contextWindow
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).clearFocusOnTap()
         .onSizeChanged { scroll.recordViewportHeight(it.height) }) {
-        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-        if (!amoled) AnimatedBlobBackground(centerAlpha = if (dark) 0.02f else 0f,
-            quarterAlpha = if (dark) 0.01f else 0f, blurRadius = 40f, dark = dark,
-            blurEnabled = blur, motionEnabled = false)
+        FairyBackground()
         // Insets are declared explicitly via contentWindowInsets above; the empty
         // content padding is intentional, so the Material3 usage lint does not apply.
         @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
@@ -271,7 +303,31 @@ internal fun RemoteConversation(
                 onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
                 onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
                 onNavigateBack = onBack, onOpenDrawer = onBack, onSystemPromptClick = {},
+                forceBrandTitle = true,
+                fairyWindow = FairyWindowState(
+                    presence = presence,
+                    expanded = windowExpanded,
+                    speechPulse = textGrowth.pulse,
+                ),
                 moreMenuContent = { dismiss ->
+                    if (contextUsed != null && contextWindow != null) {
+                        val fairyTokens = com.newoether.agora.ui.theme.LocalFairyTokens.current
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(
+                                        R.string.remote_context_usage,
+                                        com.newoether.agora.model.ContextBudget.compactLabel(contextUsed),
+                                        com.newoether.agora.model.ContextBudget.compactLabel(contextWindow),
+                                    ),
+                                    fontFamily = fairyTokens.labelFontFamily,
+                                )
+                            },
+                            enabled = false,
+                            colors = MenuDefaults.itemColors(disabledTextColor = fairyTokens.textMuted),
+                            onClick = {},
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.conversation_search)) },
                         leadingIcon = { Icon(Icons.Default.Search, null) },
@@ -308,7 +364,7 @@ internal fun RemoteConversation(
                     streamingTailController = scroll.streamingTailController,
                     toolCallDisplayMode = toolCallDisplayMode, thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
                     autoExpandActiveGroup = autoExpandActiveGroup,
-                    modifier = Modifier.fillMaxSize().gradientBlur(blurAtTopDp = if (blur) 8f else 0f,
+                    modifier = Modifier.fillMaxSize().gradientBlur(blurAtTopDp = 0f,
                         blurAtBottomDp = 0f, fadeHeightDp = 40f, bottomOverlayHeight = barHeight + with(density) { spacer.outerHeightPx.toDp() } + 12.dp),
                     bottomBarHeight = barHeight, viewportHeight = scroll.viewportHeightPx,
                     messageHeights = scroll.messageHeights, observeMessage = observe, initialMessage = initialMessage,
@@ -335,7 +391,25 @@ internal fun RemoteConversation(
                             }
                         }
                     },
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 140.dp + leadingSpace.dp, bottom = barHeight + 8.dp))
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp,
+                        top = statusBarTop + FairyWindowBarHeight + 12.dp + leadingSpace.dp, bottom = barHeight + 8.dp))
+                }
+                AnimatedVisibility(
+                    visible = windowExpanded,
+                    enter = fadeIn(tween(350)),
+                    exit = fadeOut(tween(200)),
+                    modifier = Modifier.padding(top = statusBarTop + FairyWindowBarHeight + 12.dp + 140.dp + 24.dp),
+                ) {
+                    FairyEmptyGreeting(
+                        enabled = active,
+                        onQuickPrompt = { prompt ->
+                            field.edit {
+                                replace(0, length, prompt)
+                                placeCursorAtEnd()
+                            }
+                            focus.requestFocus()
+                        },
+                    )
                 }
                 ChatBottomScrollButton(
                     shouldShowAbsoluteBottomButton(
@@ -375,9 +449,13 @@ internal fun RemoteConversation(
                 }
             }
         }
-        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx) {
+        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx, bare = true) {
             ChatComposerLayout(field, focus, scroll::setComposerInputFocused, expanded, spacer.isRunning,
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
+                singleLine = true,
+                leadingControls = {
+                    RemoteAttachmentPicker(owner, active && !submitting && !speech.exclusive, vm)
+                },
                 inputReadOnly = speech.exclusive,
                 statusContent = {
                     RemoteSpeechStatus(speech)
@@ -397,58 +475,6 @@ internal fun RemoteConversation(
                     }
                 },
                 controls = {
-                    ComposerControlGroup {
-                        RemoteAttachmentPicker(owner, active && !submitting && !speech.exclusive, vm)
-                        ComposerModelSelector(
-                            displayText = (state.models.firstOrNull { it.id == state.selectedModel }?.name
-                                ?: state.selectedModel)?.replace('-', ' ') ?: stringResource(
-                                    if (state.modelsLoading || state.loading) R.string.loading_label else R.string.remote_model_unavailable),
-                            isModelValid = state.selectedModel != null, expanded = activeMenu == "model",
-                            // Fairy 单模型：选择器只作标签展示，不提供切换。
-                            enabled = false,
-                            onClick = {
-                                val now = System.currentTimeMillis()
-                                if (activeMenu == "model") activeMenu = null
-                                else if (now - lastModelDismissTime > 200) activeMenu = "model"
-                            },
-                            onDismissRequest = {
-                                if (activeMenu == "model") {
-                                    activeMenu = null
-                                    lastModelDismissTime = System.currentTimeMillis()
-                                }
-                            },
-                            menuContent = {
-                                val sortedModels = remember(state.models) { state.models.sortedBy { it.id.lowercase() } }
-                                sortedModels.forEach { model ->
-                                    ComposerModelMenuItem(
-                                        displayText = model.name.replace('-', ' '),
-                                        selected = model.id == state.selectedModel,
-                                        onClick = {
-                                            haptics.selection()
-                                            vm.setModel(model.id)
-                                            activeMenu = null
-                                            lastModelDismissTime = 0L
-                                        },
-                                    )
-                                }
-                            },
-                        )
-                        ComposerContextIndicator(
-                            estimatedTokens = state.runtime?.contextTokens, tokenBudget = state.runtime?.contextWindow,
-                            expanded = activeMenu == "context",
-                            onClick = {
-                                val now = System.currentTimeMillis()
-                                if (activeMenu == "context") activeMenu = null
-                                else if (now - lastContextDismissTime > 200) activeMenu = "context"
-                            },
-                            onDismissRequest = {
-                                if (activeMenu == "context") {
-                                    activeMenu = null
-                                    lastContextDismissTime = System.currentTimeMillis()
-                                }
-                            },
-                        )
-                    }
                     val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RemoteSpeechButton(speech, enabled = active && !submitting)

@@ -46,6 +46,13 @@
     <string name="remote_empty_message">Message cannot be empty</string>
     <string name="remote_attachments_unsupported">This service does not support attachments</string>
     <string name="remote_activity">Processing</string>
+    <string name="remote_relayed_from">Relayed from %1$s</string>
+    <string name="remote_connecting_status">Connecting</string>
+    <string name="remote_greeting">I\'m here. What should I do for you?</string>
+    <string name="remote_quick_today">What\'s on today</string>
+    <string name="remote_quick_research">Look something up for me</string>
+    <string name="remote_quick_file">Take a look at this file</string>
+    <string name="remote_context_usage">Context %1$s / %2$s</string>
     <string name="remote_voice_input">Voice Input</string>
     <string name="remote_voice_hold_hint">Hold to talk</string>
     <string name="remote_voice_listening">Listening… slide up to cancel</string>

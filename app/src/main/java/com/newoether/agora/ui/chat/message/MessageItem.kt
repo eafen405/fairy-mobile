@@ -102,6 +102,7 @@ internal fun MessageItem(
     outerPadding: PaddingValues = PaddingValues(vertical = 8.dp),
     includeAssistantOuterSpacing: Boolean = true,
     isStreaming: Boolean = false,
+    emblemAnimating: Boolean = false,
     liveCompactPreview: StateFlow<String>? = null,
     isLoading: Boolean = false,
     isStopping: Boolean = false,
@@ -245,20 +246,21 @@ internal fun MessageItem(
         Participant.ERROR -> Alignment.CenterHorizontally
     }
 
+    val fairyTokens = com.newoether.agora.ui.theme.LocalFairyTokens.current
     val backgroundColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.primaryContainer
+        Participant.USER -> fairyTokens.userBubble
         Participant.MODEL -> Color.Transparent
         Participant.ERROR -> MaterialTheme.colorScheme.errorContainer
     }
 
     val textColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.onPrimaryContainer
-        Participant.MODEL -> MaterialTheme.colorScheme.onSurface
+        Participant.USER -> fairyTokens.textPrimary
+        Participant.MODEL -> fairyTokens.textPrimary
         Participant.ERROR -> MaterialTheme.colorScheme.onErrorContainer
     }
 
     val shape = when (message.participant) {
-        Participant.USER -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
+        Participant.USER -> RoundedCornerShape(topStart = 18.dp, topEnd = 6.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
         Participant.MODEL -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
         Participant.ERROR -> RoundedCornerShape(12.dp)
     }
@@ -386,48 +388,96 @@ internal fun MessageItem(
                         searchHighlight = searchHighlight,
                     )
                 } else {
-                    AssistantMessageContent(
-                        message = displayMessage,
-                        includeOuterSpacing = includeAssistantOuterSpacing,
-                        segmentAppearanceRegistry = segmentAppearanceRegistry,
-                        contextAlpha = contextAlpha,
-                        isStreaming = isStreaming,
-                        isLoading = isLoading,
-                        isStopping = isStopping,
-                        isRegenerationExiting = isRegenerationExiting,
-                        isEditingAllowed = isEditingAllowed,
-                        showActions = showActions,
-                        actionCopyText = displayActionCopyText,
-                        showBranchSelector = showBranchSelector,
-                        toolCallDisplayMode = toolCallDisplayMode,
-                        thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
-                        autoExpandActiveGroup = autoExpandActiveGroup &&
-                            ThinkingSegmentDisplayModes.allowsAutoExpand(
-                                thinkingSegmentDisplayMode,
-                                toolCallDisplayMode,
-                            ),
+                    val assistantContent: @Composable (
+                        ChatMarkdownRenderContext,
+                        Boolean,
+                        AssistantCitationUiState,
+                    ) -> Unit = { ctx, inBubble, citationUi ->
+                        AssistantMessageContent(
+                            message = displayMessage,
+                            includeOuterSpacing = includeAssistantOuterSpacing,
+                            segmentAppearanceRegistry = segmentAppearanceRegistry,
+                            contextAlpha = contextAlpha,
+                            isStreaming = isStreaming,
+                            isLoading = isLoading,
+                            isStopping = isStopping,
+                            isRegenerationExiting = isRegenerationExiting,
+                            isEditingAllowed = isEditingAllowed,
+                            showActions = showActions,
+                            actionCopyText = displayActionCopyText,
+                            showBranchSelector = showBranchSelector,
+                            toolCallDisplayMode = toolCallDisplayMode,
+                            thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
+                            autoExpandActiveGroup = autoExpandActiveGroup &&
+                                ThinkingSegmentDisplayModes.allowsAutoExpand(
+                                    thinkingSegmentDisplayMode,
+                                    toolCallDisplayMode,
+                                ),
 
-                        groupedSegmentAutoExpansionController =
-                            groupedSegmentAutoExpansionController,
-                        thoughtExpandedStates = thoughtExpandedStates,
-                        renderContext = markdownRenderContext,
-                        searchHighlight = searchHighlight,
-                        branchIndex = branchIndex,
-                        totalBranches = totalBranches,
-                        onSwitchBranch = onSwitchBranch,
-                        onRegenerate = onRegenerate,
-                        onFork = { onFork(message.id) },
-                        onShare = { onShare(message.id) },
-                        onMediaClick = onMediaClick,
-                        onShowInfo = { showInfoDialog = true },
-                        onShowDelete = onShowDelete,
-                        onSegmentSelected = { indices, showListFirst ->
-                            onSegmentDetailRequest(message.id, indices, showListFirst)
-                        },
-                        onLayoutMutationStarted = onLayoutMutationStarted,
-                        onLayoutMutationSettled = onLayoutMutationSettled,
-                        setThoughtBlockHeight = {},
-                    )
+                            groupedSegmentAutoExpansionController =
+                                groupedSegmentAutoExpansionController,
+                            thoughtExpandedStates = thoughtExpandedStates,
+                            renderContext = ctx,
+                            searchHighlight = searchHighlight,
+                            fillAvailableWidth = !inBubble,
+                            actionsOutside = inBubble,
+                            citationUi = citationUi,
+                            branchIndex = branchIndex,
+                            totalBranches = totalBranches,
+                            onSwitchBranch = onSwitchBranch,
+                            onRegenerate = onRegenerate,
+                            onFork = { onFork(message.id) },
+                            onShare = { onShare(message.id) },
+                            onMediaClick = onMediaClick,
+                            onShowInfo = { showInfoDialog = true },
+                            onShowDelete = onShowDelete,
+                            onSegmentSelected = { indices, showListFirst ->
+                                onSegmentDetailRequest(message.id, indices, showListFirst)
+                            },
+                            onLayoutMutationStarted = onLayoutMutationStarted,
+                            onLayoutMutationSettled = onLayoutMutationSettled,
+                            setThoughtBlockHeight = {},
+                        )
+                    }
+                    if (message.participant == Participant.MODEL) {
+                        // Fairy speaks full width on the page: no avatar, no
+                        // bubble, a 2 dp accent bar down the whole message
+                        // (16 dp from the screen edge, 12 dp to the text).
+                        val relaySources = displayMessage.remoteFiles
+                            .mapNotNullTo(linkedSetOf()) {
+                                it.source?.takeIf(String::isNotBlank)
+                            }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = FairySpeechStartInset, end = FairySpeechEndInset),
+                        ) {
+                            relaySources.forEach { source ->
+                                FairyRelayBadge(
+                                    source,
+                                    Modifier.padding(start = FairyAccentBarWidth + FairyAccentTextGap, bottom = 6.dp),
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fairyAccentBar(active = emblemAnimating)
+                                    .padding(start = FairyAccentBarWidth + FairyAccentTextGap - AssistantMessageHorizontalInset),
+                            ) {
+                                assistantContent(
+                                    markdownRenderContext,
+                                    false,
+                                    rememberAssistantCitationUi(message.id),
+                                )
+                            }
+                        }
+                    } else {
+                        assistantContent(
+                            markdownRenderContext,
+                            false,
+                            rememberAssistantCitationUi(message.id),
+                        )
+                    }
                 }
             }
             if (selectionMode) {
@@ -641,9 +691,10 @@ internal fun ContextCompactPill(
                 DropdownMenu(
                     expanded = actionsExpanded,
                     onDismissRequest = { actionsExpanded = false },
-                    shape = RoundedCornerShape(12.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 16.dp,
+                    shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+                    containerColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelOpaque,
+                    tonalElevation = 0.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
                 ) {
                     DropdownMenuItem(
                         text = {

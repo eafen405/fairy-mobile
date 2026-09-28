@@ -9,7 +9,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -139,18 +138,12 @@ class MainActivity : ComponentActivity() {
             val colorSchemePreset = try { com.newoether.agora.ui.theme.ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { com.newoether.agora.ui.theme.ColorSchemePreset.FOREST }
             val schemeStyle = try { com.newoether.agora.ui.theme.SchemeStyle.valueOf(schemeStyleName) } catch (_: Exception) { com.newoether.agora.ui.theme.SchemeStyle.TONAL_SPOT }
 
-            val systemDark = isSystemInDarkTheme()
-            val isDark = when (themeModeEnum) {
-                com.newoether.agora.ui.theme.ThemeMode.LIGHT -> false
-                com.newoether.agora.ui.theme.ThemeMode.DARK -> true
-                com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE -> systemDark
-            }
-
+            // The app theme is a fixed dark scheme; system bars always use light icons.
             SideEffect {
                 val window = this@MainActivity.window
                 val insetsController = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
-                insetsController.isAppearanceLightStatusBars = !isDark
-                insetsController.isAppearanceLightNavigationBars = !isDark
+                insetsController.isAppearanceLightStatusBars = false
+                insetsController.isAppearanceLightNavigationBars = false
             }
 
             AgoraTheme(

@@ -35,6 +35,13 @@
     <string name="remote_archive_title">タスクをアーカイブしますか？</string>
     <string name="remote_archive_message">このタスクを Fairy と Remote のアクティブな一覧から削除しますか？履歴は保持されます。</string>
     <string name="remote_activity">処理中</string>
+    <string name="remote_relayed_from">%1$s からの転送</string>
+    <string name="remote_connecting_status">接続中</string>
+    <string name="remote_greeting">ここにいます。何をしましょうか？</string>
+    <string name="remote_quick_today">今日の予定は</string>
+    <string name="remote_quick_research">調べものをお願い</string>
+    <string name="remote_quick_file">このファイルを見て</string>
+    <string name="remote_context_usage">コンテキスト %1$s / %2$s</string>
     <string name="remote_voice_input">音声入力</string>
     <string name="remote_voice_hold_hint">長押しで話す</string>
     <string name="remote_voice_listening">聞き取り中… 上にスライドでキャンセル</string>

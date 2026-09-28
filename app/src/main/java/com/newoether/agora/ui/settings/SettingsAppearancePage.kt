@@ -1,26 +1,16 @@
 package com.newoether.agora.ui.settings
 
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Functions
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MotionPhotosOff
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.SettingsBrightness
-import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -30,8 +20,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -42,9 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
-import com.newoether.agora.ui.theme.ColorSchemePreset
-import com.newoether.agora.ui.theme.SchemeStyle
-import com.newoether.agora.ui.theme.colorSchemeForPreset
 import com.newoether.agora.util.readFontName
 import com.newoether.agora.viewmodel.ChatViewModel
 import java.io.File
@@ -55,11 +40,6 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
-    val themeMode by viewModel.settings.themeMode.collectAsState()
-    val amoledEnabled by viewModel.settings.amoledEnabled.collectAsState()
-    val colorSchemeName by viewModel.settings.colorScheme.collectAsState()
-    val schemeStyleName by viewModel.settings.schemeStyle.collectAsState()
-    val dynamicColor by viewModel.settings.dynamicColor.collectAsState()
     val blurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
     val reduceMotion by viewModel.settings.reduceMotion.collectAsState()
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
@@ -126,239 +106,12 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
     }
 
-    val isDynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val currentPreset = try { ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { ColorSchemePreset.FOREST }
-    val currentStyle = try { SchemeStyle.valueOf(schemeStyleName) } catch (_: Exception) { SchemeStyle.TONAL_SPOT }
-    val systemDark = isSystemInDarkTheme()
-    val isDark = when (themeMode) {
-        "LIGHT" -> false
-        "DARK" -> true
-        else -> systemDark
-    }
     CollapsingSettingsScaffold(
         title = stringResource(R.string.appearance_title),
         onBack = onBack,
         floatingActionButton = { if (showDocFab) DocumentationFab("appearance.md") }
     ) {
             SettingsGroupColumn {
-                val schemeAlpha = if (dynamicColor && isDynamicAvailable) 0.38f else 1f
-                // ── Theme & Color ──
-                SettingsGroup(
-                    title = stringResource(R.string.appearance_theme_color),
-                    items = buildList {
-                        add {
-                            var expanded by remember { mutableStateOf(false) }
-                            val selectedLabel = when (themeMode) {
-                                "LIGHT" -> stringResource(R.string.theme_mode_light)
-                                "DARK" -> stringResource(R.string.theme_mode_dark)
-                                else -> stringResource(R.string.theme_mode_follow_device)
-                            }
-                            val selectedIcon = when (themeMode) {
-                                "LIGHT" -> Icons.Default.LightMode
-                                "DARK" -> Icons.Default.DarkMode
-                                else -> Icons.Default.SettingsBrightness
-                            }
-                            val options = listOf(
-                                "LIGHT" to Pair(stringResource(R.string.theme_mode_light), Icons.Default.LightMode),
-                                "DARK" to Pair(stringResource(R.string.theme_mode_dark), Icons.Default.DarkMode),
-                                "FOLLOW_DEVICE" to Pair(stringResource(R.string.theme_mode_follow_device), Icons.Default.SettingsBrightness)
-                            )
-                            SettingsItem(
-                                headlineContent = { Text(stringResource(R.string.theme_mode)) },
-                                supportingContent = { Text(selectedLabel) },
-                                leadingContent = {
-                                    Icon(selectedIcon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                                },
-                                trailingContent = {
-                                    Box {
-                                        Text(
-                                            selectedLabel,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.width(96.dp).padding(end = 4.dp),
-                                            textAlign = TextAlign.End,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        DropdownMenu(
-                                            expanded = expanded,
-                                            onDismissRequest = { expanded = false },
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                            tonalElevation = 16.dp,
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            options.forEach { (mode, pair) ->
-                                                val (label, icon) = pair
-                                                val isSelected = when (mode) {
-                                                    "LIGHT" -> themeMode == "LIGHT"
-                                                    "DARK" -> themeMode == "DARK"
-                                                    else -> themeMode != "LIGHT" && themeMode != "DARK"
-                                                }
-                                                DropdownMenuItem(
-                                                    text = { Text(label) },
-                                                    leadingIcon = {
-                                                        if (isSelected) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                                    },
-                                                    trailingIcon = { Icon(icon, null) },
-                                                    onClick = { viewModel.settings.setThemeMode(mode); expanded = false }
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.clickable { expanded = true }
-                            )
-                        }
-                    add {
-                        SettingsItem(
-                            headlineContent = { Text(stringResource(R.string.amoled_mode)) },
-                            supportingContent = { Text(stringResource(R.string.amoled_mode_desc)) },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Contrast,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            },
-                            trailingContent = { Switch(checked = amoledEnabled, onCheckedChange = null) },
-                            modifier = Modifier.toggleable(
-                                value = amoledEnabled,
-                                role = Role.Switch,
-                                onValueChange = viewModel.settings::setAmoledEnabled,
-                            ),
-                        )
-                    }
-                    if (isDynamicAvailable) {
-                        add {
-                            SettingsItem(
-                                headlineContent = { Text(stringResource(R.string.dynamic_color)) },
-                                supportingContent = { Text(stringResource(R.string.dynamic_color_desc)) },
-                                leadingContent = {
-                                    Icon(
-                                        Icons.Default.Palette,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                },
-                                trailingContent = {
-                                    Switch(
-                                        checked = dynamicColor,
-                                        onCheckedChange = { viewModel.settings.setDynamicColor(it) },
-                                    )
-                                },
-                                modifier = Modifier.clickable {
-                                    viewModel.settings.setDynamicColor(!dynamicColor)
-                                },
-                            )
-                        }
-                    }
-                    add {
-                        var expanded by remember { mutableStateOf(false) }
-                        val currentLabel = presetDisplayName(currentPreset)
-                        val currentPrimary = remember(currentPreset, currentStyle, isDark) {
-                            colorSchemeForPreset(currentPreset, currentStyle, isDark).primary
-                        }
-                        SettingsItem(
-                            headlineContent = { Text(stringResource(R.string.color_scheme)) },
-                            supportingContent = { Text(currentLabel) },
-                            leadingContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(currentPrimary)
-                                )
-                            },
-                            trailingContent = {
-                                Box {
-                                    Text(
-                                        currentLabel,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.width(96.dp).padding(end = 4.dp),
-                                        textAlign = TextAlign.End,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        tonalElevation = 16.dp,
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        ColorSchemePreset.entries.forEach { preset ->
-                                            val presetPrimary = remember(preset, currentStyle, isDark) {
-                                                colorSchemeForPreset(preset, currentStyle, isDark).primary
-                                            }
-                                            DropdownMenuItem(
-                                                text = { Text(presetDisplayName(preset)) },
-                                                leadingIcon = {
-                                                    if (preset == currentPreset) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                                },
-                                                trailingIcon = {
-                                                    Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(presetPrimary))
-                                                },
-                                                onClick = { viewModel.settings.setColorScheme(preset.name); expanded = false }
-                                            )
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.alpha(schemeAlpha).clickable(enabled = schemeAlpha > 0.5f) { expanded = true }
-                        )
-                    }
-                    add {
-                        var expanded by remember { mutableStateOf(false) }
-                        val currentLabel = styleDisplayName(currentStyle)
-                        SettingsItem(
-                            headlineContent = { Text(stringResource(R.string.scheme_style)) },
-                            supportingContent = { Text(currentLabel) },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Style,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            },
-                            trailingContent = {
-                                Box {
-                                    Text(
-                                        currentLabel,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.width(96.dp).padding(end = 4.dp),
-                                        textAlign = TextAlign.End,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        tonalElevation = 16.dp,
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        SchemeStyle.entries.forEach { style ->
-                                            DropdownMenuItem(
-                                                text = { Text(styleDisplayName(style)) },
-                                                leadingIcon = {
-                                                    if (style == currentStyle) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                                },
-                                                onClick = { viewModel.settings.setSchemeStyle(style.name); expanded = false }
-                                            )
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.alpha(schemeAlpha).clickable(enabled = schemeAlpha > 0.5f) { expanded = true }
-                        )
-                    }
-                }
-                )
 
                 // ── Motion & Feedback ──
                 SettingsGroup(
@@ -777,24 +530,4 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }
             if (showDocFab) { Spacer(modifier = Modifier.height(80.dp)) }
     }
-}
-
-@Composable
-private fun presetDisplayName(preset: ColorSchemePreset): String = when (preset) {
-    ColorSchemePreset.MIDNIGHT -> stringResource(R.string.color_scheme_midnight)
-    ColorSchemePreset.NORDIC -> stringResource(R.string.color_scheme_nordic)
-    ColorSchemePreset.FOREST -> stringResource(R.string.color_scheme_forest)
-    ColorSchemePreset.SUNSET -> stringResource(R.string.color_scheme_sunset)
-    ColorSchemePreset.ROSE -> stringResource(R.string.color_scheme_rose)
-    ColorSchemePreset.LAVENDER -> stringResource(R.string.color_scheme_lavender)
-    ColorSchemePreset.SLATE -> stringResource(R.string.color_scheme_slate)
-    ColorSchemePreset.OCEAN -> stringResource(R.string.color_scheme_ocean)
-}
-
-@Composable
-private fun styleDisplayName(style: SchemeStyle): String = when (style) {
-    SchemeStyle.TONAL_SPOT -> stringResource(R.string.scheme_style_tonal_spot)
-    SchemeStyle.EXPRESSIVE -> stringResource(R.string.scheme_style_expressive)
-    SchemeStyle.VIBRANT -> stringResource(R.string.scheme_style_vibrant)
-    SchemeStyle.NEUTRAL -> stringResource(R.string.scheme_style_neutral)
 }

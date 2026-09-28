@@ -73,6 +73,54 @@ private fun DynamicScheme.toColorScheme(): ColorScheme {
     )
 }
 
+private val FairyBgTop = Color(0xFF0B1733)
+private val FairyBgBottom = Color(0xFF050A18)
+private val FairyPanel = Color(0xFF0E1A36)
+private val FairyPill = Color(0xFF16244A)
+private val FairyIce = Color(0xFFEAF0FF)
+private val FairyNavy = Color(0xFF0A1633)
+private val FairyBlue = Color(0xFF1F55E0)
+private val FairyGlow = Color(0xFF3D8BFF)
+private val FairyLink = Color(0xFF8FB8FF)
+private val FairyDanger = Color(0xFFFF5A4E)
+private val FairyMuted = Color(0xFF8C9AB8)
+
+/**
+ * The fixed Fairy dark palette. [AgoraTheme] always produces this scheme,
+ * ignoring theme mode, preset, style, dynamic color, and AMOLED settings.
+ * Surfaces step panel -> pill; generic interaction is ice white on navy.
+ */
+fun fairyColorScheme(): ColorScheme = ColorScheme(
+    primary = FairyIce, onPrimary = FairyNavy,
+    primaryContainer = FairyPill, onPrimaryContainer = FairyIce,
+    secondary = FairyLink, onSecondary = FairyNavy,
+    secondaryContainer = FairyPill, onSecondaryContainer = FairyIce,
+    tertiary = FairyBlue, onTertiary = FairyIce,
+    tertiaryContainer = FairyBlue, onTertiaryContainer = FairyIce,
+    error = FairyDanger, onError = FairyNavy,
+    errorContainer = Color(0xFF3A1622), onErrorContainer = Color(0xFFFFB4AC),
+    background = FairyBgBottom, onBackground = FairyIce,
+    surface = FairyBgBottom, onSurface = FairyIce,
+    surfaceVariant = FairyPill, onSurfaceVariant = FairyMuted,
+    outline = Color(0xFF3A4666), outlineVariant = Color(0xFF1E2A47),
+    inversePrimary = FairyBlue,
+    inverseSurface = FairyIce, inverseOnSurface = FairyNavy,
+    // Tonal elevation must not tint the navy panels.
+    surfaceTint = Color.Transparent, scrim = Color.Black,
+    surfaceDim = FairyBgBottom, surfaceBright = Color(0xFF1C2B55),
+    surfaceContainerLowest = Color(0xFF081226),
+    surfaceContainerLow = FairyBgTop,
+    surfaceContainer = FairyPanel,
+    surfaceContainerHigh = Color(0xFF122043),
+    surfaceContainerHighest = FairyPill,
+    primaryFixed = FairyIce, primaryFixedDim = Color(0xFFC9D6F5),
+    onPrimaryFixed = FairyNavy, onPrimaryFixedVariant = FairyNavy,
+    secondaryFixed = FairyLink, secondaryFixedDim = Color(0xFF6E9BE8),
+    onSecondaryFixed = FairyNavy, onSecondaryFixedVariant = FairyNavy,
+    tertiaryFixed = FairyBlue, tertiaryFixedDim = FairyGlow,
+    onTertiaryFixed = FairyIce, onTertiaryFixedVariant = FairyIce,
+)
+
 /** Applies the same endpoint treatment to preset and Android dynamic schemes. */
 internal fun ColorScheme.withAmoledBackground(isDark: Boolean, enabled: Boolean): ColorScheme {
     if (!enabled) return this

@@ -12,14 +12,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CallSplit
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -31,9 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
@@ -86,6 +76,11 @@ internal fun AssistantMessageContent(
     thoughtExpandedStates: SnapshotStateMap<String, Boolean>,
     renderContext: ChatMarkdownRenderContext,
     searchHighlight: SearchHighlightSpec?,
+    // In a Fairy bubble the content wraps its own width instead of filling.
+    fillAvailableWidth: Boolean = true,
+    // When true the action row is rendered by the caller below the bubble.
+    actionsOutside: Boolean = false,
+    citationUi: AssistantCitationUiState = rememberAssistantCitationUi(message.id),
     branchIndex: Int,
     totalBranches: Int,
     onSwitchBranch: (Int) -> Unit,
@@ -100,67 +95,32 @@ internal fun AssistantMessageContent(
     onLayoutMutationSettled: (String) -> Unit,
     setThoughtBlockHeight: (Int) -> Unit,
 ) {
-    @Suppress("DEPRECATION")
-    val clipboardManager = LocalClipboardManager.current
     val haptics = LocalAgoraHaptics.current
     val uriHandler = LocalUriHandler.current
     val citations = remember(message.text, message.segments) {
         message.citationRecords()
     }
-    var selectedCitation by remember(message.id) { mutableStateOf<CitationRecord?>(null) }
-    var showCitationSources by remember(message.id) { mutableStateOf(false) }
-    var groupedCitationSources by remember(message.id) {
-        mutableStateOf<List<CitationRecord>?>(null)
-    }
     val onSingleCitationActivate: (CitationRecord) -> Unit = { source ->
         val safeUrl = CitationPolicy.safeHttpUrl(source.url)
         if (safeUrl == null || runCatching { uriHandler.openUri(safeUrl) }.isFailure) {
-            selectedCitation = source
+            citationUi.selectedCitation = source
         }
     }
     val onCitationActivate: (List<CitationRecord>) -> Unit = { sources ->
         if (sources.size > 1) {
-            showCitationSources = false
-            groupedCitationSources = sources
+            citationUi.showSources = false
+            citationUi.groupedSources = sources
         } else {
             sources.singleOrNull()?.let(onSingleCitationActivate)
         }
     }
-    selectedCitation?.let { source ->
+    citationUi.selectedCitation?.let { source ->
         CitationSourceDetailDialog(
             source = source,
-            onDismiss = { selectedCitation = null },
+            onDismiss = { citationUi.selectedCitation = null },
         )
     }
-    var showMenu by remember(message.id) { mutableStateOf(false) }
-    var regenerateRequested by remember(message.id) { mutableStateOf(false) }
-    var observedRegenerationExit by remember(message.id) { mutableStateOf(false) }
-    LaunchedEffect(isRegenerationExiting) {
-        if (isRegenerationExiting) {
-            observedRegenerationExit = true
-        } else if (observedRegenerationExit) {
-            // An aborted transition keeps the old answer composed. Restore its controls only
-            // after the externally-owned regeneration state has genuinely ended.
-            regenerateRequested = false
-            observedRegenerationExit = false
-        }
-    }
-    val regenerationActionsExiting = regenerateRequested || isRegenerationExiting
-    val actionAvailability = assistantActionAvailability(
-        isStreaming = isStreaming,
-        isLoading = isLoading,
-        regenerateRequested = regenerationActionsExiting,
-    )
-    val sourcesSummaryVisible = citationSummaryVisible(
-        showActions = showActions,
-        informationVisible = actionAvailability.informationVisible,
-        sourceCount = citations.size,
-    )
-    LaunchedEffect(regenerationActionsExiting, sourcesSummaryVisible) {
-        if (regenerationActionsExiting) showMenu = false
-        if (!sourcesSummaryVisible) showCitationSources = false
-    }
-    if (showCitationSources) {
+    if (citationUi.showSources) {
         CitationSourcesBottomSheet(
             messageId = message.id,
             citations = citations,
@@ -169,10 +129,10 @@ internal fun AssistantMessageContent(
                 haptics.confirm()
                 onSingleCitationActivate(source)
             },
-            onDismiss = { showCitationSources = false },
+            onDismiss = { citationUi.showSources = false },
         )
     }
-    groupedCitationSources?.let { groupedSources ->
+    citationUi.groupedSources?.let { groupedSources ->
         CitationSourcesBottomSheet(
             messageId = message.id,
             citations = groupedSources,
@@ -181,7 +141,7 @@ internal fun AssistantMessageContent(
                 haptics.confirm()
                 onSingleCitationActivate(source)
             },
-            onDismiss = { groupedCitationSources = null },
+            onDismiss = { citationUi.groupedSources = null },
         )
     }
     // During generation, eat horizontal nested-scroll so code blocks
@@ -236,7 +196,7 @@ internal fun AssistantMessageContent(
     }
     Box(
         modifier = Modifier
-            .fillMaxWidth()
+            .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
             .padding(horizontal = AssistantMessageHorizontalInset)
             .then(contextAlpha)
             .then(if (isStreaming) Modifier.nestedScroll(horizontalScrollEater) else Modifier)
@@ -461,7 +421,7 @@ internal fun AssistantMessageContent(
                 }
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
                         .noOpBringIntoView()
                 ) {
                     if (answerContent.isNotEmpty() && !useTimelineSegments) {
@@ -471,7 +431,7 @@ internal fun AssistantMessageContent(
                             isStreaming = isStreaming,
                             onLayoutMutationStarted = onLayoutMutationStarted,
                             onLayoutMutationSettled = onLayoutMutationSettled,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
                         ) { presentedProjection, presentedIsStreaming ->
                             val presentedContent =
                                 presentedProjection?.markdown ?: answerBodyText.orEmpty()
@@ -492,7 +452,7 @@ internal fun AssistantMessageContent(
                                             content = presentedContent,
                                             isStreaming = presentedIsStreaming,
                                             renderContext = renderContext,
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
                                             selectionEnabled = !presentedIsStreaming,
                                             textDeltas = answerTextDeltas,
                                             fadeTracker = answerFadeTracker,
@@ -503,7 +463,7 @@ internal fun AssistantMessageContent(
                                         content = presentedContent,
                                         isStreaming = presentedIsStreaming,
                                         renderContext = renderContext,
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
                                         selectionEnabled = !presentedIsStreaming,
                                         textDeltas = answerTextDeltas,
                                         fadeTracker = answerFadeTracker,
@@ -572,208 +532,28 @@ internal fun AssistantMessageContent(
                         }
                     }
                 }
-                if (message.participant == Participant.MODEL && showActions) {
-                    val informationActionsAlpha by animateFloatAsState(
-                        targetValue = if (actionAvailability.informationVisible) 1f else 0f,
-                        animationSpec = tween(
-                            durationMillis = if (actionAvailability.informationVisible) {
-                                ACTIONS_ENTER_DURATION_MS
-                            } else {
-                                ACTIONS_EXIT_DURATION_MS
-                            },
-                            easing = LinearEasing,
-                        ),
-                        label = "assistantInformationActions:${message.id}",
+                if (message.participant == Participant.MODEL && showActions && !actionsOutside) {
+                    AssistantActionRow(
+                        message = message,
+                        citations = citations,
+                        citationUi = citationUi,
+                        isStreaming = isStreaming,
+                        isLoading = isLoading,
+                        isStopping = isStopping,
+                        isRegenerationExiting = isRegenerationExiting,
+                        isEditingAllowed = isEditingAllowed,
+                        actionCopyText = actionCopyText,
+                        showBranchSelector = showBranchSelector,
+                        branchIndex = branchIndex,
+                        totalBranches = totalBranches,
+                        onSwitchBranch = onSwitchBranch,
+                        onRegenerate = onRegenerate,
+                        onFork = onFork,
+                        onShare = onShare,
+                        onShowInfo = onShowInfo,
+                        onShowDelete = onShowDelete,
                     )
-                    val terminalActionsAlpha by animateFloatAsState(
-                        targetValue = if (actionAvailability.terminalVisible) 1f else 0f,
-                        animationSpec = tween(
-                            durationMillis = if (actionAvailability.terminalVisible) {
-                                ACTIONS_ENTER_DURATION_MS
-                            } else {
-                                ACTIONS_EXIT_DURATION_MS
-                            },
-                            easing = LinearEasing,
-                        ),
-                        label = "assistantActions:${message.id}",
-                    )
-                    val enabledActionTint =
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    val terminalActionTint =
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                            alpha = if (actionAvailability.terminalEnabled) 0.6f else 0.3f
-                        )
-                    val destructiveActionTint =
-                        MaterialTheme.colorScheme.error.copy(
-                            alpha = if (actionAvailability.terminalEnabled) 1f else 0.38f
-                        )
-                    if (sourcesSummaryVisible || informationActionsAlpha > 0f) {
-                        CitationSourcesSummaryCapsule(
-                            messageId = message.id,
-                            citations = citations,
-                            searchSpec = null,
-                            visible = sourcesSummaryVisible,
-                            enabled = sourcesSummaryVisible,
-                            onClick = {
-                                groupedCitationSources = null
-                                showCitationSources = true
-                            },
-                            modifier = Modifier
-                                .offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)
-                                .padding(top = 12.dp)
-                                .graphicsLayer { alpha = informationActionsAlpha },
-                        )
-                    }
-                    val answerTailVisible = shouldShowStreamingTailIndicator(isStreaming, isStopping, message)
-                    val actionContent: @Composable RowScope.() -> Unit = {
-                        if (!actionCopyText.isNullOrBlank()) {
-                            IconButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(actionCopyText))
-                                    haptics.confirm()
-                                },
-                                enabled = actionAvailability.informationEnabled,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .graphicsLayer { alpha = informationActionsAlpha },
-                            ) {
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = enabledActionTint,
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = {
-                                if (onRegenerate(message.id)) {
-                                    regenerateRequested = true
-                                    showMenu = false
-                                }
-                            },
-                            enabled = actionAvailability.terminalEnabled,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .graphicsLayer { alpha = terminalActionsAlpha },
-                        ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = null,
-                                modifier = Modifier.size(19.dp),
-                                tint = terminalActionTint,
-                            )
-                        }
-                        IconButton(
-                            onClick = onFork,
-                            enabled = actionAvailability.terminalEnabled,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .graphicsLayer { alpha = terminalActionsAlpha },
-                        ) {
-                            Icon(
-                                Icons.Default.CallSplit,
-                                contentDescription = stringResource(R.string.conversation_fork_from_here),
-                                modifier = Modifier.size(18.dp),
-                                tint = terminalActionTint,
-                            )
-                        }
-                        IconButton(
-                            onClick = onShare,
-                            enabled = actionAvailability.terminalEnabled,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .graphicsLayer { alpha = terminalActionsAlpha },
-                        ) {
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = stringResource(R.string.conversation_share),
-                                modifier = Modifier.size(16.dp),
-                                tint = terminalActionTint,
-                            )
-                        }
-                        Box {
-                            IconButton(
-                                onClick = {
-                                    showMenu = true
-                                },
-                                enabled = actionAvailability.informationEnabled,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .graphicsLayer { alpha = informationActionsAlpha },
-                            ) {
-                                Icon(
-                                    Icons.Default.MoreVert,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = enabledActionTint,
-                                )
-                            }
-                            DropdownMenu(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 16.dp,
-                                shape = RoundedCornerShape(12.dp),
-                                expanded = showMenu && actionAvailability.informationVisible,
-                                onDismissRequest = { showMenu = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.info)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onShowInfo()
-                                    },
-                                    enabled = actionAvailability.informationEnabled,
-                                    leadingIcon = { Icon(Icons.Default.Info, null) },
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(R.string.delete),
-                                            color = destructiveActionTint,
-                                        )
-                                    },
-                                    onClick = {
-                                        if (actionAvailability.terminalEnabled) {
-                                            showMenu = false
-                                            onShowDelete()
-                                        }
-                                    },
-                                    enabled = actionAvailability.terminalEnabled,
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = null,
-                                            tint = destructiveActionTint,
-                                        )
-                                    },
-                                )
-                            }
-                        }
-
-                        if (showBranchSelector && totalBranches > 1) {
-                            AssistantBranchSelector(
-                                branchIndex = branchIndex,
-                                totalBranches = totalBranches,
-                                terminalActionsAlpha = terminalActionsAlpha,
-                                terminalEnabled = actionAvailability.terminalEnabled,
-                                isEditingAllowed = isEditingAllowed,
-                                onSwitchBranch = onSwitchBranch,
-                            )
-                        }
-                    }
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(44.dp).padding(top = 12.dp),
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        if (answerTailVisible) GenerationActivityDot()
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            content = actionContent,
-                        )
-                    }
                 }
-
                 if (message.remoteFiles.isNotEmpty()) {
                     RemoteFileCardList(
                         files = message.remoteFiles,

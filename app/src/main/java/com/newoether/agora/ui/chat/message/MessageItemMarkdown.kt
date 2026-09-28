@@ -192,7 +192,7 @@ internal fun AnimatedMarkdownText(
         mutableStateOf<AnnotatedString.Range<LinkAnnotation>?>(null)
     }
     var isPressed by remember(content) { mutableStateOf(false) }
-    val linkColor = MaterialTheme.colorScheme.primary
+    val linkColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.fairyLink
     val animatedColor by animateColorAsState(
         targetValue = if (isPressed) linkColor.copy(alpha = MarkdownLinkPressedAlpha) else linkColor,
         animationSpec = tween(MarkdownLinkPressAnimationMillis, easing = FastOutSlowInEasing),

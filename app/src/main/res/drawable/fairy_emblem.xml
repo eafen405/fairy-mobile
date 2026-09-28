@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fairy flat emblem, 48x48 viewport, center (24,24), radii from center —
+  proportions calibrated to the owner reference close-up:
+  white outer ring r 24 -> 20.6 (width 3.4) -> blue ring r 20.6 -> 15.6
+  (vertical linear gradient #3D8AE6 top -> #1A35D6 bottom) -> black disc
+  r 15.6 with four right-angled triangular compass tips (45deg straight
+  sides, ~0.4 rounded apex, tip r 19.0, base ~6.4 wide) -> white eye ring
+  outer r 12.5 (width 4.4) -> black pupil r 8.1 with a subtle vertical
+  gradient #0A1830 -> #000000 -> white tail-dot r 3.4 centered at r 6.1
+  on the 45deg lower-right axis, merging ring and pupil.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:name="ring_white"
+        android:pathData="M 24 1.7 A 22.3 22.3 0 1 1 24 46.3 A 22.3 22.3 0 1 1 24 1.7 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.4" />
+
+    <path
+        android:name="ring_blue"
+        android:pathData="M 24 5.9 A 18.1 18.1 0 1 1 24 42.1 A 18.1 18.1 0 1 1 24 5.9 Z"
+        android:strokeWidth="5">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="24"
+                android:startY="5.9"
+                android:endX="24"
+                android:endY="42.1"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF3D8AE6" />
+                <item android:offset="1" android:color="#FF1A35D6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <path
+        android:name="disc"
+        android:pathData="M 20.87 8.72 L 23.74 5.31 Q 24.00 5.00 24.26 5.31 L 27.13 8.72 A 15.6 15.6 0 0 1 39.28 20.87 L 42.69 23.74 Q 43.00 24.00 42.69 24.26 L 39.28 27.13 A 15.6 15.6 0 0 1 27.13 39.28 L 24.26 42.69 Q 24.00 43.00 23.74 42.69 L 20.87 39.28 A 15.6 15.6 0 0 1 8.72 27.13 L 5.31 24.26 Q 5.00 24.00 5.31 23.74 L 8.72 20.87 A 15.6 15.6 0 0 1 20.87 8.72 Z"
+        android:fillColor="#FF000000" />
+
+    <path
+        android:name="eye"
+        android:pathData="M 24 13.7 A 10.3 10.3 0 1 1 24 34.3 A 10.3 10.3 0 1 1 24 13.7"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.4" />
+
+    <path
+        android:name="pupil"
+        android:pathData="M 24 15.9 A 8.1 8.1 0 1 1 24 32.1 A 8.1 8.1 0 1 1 24 15.9 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="24"
+                android:startY="15.9"
+                android:endX="24"
+                android:endY="32.1"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF0A1830" />
+                <item android:offset="1" android:color="#FF000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <path
+        android:name="eye_dot"
+        android:pathData="M 24.91 28.31 A 3.4 3.4 0 1 1 31.71 28.31 A 3.4 3.4 0 1 1 24.91 28.31 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

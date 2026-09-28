@@ -42,6 +42,7 @@ import com.newoether.agora.ui.chat.resolveAttachmentType
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 /**
  * The right-aligned user message bubble: attachment thumbnails, the message text
@@ -121,9 +122,12 @@ internal fun UserMessageBubble(
         if (isEditing) editFocusRequester.requestFocus()
     }
 
+    val fairyTokens = LocalFairyTokens.current
     Column(
         horizontalAlignment = Alignment.End,
-        modifier = Modifier.then(
+        // Glass bubble: at most 80 % of the available width, 8 dp in from the
+        // list padding on the end side.
+        modifier = Modifier.fillMaxWidth(0.8f).padding(end = 8.dp).then(
             if (userBubbleSizeAnimationEnabled(sizeAnimationReady, allowSpatialTransitions)) {
                 Modifier.animateContentSize(animationSpec = tween(durationMillis = 500))
             } else {
@@ -135,8 +139,8 @@ internal fun UserMessageBubble(
             Surface(
             shape = shape,
             color = backgroundColor,
+            border = androidx.compose.foundation.BorderStroke(1.dp, fairyTokens.userBubbleBorder),
             modifier = Modifier
-                .widthIn(max = 300.dp)
                 .then(contextAlpha)
                 .clip(shape)
                 .combinedClickable(
@@ -182,7 +186,7 @@ internal fun UserMessageBubble(
                 }
             } else {
                 Column(
-                    modifier = Modifier.padding(16.dp).noOpBringIntoView(),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp).noOpBringIntoView(),
                     horizontalAlignment = Alignment.Start
                 ) {
                     val hasMetaItems = message.attachmentMeta?.items?.isNotEmpty() == true
@@ -284,9 +288,10 @@ internal fun UserMessageBubble(
         }
 
             DropdownMenu(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 16.dp,
-                shape = RoundedCornerShape(12.dp),
+                containerColor = fairyTokens.panelOpaque,
+                tonalElevation = 0.dp,
+                shape = fairyTokens.panelShape,
+                border = androidx.compose.foundation.BorderStroke(1.dp, fairyTokens.hairline),
                 expanded = showMenu && showActions && !isEditing,
                 onDismissRequest = { showMenu = false },
             ) {

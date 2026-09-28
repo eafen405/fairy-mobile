@@ -35,6 +35,13 @@
     <string name="remote_archive_title">Lưu trữ tác vụ?</string>
     <string name="remote_archive_message">Xóa tác vụ này khỏi danh sách đang hoạt động trong Fairy và Remote? Lịch sử sẽ được giữ lại.</string>
     <string name="remote_activity">Đang xử lý</string>
+    <string name="remote_relayed_from">Chuyển tiếp từ %1$s</string>
+    <string name="remote_connecting_status">Đang kết nối</string>
+    <string name="remote_greeting">Tôi ở đây. Bạn muốn tôi làm gì?</string>
+    <string name="remote_quick_today">Hôm nay có gì</string>
+    <string name="remote_quick_research">Tra cứu giúp tôi</string>
+    <string name="remote_quick_file">Xem tệp này giúp tôi</string>
+    <string name="remote_context_usage">Ngữ cảnh %1$s / %2$s</string>
     <string name="remote_voice_input">Nhập bằng giọng nói</string>
     <string name="remote_voice_hold_hint">Giữ để nói</string>
     <string name="remote_voice_listening">Đang nghe… trượt lên để hủy</string>

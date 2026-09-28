@@ -35,6 +35,13 @@
     <string name="remote_archive_title">أرشفة المهمة؟</string>
     <string name="remote_archive_message">هل تريد إزالة هذه المهمة من القوائم النشطة في Fairy وRemote؟ سيتم الاحتفاظ بسجلها.</string>
     <string name="remote_activity">جارٍ المعالجة</string>
+    <string name="remote_relayed_from">مُعاد من %1$s</string>
+    <string name="remote_connecting_status">جارٍ الاتصال</string>
+    <string name="remote_greeting">أنا هنا. ماذا تريدني أن أفعل؟</string>
+    <string name="remote_quick_today">ما جدول اليوم</string>
+    <string name="remote_quick_research">ابحث لي عن معلومات</string>
+    <string name="remote_quick_file">ألقِ نظرة على هذا الملف</string>
+    <string name="remote_context_usage">السياق %1$s / %2$s</string>
     <string name="remote_voice_input">إدخال صوتي</string>
     <string name="remote_voice_hold_hint">اضغط مطولًا للتحدث</string>
     <string name="remote_voice_listening">جارٍ الاستماع… اسحب للأعلى للإلغاء</string>

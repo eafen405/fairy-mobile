@@ -204,7 +204,6 @@ internal fun MessageList(
         cancelMutationAnchoring = ::cancelMutationAnchoring,
         setStreamingTailFollowMode = ::setStreamingTailFollowMode,
     )
-
     val visibleProjectionKey = remember(messages) {
         messages.list.map(ChatMessage::toRunProjectionKey)
     }
@@ -212,7 +211,6 @@ internal fun MessageList(
         allMessages.list.map(ChatMessage::toRunProjectionKey)
     }
     val inContextIds = contextRetainedMessageIds
-
     val activeMessageIds = remember(messages) { messages.list.mapTo(hashSetOf()) { message -> message.id } }
     val presentationMessages = remember(messages, retainedBranchReplacementExitMessages) {
         mergeBranchReplacementPresentationMessages(
@@ -226,8 +224,8 @@ internal fun MessageList(
     val pageSpacing = remember(presentationMessages) { messageListPageTrailingSpacing(presentationMessages) }
     val tailAnchorKey = messageListTailAnchorKey(turns)
     val tailHolderKey = messageListTailHolderKey(turns)
+    val tailMessageId = turns.lastOrNull()?.messages?.lastOrNull()?.id
     LaunchedEffect(conversationId, turns, searchQuery) { onSearchTurnsChanged(turns) }
-
     MessageListEditScrollEffect(
         conversationId = conversationId,
         editingMessageIdState = editingMessageIdState,
@@ -239,14 +237,12 @@ internal fun MessageList(
     )
     val lastUserMessage =
         messages.list.lastOrNull(MessageGenerationBoundaryResolver::isRealUser)
-
     fun stableVisualKey(messageId: String): String = branchReplacementVisualKey(
         messageId = messageId,
         sourceUserMessageId = regenerationTransition?.sourceUserMessageId,
         targetUserMessageId = regenerationTransition?.targetUserMessageId,
         aliases = editVisualKeyAliases,
     )
-
     SideEffect {
         val sourceUserMessageId = regenerationTransition?.sourceUserMessageId
         val targetUserMessageId = regenerationTransition?.targetUserMessageId
@@ -255,7 +251,6 @@ internal fun MessageList(
                 editVisualKeyAliases[sourceUserMessageId] ?: sourceUserMessageId
         }
     }
-
     LaunchedEffect(regenerationTransition?.id) {
         val transition = regenerationTransition
         if (transition == null) {
@@ -570,6 +565,11 @@ internal fun MessageList(
             // Every active MODEL owns its streaming renderer until its own terminal status.
             // Appending a queued USER must not dispose the previous turn's incremental renderer.
             isStreaming = messageIsStreaming,
+            emblemAnimating = isEmblemAnimating(
+                isLoading = isLoading,
+                message = message,
+                isTail = message.id == tailMessageId,
+            ),
             liveCompactPreview = compactPreview.takeIf {
                 isCompacting &&
                     message.isContextCompact() &&

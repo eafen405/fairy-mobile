@@ -157,14 +157,18 @@ internal fun rememberChatMarkdownAssets(
     inlineImages: Map<String, com.newoether.agora.model.MarkdownImage> = emptyMap(),
     onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
+    bodyFontWeight: FontWeight = FontWeight.Normal,
 ): ChatMarkdownAssets {
-    val linkColor = MaterialTheme.colorScheme.primary
+    val fairyTokens = com.newoether.agora.ui.theme.LocalFairyTokens.current
+    val linkColor = fairyTokens.fairyLink
     val linkTextStyles = remember(linkColor) { chatLinkTextStyles(linkColor) }
     // Chat-specific markdown scale — optimized for immersive reading.
     // Outfit's large x-height means 15sp reads like ~16sp Roboto.
     // Heading steps of 3sp (h1→h2→h3) and 2sp (h3→h4) create
     // a visible but not jarring hierarchy during long-form reading.
-    val markdownBodyStyle = scaledMarkdownTextStyle(ChatType.body)
+    val markdownBodyStyle = scaledMarkdownTextStyle(
+        ChatType.body.copy(fontWeight = bodyFontWeight),
+    )
     val thoughtMarkdownBodyStyle = scaledMarkdownTextStyle(ChatType.thoughtBody)
     val customTypography = markdownTypography(
         text = markdownBodyStyle,
@@ -202,19 +206,14 @@ internal fun rememberChatMarkdownAssets(
         textLink = linkTextStyles,
         table = thoughtMarkdownBodyStyle,
     )
-    val fg = MaterialTheme.colorScheme.onBackground
-    val bg = MaterialTheme.colorScheme.surface
-    // Composite fg at 0.1 alpha over bg to produce the exact opaque equivalent
-    val codeBg = remember(fg, bg) {
-        Color(
-            red   = fg.red   * 0.1f + bg.red   * 0.9f,
-            green = fg.green * 0.1f + bg.green * 0.9f,
-            blue  = fg.blue  * 0.1f + bg.blue  * 0.9f,
-        )
-    }
+    // Directly on the deep-navy page: code, inline code and quotes share the
+    // translucent codeSurface; table rules use the hairline.
     val customMarkdownColors = markdownColor(
-        codeBackground = codeBg,
-        inlineCodeBackground = Color.Transparent,
+        text = textColor,
+        codeBackground = fairyTokens.codeSurface,
+        inlineCodeBackground = fairyTokens.codeSurface,
+        dividerColor = fairyTokens.hairline,
+        tableBackground = Color.Transparent,
     )
     val customMarkdownPadding = markdownPadding(block = 8.dp)
     val thoughtMarkdownPadding = markdownPadding(block = 5.dp)

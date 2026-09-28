@@ -46,6 +46,13 @@
     <string name="remote_archive_title">归档任务？</string>
     <string name="remote_archive_message">将此任务从 Fairy 和 Remote 的未归档列表中移除？历史记录会保留。</string>
     <string name="remote_activity">处理中</string>
+    <string name="remote_relayed_from">转达自 %1$s</string>
+    <string name="remote_connecting_status">正在连接</string>
+    <string name="remote_greeting">我在。想让我做点什么？</string>
+    <string name="remote_quick_today">今天有什么安排</string>
+    <string name="remote_quick_research">帮我查点资料</string>
+    <string name="remote_quick_file">看看这份文件</string>
+    <string name="remote_context_usage">上下文 %1$s / %2$s</string>
     <string name="remote_voice_input">语音输入</string>
     <string name="remote_voice_hold_hint">按住说话</string>
     <string name="remote_voice_listening">正在聆听…上滑取消</string>

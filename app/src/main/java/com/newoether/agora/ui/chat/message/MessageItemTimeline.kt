@@ -43,6 +43,7 @@ import com.newoether.agora.ui.components.*
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import com.newoether.agora.util.noOpBringIntoView
 
 // ── Timeline / segment rendering (extracted from MessageItem.kt) ──────────────
@@ -312,10 +313,15 @@ internal fun CompactSegmentBlock(
             label = "compactSegmentDisclosureRotation",
         )
 
+        val fairyTokens = LocalFairyTokens.current
+        val activityAccent = fairyTokens.fairyGlow
+        // A single-line hint on the page, no capsule; the expanded details sit
+        // on the faint code surface.
         StartAnchoredHorizontalOverflowHost {
             Surface(
-                tonalElevation = 2.dp,
+                tonalElevation = 0.dp,
                 shape = RoundedCornerShape(18.dp),
+                color = if (isExpanded) fairyTokens.codeSurface else Color.Transparent,
             modifier = Modifier
                 .offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)
                 .width(cardWidth)
@@ -357,31 +363,32 @@ internal fun CompactSegmentBlock(
                     label = "compactSegmentIcon:$expansionKey",
                     modifier = Modifier.size(18.dp),
                 ) { icon ->
+                    val iconTint = if (showLoading) activityAccent else fairyTokens.textMuted
                     when (icon) {
                         CompactSegmentIcon.LOADING -> CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            color = iconTint,
                             strokeWidth = 2.dp,
                         )
                         CompactSegmentIcon.TOOL -> Icon(
                             Icons.Default.Build,
                             null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                            tint = iconTint,
                         )
                         CompactSegmentIcon.IMAGE -> Icon(
                             Icons.Filled.Image,
                             null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                            tint = iconTint,
                         )
                         CompactSegmentIcon.THINKING -> Icon(
                             androidx.compose.ui.res.painterResource(
                                 id = com.newoether.agora.R.drawable.neurology_24,
                             ),
                             null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                            tint = iconTint,
                         )
                     }
                 }
@@ -398,9 +405,10 @@ internal fun CompactSegmentBlock(
                     Text(
                         text = title,
                         style = compactTitleStyle,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        color = if (showLoading) fairyTokens.fairyLink else fairyTokens.textMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fairyActivitySweep(showLoading),
                     )
                 }
                 Spacer(modifier = Modifier.width(26.dp))

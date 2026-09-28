@@ -96,6 +96,24 @@ internal fun streamingTailPresentation(
     )
 }
 
+/**
+ * The Fairy accent bar glows only on the conversation tail while generation is
+ * visible. Derived from [fairyPresence]: a connected MODEL tail whose status is
+ * in flight is THINKING/SPEAKING. The Remote flow's display-only tail stub
+ * (status SENDING) therefore animates too.
+ */
+internal fun isEmblemAnimating(
+    isLoading: Boolean,
+    message: ChatMessage,
+    isTail: Boolean,
+): Boolean = isLoading && isTail && message.participant == Participant.MODEL &&
+    com.newoether.agora.ui.components.fairyPresence(
+        connection = com.newoether.agora.mcp.McpConnectionStatus.CONNECTED,
+        tailParticipant = message.participant,
+        tailStatus = message.status,
+        tailTextGrowing = false,
+    ).isWorking
+
 internal fun shouldShowStreamingTailIndicator(
     isLoading: Boolean,
     isStopping: Boolean,
