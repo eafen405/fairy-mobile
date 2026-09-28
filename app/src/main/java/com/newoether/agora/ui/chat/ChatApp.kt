@@ -40,6 +40,7 @@ import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
 import com.newoether.agora.ui.components.FairyBackground
+import com.newoether.agora.ui.components.FairyWindowBarHeight
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
@@ -135,6 +136,13 @@ fun ChatApp(
     val customProviders by viewModel.settings.customProviders.collectAsState()
     val displayConversations = remember(conversations, customProviders) { conversations.orEmpty().map { it.forDisplay(customProviders) } }
     val displayMessagesState = remember(messagesState, customProviders) { derivedStateOf { messagesState.value.map { it.forDisplay(customProviders) } } }
+    val fairyWindow = rememberChatFairyWindowState(
+        streamingMessage = generationSnapshot.streamingMessage?.forDisplay(customProviders),
+        lastMessage = displayMessagesState.value.lastOrNull(),
+        isNewChatMode = isNewChatMode,
+        isLoading = isLoading,
+        isSwitching = isSwitching,
+    )
     val webSearchApiKeys by viewModel.settings.webSearchApiKeys.collectAsState()
     val shellDevices by viewModel.settings.shellDevices.collectAsState()
     val toolCallDisplayMode by viewModel.settings.toolCallDisplayMode.collectAsState()
@@ -438,6 +446,8 @@ fun ChatApp(
                                 inputFocusRequester.requestFocus()
                             }
                         },
+                        forceBrandTitle = true,
+                        fairyWindow = fairyWindow,
                     )
                 }
             ) { padding -> Box(modifier = Modifier.fillMaxSize()) {
@@ -585,7 +595,8 @@ fun ChatApp(
                                 contentPadding = PaddingValues(
                                     start = 8.dp,
                                     end = 8.dp,
-                                    top = 140.dp,
+                                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() +
+                                        FairyWindowBarHeight + 12.dp,
                                     bottom = bottomBarHeight + shareSelectionBarSpace + 8.dp
                                 )
                             )
