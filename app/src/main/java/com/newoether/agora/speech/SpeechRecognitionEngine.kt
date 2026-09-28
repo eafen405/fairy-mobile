@@ -10,8 +10,6 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.util.Locale
 
-internal enum class SpeechRecognitionError { PERMISSION, NO_MATCH, NETWORK, UNAVAILABLE, FAILED }
-
 /**
  * Client-side seam over a recognition provider. The composer drives a session
  * through [start]/[stopListening]/[cancel] and observes [Listener] events; it
@@ -21,7 +19,7 @@ internal interface SpeechRecognitionEngine {
     interface Listener {
         fun onPartialResult(text: String)
         fun onFinalResult(text: String)
-        fun onError(error: SpeechRecognitionError)
+        fun onError(error: SpeechInputFailure)
     }
 
     fun start(listener: Listener)
@@ -48,16 +46,16 @@ internal fun createSpeechRecognitionEngine(
 ): SpeechRecognitionEngine? =
     if (isSpeechRecognitionAvailable(context)) AndroidSpeechRecognitionEngine(context, locale) else null
 
-private fun Int.toSpeechError(): SpeechRecognitionError = when (this) {
-    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> SpeechRecognitionError.PERMISSION
-    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> SpeechRecognitionError.NO_MATCH
+private fun Int.toSpeechError(): SpeechInputFailure = when (this) {
+    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> SpeechInputFailure.PERMISSION
+    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> SpeechInputFailure.NO_MATCH
     SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_NETWORK,
-    SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> SpeechRecognitionError.NETWORK
+    SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> SpeechInputFailure.NETWORK
     SpeechRecognizer.ERROR_RECOGNIZER_BUSY, SpeechRecognizer.ERROR_TOO_MANY_REQUESTS,
     SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
     SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT,
-    SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS -> SpeechRecognitionError.UNAVAILABLE
-    else -> SpeechRecognitionError.FAILED
+    SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS -> SpeechInputFailure.UNAVAILABLE
+    else -> SpeechInputFailure.FAILED
 }
 
 private class AndroidSpeechRecognitionEngine(

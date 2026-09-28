@@ -35,6 +35,7 @@ internal class SpeechSessionController(
     private var preSpeech = ""
     private var base = ""
     private var segment = ""
+    private var pendingFinal: String? = null
 
     /** Keyboard edits and draft-changing controls suspend while a session owns the composer. */
     val exclusive: Boolean get() = phase in setOf(
@@ -48,16 +49,29 @@ internal class SpeechSessionController(
             writeDraft(base + segment)
         }
         override fun onFinalResult(text: String) {
-            // A provider-side end of speech is terminal even while the user is still holding.
-            if (phase == SpeechInputPhase.CANCELLING) discard()
-            else if (phase == SpeechInputPhase.LISTENING || phase == SpeechInputPhase.FINALIZING) {
-                if (text.isBlank()) fail(SpeechInputFailure.NO_MATCH) else commit(text)
+            when (phase) {
+                SpeechInputPhase.CANCELLING -> discard()
+                SpeechInputPhase.FINALIZING ->
+                    if (text.isBlank()) fail(SpeechInputFailure.NO_MATCH) else commit(text)
+                SpeechInputPhase.LISTENING ->
+                    // The provider ended speech while the press is still held: stage
+                    // the result but keep the gesture's slide-to-cancel right until
+                    // release.
+                    if (text.isBlank()) fail(SpeechInputFailure.NO_MATCH)
+                    else {
+                        pendingFinal = text
+                        segment = text
+                        writeDraft(base + segment)
+                        engine?.destroy()
+                        engine = null
+                    }
+                else -> {}
             }
         }
-        override fun onError(error: SpeechRecognitionError) {
+        override fun onError(error: SpeechInputFailure) {
             if (phase == SpeechInputPhase.CANCELLING) discard()
             else if (phase == SpeechInputPhase.LISTENING || phase == SpeechInputPhase.FINALIZING) {
-                fail(error.toFailure())
+                fail(error)
             }
         }
     }
@@ -101,8 +115,12 @@ internal class SpeechSessionController(
     fun pressReleased() {
         when (phase) {
             SpeechInputPhase.LISTENING -> {
-                phase = SpeechInputPhase.FINALIZING
-                engine?.stopListening()
+                val staged = pendingFinal
+                if (staged != null) commit(staged)
+                else {
+                    phase = SpeechInputPhase.FINALIZING
+                    engine?.stopListening()
+                }
             }
             SpeechInputPhase.CANCELLING -> discard()
             else -> {}
@@ -166,13 +184,6 @@ internal class SpeechSessionController(
         engine?.destroy()
         engine = null
         segment = ""
-    }
-
-    private fun SpeechRecognitionError.toFailure(): SpeechInputFailure = when (this) {
-        SpeechRecognitionError.PERMISSION -> SpeechInputFailure.PERMISSION
-        SpeechRecognitionError.NO_MATCH -> SpeechInputFailure.NO_MATCH
-        SpeechRecognitionError.NETWORK -> SpeechInputFailure.NETWORK
-        SpeechRecognitionError.UNAVAILABLE -> SpeechInputFailure.UNAVAILABLE
-        SpeechRecognitionError.FAILED -> SpeechInputFailure.FAILED
+        pendingFinal = null
     }
 }

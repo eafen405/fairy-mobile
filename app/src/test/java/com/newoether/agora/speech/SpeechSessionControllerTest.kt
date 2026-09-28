@@ -42,7 +42,7 @@ class SpeechSessionControllerTest {
         )
         fun partial(text: String) = engine?.listener?.onPartialResult(text)
         fun final(text: String) = engine?.listener?.onFinalResult(text)
-        fun error(error: SpeechRecognitionError) = engine?.listener?.onError(error)
+        fun error(error: SpeechInputFailure) = engine?.listener?.onError(error)
     }
 
     @Test fun pressStartsListeningAndKeepsTheDraft() {
@@ -122,7 +122,7 @@ class SpeechSessionControllerTest {
         val h = Harness(draft = "draft")
         h.controller.pressStarted()
         h.partial("gone")
-        h.error(SpeechRecognitionError.NETWORK)
+        h.error(SpeechInputFailure.NETWORK)
         assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
         assertEquals(SpeechInputFailure.NETWORK, h.controller.failure)
         assertEquals("draft", h.draft)
@@ -132,7 +132,7 @@ class SpeechSessionControllerTest {
         val h = Harness(draft = "draft")
         h.controller.pressStarted()
         h.controller.pressMoved(threshold)
-        h.error(SpeechRecognitionError.FAILED)
+        h.error(SpeechInputFailure.FAILED)
         assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
         assertEquals("draft", h.draft)
     }
@@ -184,20 +184,47 @@ class SpeechSessionControllerTest {
         assertEquals(1, h.engine?.destroyed)
     }
 
-    @Test fun aProviderFinalDuringTheHoldCommitsImmediately() {
+    @Test fun aProviderFinalDuringTheHoldCommitsOnRelease() {
         val h = Harness()
         h.controller.pressStarted()
         h.final("auto ended")
-        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals(SpeechInputPhase.LISTENING, h.controller.phase)
+        assertTrue(h.controller.exclusive)
         assertEquals("auto ended", h.draft)
         h.controller.pressReleased()
         assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals("auto ended", h.draft)
+    }
+
+    @Test fun aProviderFinalDuringTheHoldCanStillBeCancelledBySlidingUp() {
+        val h = Harness(draft = "draft")
+        h.controller.pressStarted()
+        h.partial("junk")
+        h.final("auto ended")
+        assertEquals("draft auto ended", h.draft)
+        h.controller.pressMoved(threshold)
+        assertEquals(SpeechInputPhase.CANCELLING, h.controller.phase)
+        h.controller.pressReleased()
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals("draft", h.draft)
+    }
+
+    @Test fun aProviderFinalDuringTheHoldCanSlideBackAndCommit() {
+        val h = Harness()
+        h.controller.pressStarted()
+        h.final("auto ended")
+        h.controller.pressMoved(threshold)
+        h.controller.pressMoved(threshold - 1)
+        assertEquals(SpeechInputPhase.LISTENING, h.controller.phase)
+        h.controller.pressReleased()
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals("auto ended", h.draft)
     }
 
     @Test fun dismissedErrorsClearAndTheNextPressRetries() {
         val h = Harness(draft = "draft")
         h.controller.pressStarted()
-        h.error(SpeechRecognitionError.FAILED)
+        h.error(SpeechInputFailure.FAILED)
         h.controller.dismissError()
         assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
         assertNull(h.controller.failure)

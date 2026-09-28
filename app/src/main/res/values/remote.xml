@@ -46,7 +46,7 @@
     <string name="remote_empty_message">Message cannot be empty</string>
     <string name="remote_attachments_unsupported">This service does not support attachments</string>
     <string name="remote_activity">Processing</string>
-    <string name="remote_voice_input">Voice input</string>
+    <string name="remote_voice_input">Voice Input</string>
     <string name="remote_voice_hold_hint">Hold to talk</string>
     <string name="remote_voice_listening">Listening… slide up to cancel</string>
     <string name="remote_voice_release_cancel">Release to cancel</string>

@@ -2,13 +2,16 @@ package com.newoether.agora.ui.remote
 
 import android.app.Application
 import android.content.pm.PackageManager
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
@@ -18,6 +21,7 @@ import com.newoether.agora.speech.SpeechRecognitionEngine
 import com.newoether.agora.speech.SpeechSessionController
 import com.newoether.agora.ui.chat.bottombar.ChatComposerLayout
 import com.newoether.agora.ui.chat.bottombar.ComposerSendButton
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -30,7 +34,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class RemoteSpeechInputTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val context get() = ApplicationProvider.getApplicationContext<Application>()
     private val voiceDesc get() = context.getString(R.string.remote_voice_input)
@@ -168,5 +172,81 @@ class RemoteSpeechInputTest {
             context.packageName, PackageManager.GET_PERMISSIONS,
         )
         assertTrue(info.requestedPermissions.orEmpty().contains(android.Manifest.permission.RECORD_AUDIO))
+    }
+
+    @Test fun mergedManifestDeclaresTheRecognitionServiceQuery() {
+        // Service discovery is subject to package visibility on Android 11+; the
+        // <queries> entry must survive manifest merging. Robolectric cannot enforce
+        // visibility, so assert on the merged manifest artifact directly.
+        var directory: File? = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        var moduleRoot: File? = null
+        while (directory != null && moduleRoot == null) {
+            moduleRoot = when {
+                File(directory, "src/main/AndroidManifest.xml").isFile -> directory
+                File(directory, "app/src/main/AndroidManifest.xml").isFile -> File(directory, "app")
+                else -> null
+            }
+            directory = directory.parentFile
+        }
+        val merged = File(requireNotNull(moduleRoot), "build/intermediates")
+            .walkTopDown()
+            .filter { it.isFile && it.path.contains("merged_manifest") && it.name == "AndroidManifest.xml" }
+            .toList()
+        assertTrue("no merged manifest found for this variant", merged.isNotEmpty())
+        val queries = merged.map { it.readText().substringAfter("<queries>").substringBefore("</queries>") }
+        assertTrue(queries.any { it.contains("android.speech.RecognitionService") })
+    }
+
+    @Test fun voiceInputLabelFollowsTheTitleCaseConvention() {
+        // development/application-ui.md: standalone command labels use Title Case.
+        assertEquals("Voice Input", context.getString(R.string.remote_voice_input))
+    }
+
+    private fun touch(action: Int, x: Float, y: Float, downTime: Long) {
+        compose.activity.dispatchTouchEvent(
+            MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0),
+        )
+        compose.waitForIdle()
+    }
+
+    @Test fun aRealHoldSlideUpAndReleaseCancelsThroughThePointerSeam() {
+        val field = TextFieldState("keep")
+        val engine = FakeEngine()
+        val controller = controller(field, engine)
+        mount(field, controller)
+        val bounds = compose.onNodeWithContentDescription(voiceDesc).fetchSemanticsNode().boundsInRoot
+        val x = bounds.left + bounds.width / 2
+        val y = bounds.top + bounds.height / 2
+        val downTime = SystemClock.uptimeMillis()
+        touch(MotionEvent.ACTION_DOWN, x, y, downTime)
+        assertEquals(SpeechInputPhase.LISTENING, controller.phase)
+        compose.runOnIdle { engine.listener?.onPartialResult("junk") }
+        touch(MotionEvent.ACTION_MOVE, x, y - 250f, downTime)
+        assertEquals(SpeechInputPhase.CANCELLING, controller.phase)
+        compose.onNodeWithText(context.getString(R.string.remote_voice_release_cancel)).assertIsDisplayed()
+        touch(MotionEvent.ACTION_UP, x, y - 250f, downTime)
+        assertEquals(SpeechInputPhase.IDLE, controller.phase)
+        assertEquals("keep", field.text.toString())
+        compose.onNodeWithContentDescription(sendDesc).assertIsEnabled()
+    }
+
+    @Test fun aRealHoldWithAnEarlyProviderFinalStillCancelsOnSlideUp() {
+        val field = TextFieldState("draft")
+        val engine = FakeEngine()
+        val controller = controller(field, engine)
+        mount(field, controller)
+        val bounds = compose.onNodeWithContentDescription(voiceDesc).fetchSemanticsNode().boundsInRoot
+        val x = bounds.left + bounds.width / 2
+        val y = bounds.top + bounds.height / 2
+        val downTime = SystemClock.uptimeMillis()
+        touch(MotionEvent.ACTION_DOWN, x, y, downTime)
+        assertEquals(SpeechInputPhase.LISTENING, controller.phase)
+        compose.runOnIdle { engine.listener?.onFinalResult("spoken") }
+        assertEquals(SpeechInputPhase.LISTENING, controller.phase)
+        touch(MotionEvent.ACTION_MOVE, x, y - 250f, downTime)
+        assertEquals(SpeechInputPhase.CANCELLING, controller.phase)
+        touch(MotionEvent.ACTION_UP, x, y - 250f, downTime)
+        assertEquals(SpeechInputPhase.IDLE, controller.phase)
+        assertEquals("draft", field.text.toString())
     }
 }
