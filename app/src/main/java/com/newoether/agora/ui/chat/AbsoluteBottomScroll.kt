@@ -177,6 +177,21 @@ internal data class AbsoluteBottomLayoutSnapshot(
     }
 }
 
+/** Residual distance to the physical bottom the settle phase tolerates without re-seeking. */
+internal const val AbsoluteBottomSettleTolerancePx = 2f
+
+/**
+ * True when the parked position is no longer the physical bottom: the terminal sentinel is
+ * gone, or it is still scrollable and its remaining gap exceeds the settle tolerance. A sub-2px
+ * residual is a measure-level rounding artifact the seek cannot close, so it counts as settled.
+ */
+internal fun AbsoluteBottomLayoutSnapshot.bottomDetachedBeyondSettleTolerance(): Boolean =
+    !sentinelVisible ||
+        (
+            canScrollForward &&
+                (remainingDistancePx ?: Float.MAX_VALUE) > AbsoluteBottomSettleTolerancePx
+        )
+
 internal fun absoluteBottomLayoutSnapshot(
     layoutInfo: LazyListLayoutInfo,
     canScrollForward: Boolean,
@@ -372,14 +387,7 @@ internal suspend fun LazyListState.animateToAbsoluteBottom(
             while (currentCoroutineContext().isActive) {
                 val frameNanos = withFrameNanos { frameTimeNanos -> frameTimeNanos }
                 layout = absoluteBottomLayoutSnapshot(layoutInfo, canScrollForward)
-                // A sub-2px residual is a measure-level rounding artifact the seek cannot
-                // close: treat it as settled instead of re-seeking forever.
-                val bottomLost = !layout.sentinelVisible ||
-                    (
-                        layout.canScrollForward &&
-                            (layout.remainingDistancePx ?: Float.MAX_VALUE) > 2f
-                    )
-                if (isGenerationActive() || bottomLost) {
+                if (isGenerationActive() || layout.bottomDetachedBeyondSettleTolerance()) {
                     followedActiveGeneration =
                         followedActiveGeneration || isGenerationActive()
                     dispatch(AbsoluteBottomScrollEvent.ExtentChanged)

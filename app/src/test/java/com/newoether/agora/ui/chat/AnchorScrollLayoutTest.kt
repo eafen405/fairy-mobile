@@ -132,7 +132,14 @@ class AnchorScrollLayoutTest {
         val previous = message("user", Participant.USER).copy(runId = "turn-1")
         val reply = message("assistant", Participant.MODEL).copy(runId = "turn-2")
         assertTrue(
-            shouldAnchorIncomingTurn(previous, reply, hasPendingAttempt = false, withinAttachThreshold = true),
+            shouldAnchorIncomingTurn(
+                previousTail = previous,
+                previousTailObserved = true,
+                newTail = reply,
+                userRunIds = setOf("turn-1"),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
         )
     }
 
@@ -141,7 +148,14 @@ class AnchorScrollLayoutTest {
         val previous = message("user", Participant.USER).copy(runId = "turn-1")
         val reply = message("assistant", Participant.MODEL).copy(runId = "turn-2")
         assertFalse(
-            shouldAnchorIncomingTurn(previous, reply, hasPendingAttempt = false, withinAttachThreshold = false),
+            shouldAnchorIncomingTurn(
+                previousTail = previous,
+                previousTailObserved = true,
+                newTail = reply,
+                userRunIds = setOf("turn-1"),
+                hasPendingAttempt = false,
+                withinAttachThreshold = false,
+            ),
         )
     }
 
@@ -150,7 +164,14 @@ class AnchorScrollLayoutTest {
         val previous = message("user", Participant.USER).copy(runId = "turn-1")
         val reply = message("assistant", Participant.MODEL).copy(runId = "turn-2")
         assertFalse(
-            shouldAnchorIncomingTurn(previous, reply, hasPendingAttempt = true, withinAttachThreshold = true),
+            shouldAnchorIncomingTurn(
+                previousTail = previous,
+                previousTailObserved = true,
+                newTail = reply,
+                userRunIds = setOf("turn-1"),
+                hasPendingAttempt = true,
+                withinAttachThreshold = true,
+            ),
         )
     }
 
@@ -158,11 +179,25 @@ class AnchorScrollLayoutTest {
     fun incomingTurnAnchorDeclinesWhenTheTailDidNotChange() {
         val tail = message("assistant", Participant.MODEL).copy(runId = "turn-1")
         assertFalse(
-            shouldAnchorIncomingTurn(tail, tail, hasPendingAttempt = false, withinAttachThreshold = true),
+            shouldAnchorIncomingTurn(
+                previousTail = tail,
+                previousTailObserved = true,
+                newTail = tail,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
         )
         val userTail = message("user", Participant.USER).copy(runId = "turn-1")
         assertFalse(
-            shouldAnchorIncomingTurn(tail, userTail, hasPendingAttempt = false, withinAttachThreshold = true),
+            shouldAnchorIncomingTurn(
+                previousTail = tail,
+                previousTailObserved = true,
+                newTail = userTail,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
         )
     }
 
@@ -171,7 +206,73 @@ class AnchorScrollLayoutTest {
         val user = message("user", Participant.USER).copy(runId = "turn-1")
         val reply = message("assistant", Participant.MODEL).copy(runId = "turn-1")
         assertFalse(
-            shouldAnchorIncomingTurn(user, reply, hasPendingAttempt = false, withinAttachThreshold = true),
+            shouldAnchorIncomingTurn(
+                previousTail = user,
+                previousTailObserved = true,
+                newTail = reply,
+                userRunIds = setOf("turn-1"),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
+        )
+    }
+
+    @Test
+    fun incomingTurnAnchorDeclinesForABatchedLocalReplyEvenAfterDeliveryConfirmed() {
+        // One refresh carries the confirmed USER message and its MODEL reply together. The
+        // send-confirmation anchor targets the user message; the watcher must not re-anchor to
+        // the reply once the pending flag has already cleared.
+        val previous = message("old-model", Participant.MODEL).copy(runId = "turn-0")
+        val reply = message("reply", Participant.MODEL).copy(runId = "turn-1")
+        assertFalse(
+            shouldAnchorIncomingTurn(
+                previousTail = previous,
+                previousTailObserved = true,
+                newTail = reply,
+                userRunIds = setOf("turn-1"),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
+        )
+    }
+
+    @Test
+    fun firstProactiveMessageAnchorsAnAlreadyLoadedEmptyConversation() {
+        val proactive = message("assistant", Participant.MODEL).copy(runId = "turn-1")
+        assertTrue(
+            shouldAnchorIncomingTurn(
+                previousTail = null,
+                previousTailObserved = true,
+                newTail = proactive,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
+        )
+    }
+
+    @Test
+    fun theInitialTailCaptureNeverAnchors() {
+        val proactive = message("assistant", Participant.MODEL).copy(runId = "turn-1")
+        assertFalse(
+            shouldAnchorIncomingTurn(
+                previousTail = null,
+                previousTailObserved = false,
+                newTail = proactive,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
+        )
+        assertFalse(
+            shouldAnchorIncomingTurn(
+                previousTail = message("old", Participant.MODEL).copy(runId = "turn-0"),
+                previousTailObserved = false,
+                newTail = proactive,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
+            ),
         )
     }
 
@@ -179,8 +280,12 @@ class AnchorScrollLayoutTest {
     fun incomingTurnAnchorDeclinesWhenThereIsNoTail() {
         assertFalse(
             shouldAnchorIncomingTurn(
-                message("user", Participant.USER), null,
-                hasPendingAttempt = false, withinAttachThreshold = true,
+                previousTail = message("user", Participant.USER),
+                previousTailObserved = true,
+                newTail = null,
+                userRunIds = emptySet(),
+                hasPendingAttempt = false,
+                withinAttachThreshold = true,
             ),
         )
     }

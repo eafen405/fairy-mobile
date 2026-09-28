@@ -241,37 +241,46 @@ class SendAnchorScrollTest {
         }
     }
 
+    private fun sentinelSizePx(h: Harness): Int? =
+        h.scroll.listState.layoutInfo.visibleItemsInfo
+            .firstOrNull { it.key == AbsoluteBottomSentinelKey }
+            ?.size
+
     @Test
     fun streamingGrowthKeepsTheFirstVisibleItemStill() {
         val h = Harness()
         mount(h)
         compose.runOnIdle {
-            h.messages = listOf(
-                msg("u1", Participant.USER, "question"),
-                msg("m1", Participant.MODEL, "one"),
-            )
+            h.messages = listOf(msg("m1", Participant.MODEL, "seed"))
         }
         compose.waitForIdle()
-        compose.runOnIdle { h.requestAnchor("u1") }
+        compose.runOnIdle { h.requestAnchor("m1") }
         pumpFrames(h)
         var beforeIndex = -1
         var beforeOffset = -1
+        var sentinelBefore = -1
         compose.runOnIdle {
             beforeIndex = h.scroll.listState.firstVisibleItemIndex
             beforeOffset = h.scroll.listState.firstVisibleItemScrollOffset
+            sentinelBefore = sentinelSizePx(h) ?: -1
         }
+        // Appending to the anchored turn grows the rendered extent for real — the height map
+        // gains the new message and the sentinel reserve shrinks by that amount.
         compose.runOnIdle {
             h.isLoading = true
-            h.messages = h.messages.map { message ->
-                if (message.id == "m1") {
-                    message.copy(text = "one\n" + "growth\n".repeat(20))
-                } else {
-                    message
-                }
-            }
+            h.messages = h.messages + msg("m2", Participant.MODEL, "growth")
         }
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
+        compose.runOnIdle {
+            val grownHeight = h.scroll.messageHeights["m2"] ?: 0
+            assertTrue("appended message measured $grownHeight", grownHeight > 0)
+            val sentinelAfter = sentinelSizePx(h) ?: -1
+            assertTrue(
+                "reserve $sentinelBefore -> $sentinelAfter",
+                sentinelBefore > 1 && sentinelAfter < sentinelBefore,
+            )
+        }
         compose.runOnIdle {
             h.isLoading = false
         }
@@ -280,42 +289,49 @@ class SendAnchorScrollTest {
         compose.runOnIdle {
             assertEquals(beforeIndex, h.scroll.listState.firstVisibleItemIndex)
             assertEquals(beforeOffset, h.scroll.listState.firstVisibleItemScrollOffset)
+            assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
         }
     }
+
+    private fun bottomButtonVisible(h: Harness): Boolean = shouldShowAbsoluteBottomButton(
+        isNewChatMode = false,
+        isSwitching = false,
+        conversationContentReady = true,
+        shareSelectionActive = false,
+        hasItems = h.scroll.listState.layoutInfo.totalItemsCount > 1,
+        canScrollForward = h.scroll.listState.canScrollForward,
+        isNearBottom = h.scroll.isNearAbsoluteBottom,
+        isStreamingAutoFollowing = h.scroll.streamingTailController.isAutoFollowing,
+        scrollPhase = h.scroll.absoluteBottomScrollPhase,
+    )
 
     @Test
     fun overlongReplyExposesTheBottomButtonAndReachesTheBottomOnClick() {
         val h = Harness()
         mount(h)
         compose.runOnIdle {
-            // A reply chain that overflows the viewport below the anchored message.
-            h.messages = (1..10).flatMap { index ->
-                listOf(
-                    msg("u$index", Participant.USER, "question $index"),
-                    msg("m$index", Participant.MODEL, "answer $index"),
-                )
-            }
+            h.messages = listOf(msg("m1", Participant.MODEL, "seed"))
         }
         compose.waitForIdle()
-        compose.runOnIdle { h.requestAnchor("u1") }
+        compose.runOnIdle { h.requestAnchor("m1") }
         pumpFrames(h)
         compose.runOnIdle {
             assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
+            // The reserve fills the viewport room: the reply does not overflow yet.
+            assertTrue(!bottomButtonVisible(h))
+        }
+        // The reply keeps growing below the anchored message until it overflows the viewport.
+        compose.runOnIdle {
+            h.messages = h.messages + (2..8).map { index ->
+                msg("m$index", Participant.MODEL, "growth $index")
+            }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.runOnIdle {
             assertTrue(h.scroll.listState.canScrollForward)
             assertTrue(!h.scroll.isNearAbsoluteBottom)
-            assertTrue(
-                shouldShowAbsoluteBottomButton(
-                    isNewChatMode = false,
-                    isSwitching = false,
-                    conversationContentReady = true,
-                    shareSelectionActive = false,
-                    hasItems = h.scroll.listState.layoutInfo.totalItemsCount > 1,
-                    canScrollForward = h.scroll.listState.canScrollForward,
-                    isNearBottom = h.scroll.isNearAbsoluteBottom,
-                    isStreamingAutoFollowing = h.scroll.streamingTailController.isAutoFollowing,
-                    scrollPhase = h.scroll.absoluteBottomScrollPhase,
-                ),
-            )
+            assertTrue(bottomButtonVisible(h))
             h.scope.launch { h.scroll.requestAbsoluteBottomScroll() }
         }
         var elapsed = 0L
@@ -331,11 +347,8 @@ class SendAnchorScrollTest {
         }
         // Content keeps growing off-screen afterwards; the button comes back.
         compose.runOnIdle {
-            h.messages = h.messages + (11..20).flatMap { index ->
-                listOf(
-                    msg("u$index", Participant.USER, "question $index"),
-                    msg("m$index", Participant.MODEL, "answer $index"),
-                )
+            h.messages = h.messages + (9..16).map { index ->
+                msg("m$index", Participant.MODEL, "growth $index")
             }
         }
         compose.mainClock.advanceTimeBy(500)
@@ -554,6 +567,58 @@ class SendAnchorScrollTest {
             assertTrue(h.anchorRequestIds.isEmpty())
             assertEquals(beforeIndex, h.scroll.listState.firstVisibleItemIndex)
             assertEquals(beforeOffset, h.scroll.listState.firstVisibleItemScrollOffset)
+        }
+    }
+
+    @Test
+    fun aBatchedReplyKeepsTheSendConfirmationAnchor() {
+        // A single refresh can deliver the confirmed USER message and its MODEL reply
+        // together. The send path anchors the user message; the watcher must not replace it
+        // with the reply just because the delivery flag already cleared.
+        val h = Harness()
+        mount(h)
+        compose.runOnIdle {
+            h.messages = listOf(
+                msg("u1", Participant.USER, "question", runId = "turn-1"),
+                msg("m1", Participant.MODEL, "answer", runId = "turn-1"),
+            )
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { h.watchEnabled = true }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            h.requestAnchor("u2")
+            h.messages = h.messages + listOf(
+                msg("u2", Participant.USER, "next", runId = "turn-2"),
+                msg("m2", Participant.MODEL, "reply", runId = "turn-2"),
+            )
+        }
+        pumpFrames(h)
+        compose.runOnIdle {
+            assertTrue("watcher requests ${h.anchorRequestIds}", h.anchorRequestIds.isEmpty())
+            assertEquals("u2", h.scroll.activeAnchor?.messageId)
+            assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
+        }
+    }
+
+    @Test
+    fun anEmptyConversationAnchorsItsFirstProactiveTurn() {
+        val h = Harness()
+        mount(h)
+        compose.runOnIdle { h.messages = emptyList() }
+        compose.waitForIdle()
+        compose.runOnIdle { h.watchEnabled = true }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            h.messages = listOf(
+                msg("m1", Participant.MODEL, "proactive hello", runId = "turn-p"),
+            )
+        }
+        pumpFrames(h)
+        compose.runOnIdle {
+            assertEquals(listOf("m1"), h.anchorRequestIds)
+            assertEquals("m1", h.scroll.activeAnchor?.messageId)
+            assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
         }
     }
 

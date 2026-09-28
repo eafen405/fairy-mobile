@@ -143,24 +143,30 @@ internal fun anchorTurnOffsetIsMeasured(
     .all { message -> messageHeights[message.id] != null }
 
 /**
- * A new tail anchors only when it is a genuinely new MODEL turn that did not answer a local send
- * still in flight. A reply shares its runId with the USER tail it followed; a proactive or
- * relayed message arrives under a fresh turn identity.
+ * A new tail anchors only when it is a genuinely new MODEL turn that did not answer a local
+ * send. A reply shares its runId with the USER message that triggered it — regardless of when
+ * the delivery was confirmed — while a proactive or relayed message arrives under a turn
+ * identity no local user message carries. [previousTailObserved] separates the baseline capture
+ * (conversation open, never anchored) from an already-loaded empty conversation whose first
+ * proactive message does anchor.
  */
 internal fun shouldAnchorIncomingTurn(
     previousTail: ChatMessage?,
+    previousTailObserved: Boolean,
     newTail: ChatMessage?,
+    userRunIds: Set<String>,
     hasPendingAttempt: Boolean,
     withinAttachThreshold: Boolean,
 ): Boolean =
-    !hasPendingAttempt &&
+    previousTailObserved &&
+        !hasPendingAttempt &&
         withinAttachThreshold &&
-        previousTail != null &&
         newTail != null &&
         newTail.participant == Participant.MODEL &&
-        newTail.id != previousTail.id &&
+        newTail.id != previousTail?.id &&
         newTail.runId != null &&
-        newTail.runId != previousTail.runId
+        newTail.runId != previousTail?.runId &&
+        newTail.runId !in userRunIds
 
 /**
  * Watches the conversation tail and asks for an anchor when a proactive assistant turn lands
@@ -176,14 +182,22 @@ internal fun BindIncomingTurnAnchorEffect(
     withinAttachThreshold: () -> Boolean,
     onRequestAnchor: (String) -> Unit,
 ) {
-    var previousTail by remember(conversationId) { mutableStateOf(messages.lastOrNull()) }
+    var previousTail by remember(conversationId) { mutableStateOf<ChatMessage?>(null) }
+    var previousTailObserved by remember(conversationId) { mutableStateOf(false) }
     val tail = messages.lastOrNull()
+    val userRunIds = remember(messages) {
+        messages.mapNotNullTo(mutableSetOf()) { message ->
+            message.runId.takeIf { message.participant == Participant.USER }
+        }
+    }
     LaunchedEffect(conversationId, tail?.id, tail?.runId, enabled) {
         if (
             enabled &&
             shouldAnchorIncomingTurn(
                 previousTail = previousTail,
+                previousTailObserved = previousTailObserved,
                 newTail = tail,
+                userRunIds = userRunIds,
                 hasPendingAttempt = hasPendingAttempt,
                 withinAttachThreshold = withinAttachThreshold(),
             )
@@ -191,6 +205,7 @@ internal fun BindIncomingTurnAnchorEffect(
             tail?.id?.let(onRequestAnchor)
         }
         previousTail = tail
+        previousTailObserved = true
     }
 }
 
@@ -261,30 +276,12 @@ internal suspend fun ChatScrollCoordinator.anchorScrollToMessage(
             visibleTarget.offset.toFloat() + intraTurn
         },
         estimatedErrorPx = {
-            val layout = listState.layoutInfo
-            val firstVisible = layout.visibleItemsInfo.minByOrNull { it.index }
-                ?: return@smoothSeekToItem null
             val target = currentTarget() ?: return@smoothSeekToItem null
-            val turns = buildMessageListTurns(messages.value)
-            val visibleSizes = layout.visibleItemsInfo.associate { it.index to it.size }
-            val fallbackHeightPx = visibleSizes.values
-                .filter { it > 1 }
-                .takeIf { it.isNotEmpty() }
-                ?.average()
-                ?.toFloat()
-                ?: with(density) { 72.dp.toPx() }
-            fun heightAt(index: Int): Float {
-                visibleSizes[index]?.let { return it.toFloat() }
-                val turn = turns.getOrNull(index) ?: return fallbackHeightPx
-                return estimateMessageListTurnHeightPx(turn, messageHeights, fallbackHeightPx)
-            }
-            var distance = firstVisible.offset.toFloat()
-            if (target.first >= firstVisible.index) {
-                for (index in firstVisible.index until target.first) distance += heightAt(index)
-            } else {
-                for (index in target.first until firstVisible.index) distance -= heightAt(index)
-            }
-            distance + target.second
+            estimateScrollDistanceToIndexPx(
+                turns = buildMessageListTurns(messages.value),
+                targetIndex = target.first,
+                density = density,
+            )?.let { it + target.second }
         },
         exactTargetReady = {
             val turns = buildMessageListTurns(messages.value)

@@ -29,34 +29,47 @@ internal suspend fun ChatScrollCoordinator.animateToUserMessage(
         return true
     }
 
-    val firstVisibleIndex = listState.firstVisibleItemIndex
-    val visibleSizes = listState.layoutInfo.visibleItemsInfo.associate {
-        it.index to it.size
+    val distance = estimateScrollDistanceToIndexPx(
+        turns = layoutTurns,
+        targetIndex = targetIndex,
+        density = density,
+    ) ?: return false
+    if (kotlin.math.abs(distance) > 2f) {
+        listState.animateScrollBy(distance, tween(600, easing = easing))
     }
-    val fallbackHeight = visibleSizes.values
+    return true
+}
+
+/**
+ * Estimated pixel distance from the first visible item to [targetIndex]: measured sizes where
+ * items are composed, per-turn height estimates elsewhere. Signed — positive scrolls forward.
+ */
+internal fun ChatScrollCoordinator.estimateScrollDistanceToIndexPx(
+    turns: List<MessageListTurn>,
+    targetIndex: Int,
+    density: Density,
+): Float? {
+    val firstVisible = listState.layoutInfo.visibleItemsInfo.minByOrNull { it.index }
+        ?: return null
+    val visibleSizes = listState.layoutInfo.visibleItemsInfo.associate { it.index to it.size }
+    val fallbackHeightPx = visibleSizes.values
+        .filter { it > 1 }
         .takeIf { it.isNotEmpty() }
         ?.average()
         ?.toFloat()
         ?: with(density) { 72.dp.toPx() }
     fun heightAt(index: Int): Float {
         visibleSizes[index]?.let { return it.toFloat() }
-        val turn = layoutTurns.getOrNull(index) ?: return fallbackHeight
-        return estimateMessageListTurnHeightPx(turn, messageHeights, fallbackHeight)
+        val turn = turns.getOrNull(index) ?: return fallbackHeightPx
+        return estimateMessageListTurnHeightPx(turn, messageHeights, fallbackHeightPx)
     }
-
-    val distance = if (targetIndex >= firstVisibleIndex) {
-        var value = -listState.firstVisibleItemScrollOffset.toFloat()
-        for (index in firstVisibleIndex until targetIndex) value += heightAt(index)
-        value
+    var distance = firstVisible.offset.toFloat()
+    if (targetIndex >= firstVisible.index) {
+        for (index in firstVisible.index until targetIndex) distance += heightAt(index)
     } else {
-        var value = -listState.firstVisibleItemScrollOffset.toFloat()
-        for (index in targetIndex until firstVisibleIndex) value -= heightAt(index)
-        value
+        for (index in targetIndex until firstVisible.index) distance -= heightAt(index)
     }
-    if (kotlin.math.abs(distance) > 2f) {
-        listState.animateScrollBy(distance, tween(600, easing = easing))
-    }
-    return true
+    return distance
 }
 
 internal fun ChatScrollCoordinator.estimateRemainingAbsoluteBottomDistance(

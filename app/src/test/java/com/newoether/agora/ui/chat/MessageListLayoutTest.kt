@@ -453,6 +453,43 @@ class MessageListLayoutTest {
     }
 
     @Test
+    fun settleAcceptsAResidualInsideTheMeasureTolerance() {
+        val snapshot = AbsoluteBottomLayoutSnapshot(
+            totalItemsCount = 3,
+            canScrollForward = true,
+            viewportStartOffsetPx = 0,
+            viewportEndOffsetPx = 1_000,
+            afterContentPaddingPx = 24,
+            sentinelOffsetPx = 975,
+            sentinelSizePx = 1,
+        )
+        // Sentinel bottom sits 0px / 2px past the content end: measure-level residue.
+        assertFalse(snapshot.bottomDetachedBeyondSettleTolerance())
+        assertFalse(
+            snapshot.copy(sentinelOffsetPx = 977).bottomDetachedBeyondSettleTolerance(),
+        )
+    }
+
+    @Test
+    fun settleReSeeksWhenTheBottomIsMeaningfullyLost() {
+        val grown = AbsoluteBottomLayoutSnapshot(
+            totalItemsCount = 3,
+            canScrollForward = true,
+            viewportStartOffsetPx = 0,
+            viewportEndOffsetPx = 1_000,
+            afterContentPaddingPx = 24,
+            sentinelOffsetPx = 980,
+            sentinelSizePx = 1,
+        )
+        // 5px past the content end is real growth, not rounding.
+        assertTrue(grown.bottomDetachedBeyondSettleTolerance())
+        val sentinelGone = grown.copy(sentinelOffsetPx = null, sentinelSizePx = null)
+        assertTrue(sentinelGone.bottomDetachedBeyondSettleTolerance())
+        // An exhausted scroll is settled regardless of the measured gap.
+        assertFalse(grown.copy(canScrollForward = false).bottomDetachedBeyondSettleTolerance())
+    }
+
+    @Test
     fun coarseAbsoluteBottomEstimateTargetsThePhysicalEnd() {
         assertEquals(
             421f,
