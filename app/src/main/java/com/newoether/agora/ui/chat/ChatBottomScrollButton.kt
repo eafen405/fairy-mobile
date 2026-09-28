@@ -17,7 +17,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.ui.components.fairyPanel
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.theme.LocalFairyTokens
+import androidx.compose.ui.graphics.Color
 
 @Composable
 internal fun BoxScope.ChatBottomScrollButton(
@@ -26,14 +29,6 @@ internal fun BoxScope.ChatBottomScrollButton(
     onClick: () -> Unit,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
-    val fabElevation by animateDpAsState(
-        targetValue = if (showButton) 4.dp else 0.dp,
-        animationSpec = if (motionPolicy.allowSpatialTransitions) {
-            tween(400)
-        } else {
-            snap()
-        }
-    )
     AnimatedVisibility(
         visible = showButton,
         enter = if (motionPolicy.allowSpatialTransitions) {
@@ -48,11 +43,20 @@ internal fun BoxScope.ChatBottomScrollButton(
         } else {
             fadeOut(tween(400))
         },
-        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomBarHeight + 8.dp)
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomBarHeight + 12.dp)
     ) {
-        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            FloatingActionButton(onClick = onClick, containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp), contentColor = MaterialTheme.colorScheme.onSurface, shape = CircleShape, elevation = FloatingActionButtonDefaults.elevation(fabElevation), modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom), modifier = Modifier.size(24.dp))
+        val tokens = LocalFairyTokens.current
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = Color.Transparent,
+            contentColor = tokens.textPrimary,
+            modifier = Modifier
+                .size(36.dp)
+                .fairyPanel(CircleShape, tokens.panelOpaque.copy(alpha = 0.85f)),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom), modifier = Modifier.size(22.dp))
             }
         }
     }

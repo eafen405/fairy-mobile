@@ -20,7 +20,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
@@ -33,8 +32,8 @@ import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.chat.message.COMPOSER_ICON_CROSSFADE_DURATION_MS
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
-import com.newoether.agora.ui.motion.zzzPress
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.motion.fairyPress
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
@@ -130,22 +129,22 @@ internal fun ComposerSendButton(
             latestBusyShown?.invoke()
         }
     }
-    val tokens = LocalZzzTokens.current
+    val tokens = LocalFairyTokens.current
     val interactionSource = remember { MutableInteractionSource() }
     val containerColor by animateColorAsState(
         targetValue = when {
-            !isActionable -> MaterialTheme.colorScheme.surfaceVariant
+            !isActionable -> tokens.pill
             showStop -> tokens.danger
-            else -> tokens.fairyBlue
+            else -> tokens.primary
         },
         animationSpec = tween(durationMillis = 400),
         label = "fabContainer",
     )
     val contentColor by animateColorAsState(
         targetValue = when {
-            !isActionable -> MaterialTheme.colorScheme.onSurfaceVariant
-            showStop -> Color.Black
-            else -> Color.White
+            !isActionable -> tokens.textMuted
+            showStop -> tokens.onDanger
+            else -> tokens.onPrimary
         },
         animationSpec = tween(durationMillis = 400),
         label = "fabContent",
@@ -155,7 +154,7 @@ internal fun ComposerSendButton(
         onClick = onClick,
         enabled = isActionable,
         interactionSource = interactionSource,
-        modifier = Modifier.size(46.dp).zzzPress(interactionSource),
+        modifier = Modifier.size(44.dp).fairyPress(interactionSource),
         shape = CircleShape,
         color = containerColor,
         contentColor = contentColor,

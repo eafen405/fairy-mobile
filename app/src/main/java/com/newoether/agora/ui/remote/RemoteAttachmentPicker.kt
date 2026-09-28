@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.dp
 import com.newoether.agora.remote.RemoteViewModel
 import com.newoether.agora.ui.chat.bottombar.AttachmentAddMenu
 
@@ -26,5 +27,7 @@ internal fun RemoteAttachmentPicker(owner: String, enabled: Boolean, vm: RemoteV
     AttachmentAddMenu(enabled = enabled, showCamera = false, showVideos = false,
         onCamera = {}, onVideos = {},
         onPhotos = { photoOwner = owner; photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-        onFiles = { fileOwner = owner; files.launch(arrayOf("*/*")) })
+        onFiles = { fileOwner = owner; files.launch(arrayOf("*/*")) },
+        triggerSize = 40.dp, triggerIconSize = 24.dp,
+        triggerTint = com.newoether.agora.ui.theme.LocalFairyTokens.current.textPrimary)
 }

@@ -23,6 +23,9 @@ internal fun ChatComposerSurface(
     outerSpacerHeightPx: Float = 0f,
     backdrop: @Composable () -> Unit = {},
     contentMaxWidth: Dp = Dp.Unspecified,
+    // Bare: the content draws its own capsule (single-line composer), so no
+    // outer elevated Surface or inner padding is added.
+    bare: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -72,11 +75,20 @@ Surface(
                 }
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(8.dp),
+                .padding(if (bare) 0.dp else 8.dp),
         ) {
             backdrop()
 
-            Surface(
+            if (bare) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (isExpanded) Modifier.weight(1f) else Modifier),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    content()
+                }
+            } else Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(if (isExpanded) Modifier.weight(1f) else Modifier),

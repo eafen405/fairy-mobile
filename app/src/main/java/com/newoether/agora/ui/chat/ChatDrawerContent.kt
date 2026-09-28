@@ -548,11 +548,12 @@ internal fun ChatDrawerContent(
                                         DropdownMenu(
                                             containerColor =
                                                 MaterialTheme.colorScheme.surfaceContainer,
-                                            tonalElevation = 16.dp,
+                                            tonalElevation = 0.dp,
                                             expanded = showMenu,
                                             onDismissRequest = { showMenu = false },
                                             offset = pressOffset,
-                                            shape = RoundedCornerShape(12.dp)
+                                            shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
                                         ) {
                                             DropdownMenuItem(
                                                 text = {

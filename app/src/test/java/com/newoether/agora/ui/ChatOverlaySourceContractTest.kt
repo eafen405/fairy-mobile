@@ -35,7 +35,10 @@ internal class ChatOverlaySourceContractTest : UiSourceContractFixture() {
         assertTrue(components.contains("tint = LocalContentColor.current"))
         assertFalse(components.contains("tint = Color.White"))
         assertTrue(attachment.contains("Icons.Default.Add"))
-        assertTrue(attachment.contains("modifier = Modifier.size(16.dp)"))
+        // Local chat keeps the 16 dp trigger glyph; only the single-line Remote
+        // composer passes its 40 dp trigger with a 24 dp glyph.
+        assertTrue(attachment.contains("triggerIconSize: androidx.compose.ui.unit.Dp = 16.dp"))
+        assertTrue(attachment.contains("modifier = Modifier.size(triggerIconSize)"))
         assertTrue(bottomBar.contains("Icons.Default.MoreVert"))
         assertTrue(bottomBar.contains("modifier = Modifier.size(16.dp)"))
         assertTrue(userMessage.contains("leadingIcon = { Icon(Icons.Default.ContentCopy, null) }"))

@@ -41,6 +41,10 @@ internal fun AttachmentAddMenu(
     onFiles: () -> Unit,
     showCamera: Boolean = true,
     showVideos: Boolean = true,
+    // The single-line composer uses a 40 dp trigger with a 24 dp glyph.
+    triggerSize: androidx.compose.ui.unit.Dp = 32.dp,
+    triggerIconSize: androidx.compose.ui.unit.Dp = 16.dp,
+    triggerTint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     var showAddMenu by remember { mutableStateOf(false) }
     var lastAddDismissTime by remember { mutableLongStateOf(0L) }
@@ -58,7 +62,7 @@ internal fun AttachmentAddMenu(
                 else if (now - lastAddDismissTime > 200) showAddMenu = true
             },
             enabled = enabled,
-            modifier = Modifier.size(32.dp).menuAnchor(
+            modifier = Modifier.size(triggerSize).menuAnchor(
                 type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                 enabled = enabled,
             ),
@@ -66,8 +70,8 @@ internal fun AttachmentAddMenu(
             Icon(
                 Icons.Default.Add,
                 stringResource(R.string.add_attachment),
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(triggerIconSize),
+                tint = triggerTint,
             )
         }
         ExposedDropdownMenu(
@@ -80,7 +84,8 @@ internal fun AttachmentAddMenu(
                 }
             },
             matchTextFieldWidth = false,
-            shape = RoundedCornerShape(16.dp),
+            shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+            border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
         ) {
             if (showCamera) AttachmentMenuItem(Icons.Default.PhotoCamera, R.string.camera) { select(onCamera) }
             AttachmentMenuItem(Icons.Default.Image, R.string.photos) { select(onPhotos) }
