@@ -7,14 +7,14 @@ import java.io.File
 
 /**
  * Screenshot harness: writes captured Compose frames as PNGs under
- * `app/build/outputs/zzz-screenshots/` for visual acceptance across slices.
+ * `app/build/outputs/fairy-screenshots/` for visual acceptance across slices.
  */
-object ZzzScreenshots {
+object FairyScreenshots {
 
     fun outputDir(): File {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {
-            val candidate = File(directory, "app/build/outputs/zzz-screenshots")
+            val candidate = File(directory, "app/build/outputs/fairy-screenshots")
             if (File(directory, "app/src/main").isDirectory) {
                 candidate.mkdirs()
                 return candidate

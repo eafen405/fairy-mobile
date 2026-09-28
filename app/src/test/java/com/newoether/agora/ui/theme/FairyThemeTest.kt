@@ -17,25 +17,23 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = android.app.Application::class)
-class ZzzThemeTest {
+class FairyThemeTest {
 
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun `zzzColorScheme produces the fixed dark token table`() {
-        val scheme = zzzColorScheme()
-        assertEquals(Color(0xFF121212), scheme.background)
-        assertEquals(Color(0xFF121212), scheme.surface)
-        assertEquals(Color(0xFF0E0E0E), scheme.surfaceContainerLowest)
-        assertEquals(Color(0xFF1C1C1C), scheme.surfaceContainer)
-        assertEquals(Color(0xFF2A2A2A), scheme.surfaceContainerHighest)
-        assertEquals(Color(0xFFFFE000), scheme.primary)
-        assertEquals(Color.Black, scheme.onPrimary)
-        assertEquals(Color(0xFF9BC400), scheme.secondary)
-        assertEquals(Color(0xFF1F55E0), scheme.tertiary)
-        assertEquals(Color.White, scheme.onTertiary)
-        assertEquals(Color(0xFFE53A1E), scheme.error)
-        assertEquals(Color(0xFF3A3A3A), scheme.outline)
+    fun `fairyColorScheme produces the fixed deep-navy token table`() {
+        val scheme = fairyColorScheme()
+        assertEquals(Color(0xFF050A18), scheme.background)
+        assertEquals(Color(0xFF050A18), scheme.surface)
+        assertEquals(Color(0xFF0E1A36), scheme.surfaceContainer)
+        assertEquals(Color(0xFF16244A), scheme.surfaceContainerHighest)
+        assertEquals(Color(0xFFEAF0FF), scheme.primary)
+        assertEquals(Color(0xFF0A1633), scheme.onPrimary)
+        assertEquals(Color(0xFFEAF0FF), scheme.onSurface)
+        assertEquals(Color(0xFF8C9AB8), scheme.onSurfaceVariant)
+        assertEquals(Color(0xFFFF5A4E), scheme.error)
+        assertEquals(Color.Transparent, scheme.surfaceTint)
     }
 
     @Test
@@ -64,6 +62,7 @@ class ZzzThemeTest {
             captured!!
         }
         schemes.forEach { scheme ->
+            assertEquals(Color(0xFFEAF0FF).toArgb(), scheme.primary.toArgb())
             assertEquals(schemes[0].primary.toArgb(), scheme.primary.toArgb())
             assertEquals(schemes[0].background.toArgb(), scheme.background.toArgb())
             assertEquals(schemes[0].surfaceContainerHighest.toArgb(), scheme.surfaceContainerHighest.toArgb())
@@ -71,17 +70,26 @@ class ZzzThemeTest {
     }
 
     @Test
-    fun `ZzzTokens carry the spec palette`() {
-        val tokens = ZzzTokens()
-        assertEquals(Color(0xFF1B1B1B), tokens.watermark)
-        assertEquals(Color(0xFF1C1C1C), tokens.panel)
-        assertEquals(Color(0xFF2A2A2A), tokens.pill)
-        assertEquals(Color(0xFFD4D400), tokens.tab)
+    fun `FairyTokens carry the spec palette`() {
+        val tokens = FairyTokens()
+        assertEquals(Color(0xFF0B1733), tokens.bgTop)
+        assertEquals(Color(0xFF050A18), tokens.bgBottom)
+        assertEquals(Color(0xFF0D2257), tokens.screenCenter)
+        assertEquals(Color(0xFF050B1F), tokens.screenEdge)
+        assertEquals(Color(0xFF0E1A36).copy(alpha = 0.92f), tokens.panel)
+        assertEquals(Color(0xFF16244A), tokens.pill)
+        assertEquals(Color.White.copy(alpha = 0.08f), tokens.hairline)
         assertEquals(Color(0xFF1F55E0), tokens.fairyBlue)
         assertEquals(Color(0xFF3D8BFF), tokens.fairyGlow)
-        assertEquals(Color(0xFFF4F4F4), tokens.fairyBubble)
-        assertEquals(Color(0xFF2A2A2A), tokens.onFairyBubble)
-        assertEquals(Color(0xFF8A8A8A), tokens.textMuted)
-        assertEquals(Color(0xFFE53A1E), tokens.danger)
+        assertEquals(Color(0xFF8FB8FF), tokens.fairyLink)
+        assertEquals(Color(0xFFEAF0FF), tokens.primary)
+        assertEquals(Color(0xFF0A1633), tokens.onPrimary)
+        assertEquals(Color.White.copy(alpha = 0.12f), tokens.userBubble)
+        assertEquals(Color.White.copy(alpha = 0.06f), tokens.codeSurface)
+        assertEquals(Color(0xFF5BE49B), tokens.online)
+        assertEquals(Color(0xFFFF5A4E), tokens.danger)
+        assertEquals(Color(0xFFEAF0FF), tokens.textPrimary)
+        assertEquals(Color(0xFF8C9AB8), tokens.textMuted)
+        assertEquals(tokens.fairyGlow.copy(alpha = 0.16f), tokens.ambientGlow)
     }
 }

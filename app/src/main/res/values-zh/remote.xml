@@ -48,4 +48,9 @@
     <string name="remote_activity">处理中</string>
     <string name="remote_relayed_from">转达自 %1$s</string>
     <string name="remote_connecting_status">正在连接</string>
+    <string name="remote_greeting">我在。想让我做点什么？</string>
+    <string name="remote_quick_today">今天有什么安排</string>
+    <string name="remote_quick_research">帮我查点资料</string>
+    <string name="remote_quick_file">看看这份文件</string>
+    <string name="remote_context_usage">上下文 %1$s / %2$s</string>
 </resources>

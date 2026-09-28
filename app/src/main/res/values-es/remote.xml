@@ -37,4 +37,9 @@
     <string name="remote_activity">Procesando</string>
     <string name="remote_relayed_from">Reenviado de %1$s</string>
     <string name="remote_connecting_status">Conectando</string>
+    <string name="remote_greeting">Aquí estoy. ¿Qué quieres que haga?</string>
+    <string name="remote_quick_today">¿Qué hay para hoy?</string>
+    <string name="remote_quick_research">Búscame información</string>
+    <string name="remote_quick_file">Mira este archivo</string>
+    <string name="remote_context_usage">Contexto %1$s / %2$s</string>
 </resources>

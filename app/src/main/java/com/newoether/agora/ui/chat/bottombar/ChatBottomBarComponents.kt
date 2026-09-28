@@ -46,7 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.theme.ChatType
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
 
@@ -56,7 +56,7 @@ internal fun ComposerControlGroup(content: @Composable RowScope.() -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.height(48.dp)
-            .background(LocalZzzTokens.current.pill, RoundedCornerShape(100))
+            .background(LocalFairyTokens.current.pill, RoundedCornerShape(100))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         content = content,
     )

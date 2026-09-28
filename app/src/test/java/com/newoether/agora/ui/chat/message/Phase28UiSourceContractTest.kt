@@ -30,13 +30,13 @@ class Phase28UiSourceContractTest {
     }
 
     @Test
-    fun `user bubble and Select Text share exact 1_1x user-body line height`() {
+    fun `user bubble and Select Text share the 16sp 26sp user-body line height`() {
         val type = source("com/newoether/agora/ui/theme/Type.kt")
         val userBubble = messageSource("UserMessageBubble.kt")
         val detail = messageSource("SegmentDetailSheet.kt")
 
         assertTrue(type.contains(
-            "fontSize = 15.sp, lineHeight = 24.2.sp"
+            "fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp"
         ))
         assertTrue(userBubble.contains("style = ChatType.userBody"))
         assertTrue(detail.contains(

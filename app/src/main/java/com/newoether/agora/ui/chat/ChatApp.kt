@@ -39,7 +39,7 @@ import com.newoether.agora.util.gradientBlur
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
-import com.newoether.agora.ui.components.ZzzBackground
+import com.newoether.agora.ui.components.FairyBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
@@ -374,7 +374,7 @@ fun ChatApp(
                 isSwitching = isSwitching,
                 newChatEntryId = newChatEntryId,
             )
-            ZzzBackground()
+            FairyBackground()
 
             @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
             Scaffold(

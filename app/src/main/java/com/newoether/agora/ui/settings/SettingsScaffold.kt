@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -52,7 +54,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
-import com.newoether.agora.ui.components.ZzzBackButton
 import com.newoether.agora.ui.components.clearFocusOnTap
 
 // ── Shared geometry for the iOS-style collapsing large title, used by the
@@ -142,10 +143,16 @@ internal fun CollapsingSettingsTitleBar(
         }
 
         if (LocalSettingsPaneBackButtonVisible.current) {
-            ZzzBackButton(
+            androidx.compose.material3.IconButton(
                 onClick = onBack,
-                modifier = Modifier.padding(start = 16.dp, top = statusBarTop + 12.dp)
-            )
+                modifier = Modifier.padding(start = 12.dp, top = statusBarTop + 8.dp).size(48.dp),
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = backDescription,
+                    tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
         Row(
             modifier = Modifier

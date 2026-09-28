@@ -19,7 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 private const val DOT_COUNT = 12
 private const val BAND_WIDTH = 4
@@ -34,8 +34,8 @@ private const val PERIOD_MS = 1200
  * without recomposing.
  */
 @Composable
-fun ZzzDotProgressBar(modifier: Modifier = Modifier) {
-    val tokens = LocalZzzTokens.current
+fun FairyDotProgressBar(modifier: Modifier = Modifier) {
+    val tokens = LocalFairyTokens.current
     val glow = tokens.fairyGlow
     val unlit = tokens.pill
     val allowContinuous = LocalAgoraMotionPolicy.current.allowContinuousMotion
@@ -43,13 +43,13 @@ fun ZzzDotProgressBar(modifier: Modifier = Modifier) {
     // before wrapping to the left.
     val sweep = (DOT_COUNT + BAND_WIDTH).toFloat()
     val bandStart: State<Float> = if (allowContinuous) {
-        rememberInfiniteTransition(label = "zzzDotProgress").animateFloat(
+        rememberInfiniteTransition(label = "fairyDotProgress").animateFloat(
             initialValue = 0f,
             targetValue = sweep,
             animationSpec = infiniteRepeatable(
                 animation = tween(durationMillis = PERIOD_MS, easing = LinearEasing),
             ),
-            label = "zzzDotProgressPosition",
+            label = "fairyDotProgressPosition",
         )
     } else {
         remember { mutableStateOf(0f) }

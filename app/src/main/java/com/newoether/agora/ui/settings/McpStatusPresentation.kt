@@ -47,10 +47,10 @@ internal fun McpStatusDot(status: McpConnectionStatus) {
         },
     )
     val color = when (status) {
-        // ZZZ status dots: green online, yellow connecting, red offline.
+        // Fairy status dots: green online, ice-white connecting, red offline.
         McpConnectionStatus.IDLE -> MaterialTheme.colorScheme.error
         McpConnectionStatus.CONNECTING -> MaterialTheme.colorScheme.primary
-        McpConnectionStatus.CONNECTED -> MaterialTheme.colorScheme.secondary
+        McpConnectionStatus.CONNECTED -> com.newoether.agora.ui.theme.LocalFairyTokens.current.online
         McpConnectionStatus.ERROR -> MaterialTheme.colorScheme.error
     }
     Box(

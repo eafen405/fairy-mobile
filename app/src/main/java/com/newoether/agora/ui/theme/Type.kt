@@ -181,8 +181,8 @@ internal var chatFontFamily: FontFamily = OutfitFamily
 object ChatType {
 
     // Title tier
-    // Brand wordmark in the new-chat capsule: the Fairy title uses the heavy
-    // title face (zzz-visual), one clean step above the conversation title.
+    // Brand wordmark: the Fairy title uses the heavy title face, one clean
+    // step above the conversation title.
     val brandTitle get() = TextStyle(fontFamily = TitleFamily, fontWeight = FontWeight.Black, fontSize = 20.sp, lineHeight = 26.sp)
     val sheetTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 19.sp, lineHeight = 25.sp)
     // Active-conversation title: one step below the brand wordmark (16 → 15),
@@ -197,9 +197,9 @@ object ChatType {
     val input get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp, letterSpacing = 0.5.sp)
 
     // Body tier
-    val body get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp)
-    // Bubble text is uniformly Bold in the zzz-visual scheme.
-    val userBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 24.2.sp)
+    // Fairy and user message text share 16sp Regular with a relaxed 26sp line.
+    val body get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp)
+    val userBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp)
     val thoughtBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp)
     val thoughtTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 19.sp)
     val errorBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp)

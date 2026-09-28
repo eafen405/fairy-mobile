@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.chat.message.AssistantMessageHorizontalInset
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 internal val StreamingTailAnchorHeight = 24.dp
 internal val StreamingTailVisualLift = 56.dp
@@ -302,7 +302,7 @@ internal fun GenerationActivityDot(
                 clip = false
             }
             .background(
-                color = LocalZzzTokens.current.fairyGlow,
+                color = LocalFairyTokens.current.fairyGlow,
                 shape = CircleShape,
             ),
     )

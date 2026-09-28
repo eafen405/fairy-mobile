@@ -49,8 +49,8 @@ private fun effectiveFontFamily(
 
 /**
  * Builds the [Typography]: display/headline/title/label tiers always use the
- * ZZZ title family and body tiers follow the user's body font preference.
- * Anton ([ZzzTokens.labelFontFamily]) is applied only explicitly at call sites
+ * Fairy title family and body tiers follow the user's body font preference.
+ * Anton ([FairyTokens.labelFontFamily]) is applied only explicitly at call sites
  * for small Latin/numeric labels — it has no CJK glyphs. Mono styles untouched.
  */
 private fun typographyWithFont(family: FontFamily): Typography {
@@ -75,7 +75,7 @@ private fun typographyWithFont(family: FontFamily): Typography {
 }
 
 /**
- * The app theme is a fixed ZZZ dark scheme: theme mode, color preset, scheme
+ * The app theme is a fixed Fairy deep-navy scheme: theme mode, color preset, scheme
  * style, dynamic color, and AMOLED preferences are ignored (their DataStore
  * settings remain untouched). Status/navigation bar icons are always light;
  * [MainActivity] sets them once.
@@ -91,21 +91,21 @@ fun AgoraTheme(
     customFontPath: String = "",
     content: @Composable () -> Unit
 ) {
-    val colorScheme = remember { zzzColorScheme() }
-    val tokens = remember { ZzzTokens() }
+    val colorScheme = remember { fairyColorScheme() }
+    val tokens = remember { FairyTokens() }
 
     val fontFamily = effectiveFontFamily(fontPreference, customFontPath)
     chatFontFamily = fontFamily
     val typography = remember(fontFamily) { typographyWithFont(fontFamily) }
 
-    CompositionLocalProvider(LocalZzzTokens provides tokens) {
+    CompositionLocalProvider(LocalFairyTokens provides tokens) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
-            // ZZZ chrome: dialogs and bottom sheets share the 24dp panel radius.
+            // Fairy chrome: dialogs and bottom sheets share the 20dp panel radius.
             shapes = Shapes(
-                large = RoundedCornerShape(24.dp),
-                extraLarge = RoundedCornerShape(24.dp),
+                large = RoundedCornerShape(20.dp),
+                extraLarge = RoundedCornerShape(20.dp),
             ),
             content = content
         )

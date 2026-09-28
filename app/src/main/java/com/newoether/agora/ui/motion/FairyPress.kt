@@ -12,18 +12,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
 /**
- * ZZZ press feedback: the element sinks ~1.5 dp while pressed. Under Reduced
+ * Fairy press feedback: the element sinks ~1.5 dp while pressed. Under Reduced
  * Motion the offset applies instantly (no spatial animation) rather than
  * animating down.
  */
 @Composable
-fun Modifier.zzzPress(interactionSource: InteractionSource): Modifier {
+fun Modifier.fairyPress(interactionSource: InteractionSource): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
     val allowSpatial = LocalAgoraMotionPolicy.current.allowSpatialTransitions
     val offset by animateDpAsState(
         targetValue = if (pressed) 1.5.dp else 0.dp,
         animationSpec = if (allowSpatial) tween(durationMillis = 100) else snap(),
-        label = "zzzPress",
+        label = "fairyPress",
     )
     return graphicsLayer { translationY = offset.toPx() }
 }

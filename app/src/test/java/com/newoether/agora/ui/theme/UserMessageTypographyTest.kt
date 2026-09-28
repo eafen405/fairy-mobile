@@ -6,8 +6,9 @@ import org.junit.Test
 
 class UserMessageTypographyTest {
     @Test
-    fun `user message body keeps its size and uses 1_1x line height`() {
-        assertEquals(15.sp, ChatType.userBody.fontSize)
-        assertEquals(24.2.sp, ChatType.userBody.lineHeight)
+    fun `user message body matches the Fairy body at 16sp with a 26sp line`() {
+        assertEquals(16.sp, ChatType.userBody.fontSize)
+        assertEquals(26.sp, ChatType.userBody.lineHeight)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.Normal, ChatType.userBody.fontWeight)
     }
 }

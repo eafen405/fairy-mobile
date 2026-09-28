@@ -37,4 +37,9 @@
     <string name="remote_activity">처리 중</string>
     <string name="remote_relayed_from">%1$s에서 전달</string>
     <string name="remote_connecting_status">연결 중</string>
+    <string name="remote_greeting">여기 있어요. 무엇을 해 드릴까요?</string>
+    <string name="remote_quick_today">오늘 일정은</string>
+    <string name="remote_quick_research">자료 좀 찾아 줘</string>
+    <string name="remote_quick_file">이 파일 좀 봐 줘</string>
+    <string name="remote_context_usage">컨텍스트 %1$s / %2$s</string>
 </resources>
