@@ -59,6 +59,7 @@ internal class ChatScrollCoordinator internal constructor(
     private val composerInputFocusedState: MutableState<Boolean>,
     private val imeBottomAnchorStateHolder: MutableState<ImeBottomAnchorState>,
     private val viewportHeightState: MutableIntState,
+    private val activeAnchorState: MutableState<ChatScrollAnchor?>,
     val messageHeights: SnapshotStateMap<String, Int>,
     private val hydrationRegistry: ConversationHydrationRegistry,
     val messageLifecycleAppearanceRegistry: MessageLifecycleAppearanceRegistry,
@@ -76,6 +77,9 @@ internal class ChatScrollCoordinator internal constructor(
         get() = imeBottomAnchorStateHolder.value
     val viewportHeightPx: Int
         get() = viewportHeightState.intValue
+    /** The conversation-scoped anchor keeping the sent/proactive message parked at the top. */
+    val activeAnchor: ChatScrollAnchor?
+        get() = activeAnchorState.value
     fun recordViewportHeight(heightPx: Int) { viewportHeightState.intValue = heightPx }
     fun recordMessageHydrated(conversationId: String?, messageId: String) {
         hydrationRegistry.record(conversationId, messageId)
@@ -110,10 +114,12 @@ internal class ChatScrollCoordinator internal constructor(
         imeBottomPx: Int,
         density: Density,
     ) {
+        val anchorActive = activeAnchor != null
         val imeBottomEligibleNow =
             currentConversationId != null &&
                 loadedMessagesConversationId == currentConversationId &&
                 composerInputFocusedState.value &&
+                !anchorActive &&
                 isWithinAbsoluteBottomAttachThreshold
         SideEffect {
             val next = reduceImeBottomAnchor(
@@ -121,7 +127,7 @@ internal class ChatScrollCoordinator internal constructor(
                 event = ImeBottomAnchorEvent.InsetsObserved(
                     insetPx = imeBottomPx,
                     bottomEligibleNow = imeBottomEligibleNow,
-                    anchorAllowed = composerInputFocusedState.value,
+                    anchorAllowed = composerInputFocusedState.value && !anchorActive,
                 ),
             )
             if (next != imeBottomAnchorState) imeBottomAnchorStateHolder.value = next
@@ -543,6 +549,31 @@ internal class ChatScrollCoordinator internal constructor(
                                 "AgoraUI",
                                 "Animated scroll target was not committed: ${request.targetMessageId}",
                             )
+                        }
+                    } finally {
+                        onAnimatedScrollFinished(request.id)
+                    }
+                }
+                AnimatedScrollDestination.ANCHOR -> {
+                    try {
+                        val targetCommitted =
+                            awaitAnchorTargetCommitted(messages, request.targetMessageId)
+                        val anchorId = request.targetMessageId
+                        if (
+                            targetCommitted &&
+                            request.conversationId == currentConversationId &&
+                            anchorId != null
+                        ) {
+                            activeAnchorState.value =
+                                ChatScrollAnchor(request.conversationId, anchorId)
+                            anchorScrollToMessage(
+                                messages = messages,
+                                targetMessageId = anchorId,
+                                density = density,
+                                motionPolicy = motionPolicy,
+                            )
+                        } else if (!targetCommitted) {
+                            logAnchorTargetMiss(request.targetMessageId)
                         }
                     } finally {
                         onAnimatedScrollFinished(request.id)

@@ -159,6 +159,11 @@ internal class RemoteSendController(
             drafts = if (state.value.drafts[owner] == attempt.text) state.value.drafts - owner else state.value.drafts,
             attempts = state.value.attempts + (owner to attempt.copy(delivery = RemoteDelivery.DELIVERED)),
         )
-        scrollRequests.requestAbsoluteBottomAfter(owner, message.nativeId ?: message.id)
+        // The rendered turn's stub id is the group identity, which may differ from the node id.
+        val stubId = state.value.messageGroups
+            .lastOrNull { group -> group.nodes.any { node -> node.id == message.id } }
+            ?.stub?.id
+            ?: message.nativeId ?: message.id
+        scrollRequests.requestAnchor(owner, stubId)
     }
 }

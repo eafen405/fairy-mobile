@@ -372,7 +372,14 @@ internal suspend fun LazyListState.animateToAbsoluteBottom(
             while (currentCoroutineContext().isActive) {
                 val frameNanos = withFrameNanos { frameTimeNanos -> frameTimeNanos }
                 layout = absoluteBottomLayoutSnapshot(layoutInfo, canScrollForward)
-                if (isGenerationActive() || layout.canScrollForward || !layout.sentinelVisible) {
+                // A sub-2px residual is a measure-level rounding artifact the seek cannot
+                // close: treat it as settled instead of re-seeking forever.
+                val bottomLost = !layout.sentinelVisible ||
+                    (
+                        layout.canScrollForward &&
+                            (layout.remainingDistancePx ?: Float.MAX_VALUE) > 2f
+                    )
+                if (isGenerationActive() || bottomLost) {
                     followedActiveGeneration =
                         followedActiveGeneration || isGenerationActive()
                     dispatch(AbsoluteBottomScrollEvent.ExtentChanged)

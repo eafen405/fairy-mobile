@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 enum class AnimatedScrollDestination {
     MESSAGE,
     ABSOLUTE_BOTTOM,
+    ANCHOR,
 }
 
 data class AnimatedScrollRequest(
@@ -36,6 +37,16 @@ internal class ScrollRequestCoordinator {
             id = ids.incrementAndGet(),
             conversationId = conversationId,
             targetMessageId = messageId,
+        )
+    }
+
+    fun requestAnchor(conversationId: String?, messageId: String?) {
+        if (conversationId == null || messageId == null) return
+        _request.value = AnimatedScrollRequest(
+            id = ids.incrementAndGet(),
+            conversationId = conversationId,
+            targetMessageId = messageId,
+            destination = AnimatedScrollDestination.ANCHOR,
         )
     }
 
