@@ -40,7 +40,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
 import com.newoether.agora.R
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
@@ -51,7 +50,6 @@ import com.newoether.agora.model.Participant
 import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
-import com.newoether.agora.model.citationRecords
 import com.newoether.agora.ui.chat.ConversationSearchMatch
 import com.newoether.agora.ui.chat.conversationSearchMatchRanges
 import com.newoether.agora.ui.chat.deletionRemovesEntireConversation
@@ -248,21 +246,21 @@ internal fun MessageItem(
         Participant.ERROR -> Alignment.CenterHorizontally
     }
 
-    val zzzTokens = com.newoether.agora.ui.theme.LocalZzzTokens.current
+    val fairyTokens = com.newoether.agora.ui.theme.LocalFairyTokens.current
     val backgroundColor = when (message.participant) {
-        Participant.USER -> zzzTokens.fairyBlue
+        Participant.USER -> fairyTokens.userBubble
         Participant.MODEL -> Color.Transparent
         Participant.ERROR -> MaterialTheme.colorScheme.errorContainer
     }
 
     val textColor = when (message.participant) {
-        Participant.USER -> Color.White
-        Participant.MODEL -> MaterialTheme.colorScheme.onSurface
+        Participant.USER -> fairyTokens.textPrimary
+        Participant.MODEL -> fairyTokens.textPrimary
         Participant.ERROR -> MaterialTheme.colorScheme.onErrorContainer
     }
 
     val shape = when (message.participant) {
-        Participant.USER -> RoundedCornerShape(topStart = 20.dp, topEnd = 6.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+        Participant.USER -> RoundedCornerShape(topStart = 18.dp, topEnd = 6.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
         Participant.MODEL -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
         Participant.ERROR -> RoundedCornerShape(12.dp)
     }
@@ -442,71 +440,35 @@ internal fun MessageItem(
                         )
                     }
                     if (message.participant == Participant.MODEL) {
-                        // Fairy avatar column + wrap-content white bubble; the
-                        // action row sits below the bubble on the page
-                        // background, aligned with the bubble's start edge.
-                        val citationUi = rememberAssistantCitationUi(message.id)
+                        // Fairy speaks full width on the page: no avatar, no
+                        // bubble, a 2 dp accent bar down the whole message
+                        // (16 dp from the screen edge, 12 dp to the text).
                         val relaySources = displayMessage.remoteFiles
                             .mapNotNullTo(linkedSetOf()) {
                                 it.source?.takeIf(String::isNotBlank)
                             }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = FairySpeechStartInset, end = FairySpeechEndInset),
                         ) {
-                            FairyEmblem(animating = emblemAnimating, size = 40.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Column(
+                            relaySources.forEach { source ->
+                                FairyRelayBadge(
+                                    source,
+                                    Modifier.padding(start = FairyAccentBarWidth + FairyAccentTextGap, bottom = 6.dp),
+                                )
+                            }
+                            Box(
                                 modifier = Modifier
-                                    // Keep at least 40dp of page background to
-                                    // the right of even a max-width bubble.
-                                    .weight(1f)
-                                    .padding(end = 40.dp),
-                                horizontalAlignment = Alignment.Start,
+                                    .fillMaxWidth()
+                                    .fairyAccentBar(active = emblemAnimating)
+                                    .padding(start = FairyAccentBarWidth + FairyAccentTextGap - AssistantMessageHorizontalInset),
                             ) {
-                                // Badges sit beside the emblem so the bubble tail
-                                // stays beside the emblem's lower edge.
-                                relaySources.forEach { source ->
-                                    FairyRelayBadge(source)
-                                }
-                                FairyBubble {
-                                    val bubbleAssets = rememberChatMarkdownAssets(
-                                        textColor = MaterialTheme.colorScheme.onSurface,
-                                        parseInlineDollarMath = parseInlineDollarMath,
-                                        inlineImages = message.markdownImages,
-                                        onMediaClick = onMediaClick,
-                                        preparedMarkdown = message.preparedMarkdown,
-                                        bodyFontWeight = FontWeight.Bold,
-                                    )
-                                    assistantContent(
-                                        bubbleAssets.renderContext,
-                                        true,
-                                        citationUi,
-                                    )
-                                }
-                                if (showActions) {
-                                    AssistantActionRow(
-                                        message = displayMessage,
-                                        citations = displayMessage.citationRecords(),
-                                        citationUi = citationUi,
-                                        isStreaming = isStreaming,
-                                        isLoading = isLoading,
-                                        isStopping = isStopping,
-                                        isRegenerationExiting = isRegenerationExiting,
-                                        isEditingAllowed = isEditingAllowed,
-                                        actionCopyText = displayActionCopyText,
-                                        showBranchSelector = showBranchSelector,
-                                        branchIndex = branchIndex,
-                                        totalBranches = totalBranches,
-                                        iconTint = zzzTokens.textMuted,
-                                        onSwitchBranch = onSwitchBranch,
-                                        onRegenerate = onRegenerate,
-                                        onFork = { onFork(message.id) },
-                                        onShare = { onShare(message.id) },
-                                        onShowInfo = { showInfoDialog = true },
-                                        onShowDelete = onShowDelete,
-                                    )
-                                }
+                                assistantContent(
+                                    markdownRenderContext,
+                                    false,
+                                    rememberAssistantCitationUi(message.id),
+                                )
                             }
                         }
                     } else {
@@ -729,9 +691,10 @@ internal fun ContextCompactPill(
                 DropdownMenu(
                     expanded = actionsExpanded,
                     onDismissRequest = { actionsExpanded = false },
-                    shape = RoundedCornerShape(12.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 16.dp,
+                    shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
+                    containerColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelOpaque,
+                    tonalElevation = 0.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
                 ) {
                     DropdownMenuItem(
                         text = {

@@ -49,7 +49,7 @@ import com.newoether.agora.model.Participant
 import com.newoether.agora.ui.chat.GenerationActivityDot
 import com.newoether.agora.ui.chat.shouldShowStreamingTailIndicator
 import com.newoether.agora.ui.common.LocalAgoraHaptics
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 /**
  * Shared per-message citation UI state so the inline citation taps inside the
@@ -72,7 +72,7 @@ internal fun rememberAssistantCitationUi(messageId: String): AssistantCitationUi
  * hoisted below the Fairy bubble by [MessageItem] for MODEL messages — where
  * the icons sit on the dark background in the muted token color.
  *
- * [iconTint] is the enabled-state tint; pass [LocalZzzTokens]' textMuted when
+ * [iconTint] is the enabled-state tint; pass [LocalFairyTokens]' textMuted when
  * the row lives on the dark page background.
  */
 @Composable
@@ -263,11 +263,12 @@ internal fun AssistantActionRow(
                 )
             }
             DropdownMenu(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 16.dp,
-                shape = RoundedCornerShape(12.dp),
+                containerColor = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelOpaque,
+                tonalElevation = 0.dp,
+                shape = com.newoether.agora.ui.theme.LocalFairyTokens.current.panelShape,
                 expanded = showMenu && actionAvailability.informationVisible,
                 onDismissRequest = { showMenu = false },
+                border = androidx.compose.foundation.BorderStroke(1.dp, com.newoether.agora.ui.theme.LocalFairyTokens.current.hairline),
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.info)) },

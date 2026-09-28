@@ -25,9 +25,24 @@ internal fun messageListPageTrailingSpacing(messages: List<ChatMessage>): Map<St
         val continues = next?.displayPageId != null && next.displayPageId != message.displayPageId &&
             message.participant == Participant.MODEL && next.participant == Participant.MODEL &&
             !message.runId.isNullOrBlank() && message.runId == next.runId
-        put(message.id, if (continues) 0 else
-            (if (message.participant == Participant.USER) 8 else 24) + messageListPageLeadingSpacing(next))
+        put(message.id, if (continues) 0 else fairyTurnGap(message, next))
     }
+}
+
+internal const val FAIRY_SAME_TURN_GAP_DP = 12
+internal const val FAIRY_TURN_GAP_DP = 28
+private const val FAIRY_TAIL_GAP_DP = 24
+
+/**
+ * Gap below [message] on a paged conversation. A turn starts at a user
+ * message: user -> the reply that follows is 12 dp; everything else that
+ * starts a new turn is 28 dp. An assistant message with no user message
+ * before it (Fairy speaking first, a relay) is its own turn.
+ */
+internal fun fairyTurnGap(message: ChatMessage, next: ChatMessage?): Int = when {
+    next == null -> FAIRY_TAIL_GAP_DP
+    message.participant == Participant.USER && next.participant == Participant.MODEL -> FAIRY_SAME_TURN_GAP_DP
+    else -> FAIRY_TURN_GAP_DP
 }
 
 internal enum class MessageListLayoutMode {

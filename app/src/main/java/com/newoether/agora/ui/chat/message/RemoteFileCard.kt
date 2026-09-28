@@ -17,8 +17,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import androidx.compose.ui.graphics.Color
-import com.newoether.agora.ui.components.zzzPanel
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.components.fairyPanel
+import com.newoether.agora.ui.theme.LocalFairyTokens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
@@ -56,13 +56,13 @@ internal fun RemoteFileCardList(files: List<RemoteFile>, modifier: Modifier = Mo
 @Composable
 private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFile) -> Unit)?) {
     val haptics = LocalAgoraHaptics.current
-    val tokens = LocalZzzTokens.current
-    // A dark pill capsule inside the (possibly white) bubble is intentional.
+    val tokens = LocalFairyTokens.current
+    // Pill-toned fairyPanel capsule: type icon, name, size, save action.
     Surface(
         color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
-            .zzzPanel(shape = RoundedCornerShape(50), color = tokens.pill),
+            .fairyPanel(shape = RoundedCornerShape(50), color = tokens.pill),
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
@@ -80,7 +80,7 @@ private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFi
                 Text(
                     text = file.name.ifBlank { stringResource(R.string.remote_file_unnamed) },
                     style = MaterialTheme.typography.labelLarge,
-                    color = tokens.fairyBubble,
+                    color = tokens.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

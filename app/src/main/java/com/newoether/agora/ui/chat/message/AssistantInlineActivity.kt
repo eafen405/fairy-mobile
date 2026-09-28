@@ -27,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.rememberGenerationActivityDotBreathingScale
 import com.newoether.agora.ui.theme.ChatType
-import com.newoether.agora.ui.theme.LocalZzzTokens
+import com.newoether.agora.ui.theme.LocalFairyTokens
 
 private val AssistantInlineActivityHeight = StreamingTailAnchorHeight
 
@@ -150,7 +150,7 @@ internal fun AssistantInlineActivity(
 @Composable
 internal fun ThinkingDots() {
     val breathingScale = rememberGenerationActivityDotBreathingScale()
-    val color = LocalZzzTokens.current.fairyGlow
+    val color = LocalFairyTokens.current.fairyGlow
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),

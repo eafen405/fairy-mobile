@@ -17,16 +17,31 @@ class MessageListPageSpacingTest {
         assertEquals(24, spacing[fragments[2].id])
     }
 
-    @Test fun ordinaryAdjacentMessagesRetainTheirOriginalCombinedSpacing() {
+    @Test fun fairyTurnsSpaceTwelveInsideATurnAndTwentyEightBetweenTurns() {
+        val user = message("u", Participant.USER, "page")
+        val reply = message("a", Participant.MODEL, "page")
+        val unprompted = message("relay", Participant.MODEL, "relay-page", "relay-turn")
+        val nextUser = message("next-u", Participant.USER, "next-page", "next-turn")
+        val spacing = messageListPageTrailingSpacing(listOf(user, reply, unprompted, nextUser))
+        assertEquals(12, spacing[user.id])
+        // An assistant message with no user message before it is its own turn.
+        assertEquals(28, spacing[reply.id])
+        assertEquals(28, spacing[unprompted.id])
+        assertEquals(12, fairyTurnGap(user, reply))
+        assertEquals(28, fairyTurnGap(reply, nextUser))
+        assertEquals(28, fairyTurnGap(user, nextUser))
+    }
+
+    @Test fun ordinaryAdjacentMessagesFollowTheFairyTurnRhythm() {
         val user = message("u", Participant.USER, "page")
         val answer = message("a", Participant.MODEL, "page")
         val nextUser = message("next-u", Participant.USER, "next-page", "next-turn")
         val nextAnswer = message("next-a", Participant.MODEL, "next-page", "next-turn")
         val spacing = messageListPageTrailingSpacing(listOf(user, answer, nextUser, nextAnswer))
         assertEquals(8, messageListPageLeadingSpacing(user))
-        assertEquals(22, spacing[user.id]) // User bottom8 + assistant top8 + original status6.
-        assertEquals(32, spacing[answer.id]) // Assistant bottom16+8 + user top8.
-        assertEquals(22, spacing[nextUser.id])
+        assertEquals(12, spacing[user.id]) // Same turn: user -> reply.
+        assertEquals(28, spacing[answer.id]) // Next turn starts at the user message.
+        assertEquals(12, spacing[nextUser.id])
         assertEquals(24, spacing[nextAnswer.id])
         assertTrue(messageListPageTrailingSpacing(listOf(user.copy(displayPageId = null))).isEmpty())
     }
@@ -35,10 +50,10 @@ class MessageListPageSpacingTest {
         val a = message("a", Participant.MODEL, "page")
         for (turn in listOf(null, "", "another-turn")) {
             val b = message("b", Participant.MODEL, "next-page", turn)
-            assertEquals(38, messageListPageTrailingSpacing(listOf(a, b))[a.id])
+            assertEquals(28, messageListPageTrailingSpacing(listOf(a, b))[a.id])
         }
         val b = message("b", Participant.MODEL, "page")
-        assertEquals(38, messageListPageTrailingSpacing(listOf(a, b))[a.id])
+        assertEquals(28, messageListPageTrailingSpacing(listOf(a, b))[a.id])
     }
 
     @Test fun repeatedPrependKeepsEveryExistingContentOriginHeightAndLazyKey() {
