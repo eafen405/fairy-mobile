@@ -46,4 +46,16 @@
     <string name="remote_empty_message">Message cannot be empty</string>
     <string name="remote_attachments_unsupported">This service does not support attachments</string>
     <string name="remote_activity">Processing</string>
+    <string name="remote_voice_input">Voice Input</string>
+    <string name="remote_voice_hold_hint">Hold to talk</string>
+    <string name="remote_voice_listening">Listening… slide up to cancel</string>
+    <string name="remote_voice_release_cancel">Release to cancel</string>
+    <string name="remote_voice_processing">Recognizing…</string>
+    <string name="remote_voice_permission_request">Microphone access is needed for voice input</string>
+    <string name="remote_voice_permission_denied">Microphone permission denied — enable it in Settings</string>
+    <string name="remote_voice_unavailable">Voice input is unavailable on this device</string>
+    <string name="remote_voice_no_match">Didn\'t catch that — hold to try again</string>
+    <string name="remote_voice_network">Speech recognition needs a network connection</string>
+    <string name="remote_voice_failed">Voice input failed — hold to try again</string>
+    <string name="remote_voice_open_settings">Open Settings</string>
 </resources>

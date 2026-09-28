@@ -35,4 +35,16 @@
     <string name="remote_archive_title">Archiver la tâche ?</string>
     <string name="remote_archive_message">Retirer cette tâche des listes actives de Fairy et Remote ? Son historique sera conservé.</string>
     <string name="remote_activity">Traitement en cours</string>
+    <string name="remote_voice_input">Saisie vocale</string>
+    <string name="remote_voice_hold_hint">Maintenir pour parler</string>
+    <string name="remote_voice_listening">Écoute… glissez vers le haut pour annuler</string>
+    <string name="remote_voice_release_cancel">Relâcher pour annuler</string>
+    <string name="remote_voice_processing">Reconnaissance…</string>
+    <string name="remote_voice_permission_request">L\'accès au micro est nécessaire pour la saisie vocale</string>
+    <string name="remote_voice_permission_denied">Autorisation micro refusée — activez-la dans les réglages</string>
+    <string name="remote_voice_unavailable">La saisie vocale n\'est pas disponible sur cet appareil</string>
+    <string name="remote_voice_no_match">Rien compris — maintenez pour réessayer</string>
+    <string name="remote_voice_network">La reconnaissance vocale nécessite une connexion réseau</string>
+    <string name="remote_voice_failed">Échec de la saisie vocale — maintenez pour réessayer</string>
+    <string name="remote_voice_open_settings">Ouvrir les réglages</string>
 </resources>

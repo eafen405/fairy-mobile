@@ -35,4 +35,16 @@
     <string name="remote_archive_title">작업을 보관할까요?</string>
     <string name="remote_archive_message">Fairy와 Remote의 활성 목록에서 이 작업을 제거할까요? 기록은 유지됩니다.</string>
     <string name="remote_activity">처리 중</string>
+    <string name="remote_voice_input">음성 입력</string>
+    <string name="remote_voice_hold_hint">길게 눌러 말하기</string>
+    <string name="remote_voice_listening">듣는 중… 위로 밀어 취소</string>
+    <string name="remote_voice_release_cancel">손을 떼면 취소</string>
+    <string name="remote_voice_processing">인식 중…</string>
+    <string name="remote_voice_permission_request">음성 입력에는 마이크 접근 권한이 필요합니다</string>
+    <string name="remote_voice_permission_denied">마이크 권한이 거부되었습니다 — 설정에서 허용하세요</string>
+    <string name="remote_voice_unavailable">이 기기에서는 음성 입력을 사용할 수 없습니다</string>
+    <string name="remote_voice_no_match">알아듣지 못했습니다 — 길게 눌러 다시 시도</string>
+    <string name="remote_voice_network">음성 인식에는 네트워크 연결이 필요합니다</string>
+    <string name="remote_voice_failed">음성 입력에 실패했습니다 — 길게 눌러 다시 시도</string>
+    <string name="remote_voice_open_settings">설정 열기</string>
 </resources>

@@ -40,6 +40,7 @@ internal fun ChatComposerLayout(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
     inputModifier: Modifier = Modifier,
+    inputReadOnly: Boolean = false,
     scrollState: ScrollState = rememberScrollState(),
     statusContent: @Composable () -> Unit = {},
     attachmentContent: @Composable () -> Unit = {},
@@ -86,6 +87,7 @@ internal fun ChatComposerLayout(
             TextField(
                 state = textFieldState,
                 scrollState = scrollState,
+                readOnly = inputReadOnly,
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(if (isExpanded) Modifier.fillMaxHeight() else Modifier)

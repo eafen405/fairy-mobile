@@ -35,4 +35,16 @@
     <string name="remote_archive_title">أرشفة المهمة؟</string>
     <string name="remote_archive_message">هل تريد إزالة هذه المهمة من القوائم النشطة في Fairy وRemote؟ سيتم الاحتفاظ بسجلها.</string>
     <string name="remote_activity">جارٍ المعالجة</string>
+    <string name="remote_voice_input">إدخال صوتي</string>
+    <string name="remote_voice_hold_hint">اضغط مطولًا للتحدث</string>
+    <string name="remote_voice_listening">جارٍ الاستماع… اسحب للأعلى للإلغاء</string>
+    <string name="remote_voice_release_cancel">ارفع الإصبع للإلغاء</string>
+    <string name="remote_voice_processing">جارٍ التعرّف…</string>
+    <string name="remote_voice_permission_request">يحتاج الإدخال الصوتي إلى إذن الميكروفون</string>
+    <string name="remote_voice_permission_denied">تم رفض إذن الميكروفون — فعّله من الإعدادات</string>
+    <string name="remote_voice_unavailable">الإدخال الصوتي غير متاح على هذا الجهاز</string>
+    <string name="remote_voice_no_match">لم يتم التقاط الكلام — اضغط مطولًا لإعادة المحاولة</string>
+    <string name="remote_voice_network">يحتاج التعرف الصوتي إلى اتصال بالشبكة</string>
+    <string name="remote_voice_failed">فشل الإدخال الصوتي — اضغط مطولًا لإعادة المحاولة</string>
+    <string name="remote_voice_open_settings">فتح الإعدادات</string>
 </resources>

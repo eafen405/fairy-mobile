@@ -87,6 +87,7 @@ internal fun RemoteConversation(
         onShowLaunchContent = {},
         onInitialFocusRequested = { vm.completeComposerFocus(owner) },
     )
+    val speech = rememberRemoteSpeechController(owner, field, active) { vm.editDraft(owner, it) }
     val messages = remember(state.messageGroups) { state.messageGroups.map { it.stub } }
     val tail = messages.lastOrNull()?.takeIf {
         it.status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)
@@ -377,14 +378,16 @@ internal fun RemoteConversation(
         ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx) {
             ChatComposerLayout(field, focus, scroll::setComposerInputFocused, expanded, spacer.isRunning,
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
+                inputReadOnly = speech.exclusive,
                 statusContent = {
+                    RemoteSpeechStatus(speech)
                     ComposerStatusColumn(state.queued, { it.id }) { QueuedMessageRow(text = it.text) }
                 },
                 attachmentContent = {
                     if (attachments.isNotEmpty()) {
                         AttachmentPreviewRow(
                             attachments = attachments,
-                            editable = active && !submitting,
+                            editable = active && !submitting && !speech.exclusive,
                             onRemove = { vm.removeAttachment(owner, it) },
                             onRetry = { vm.retryAttachment(owner, it) },
                             onAllMediaClick = onMediaClick,
@@ -395,7 +398,7 @@ internal fun RemoteConversation(
                 },
                 controls = {
                     ComposerControlGroup {
-                        RemoteAttachmentPicker(owner, active && !submitting, vm)
+                        RemoteAttachmentPicker(owner, active && !submitting && !speech.exclusive, vm)
                         ComposerModelSelector(
                             displayText = (state.models.firstOrNull { it.id == state.selectedModel }?.name
                                 ?: state.selectedModel)?.replace('-', ' ') ?: stringResource(
@@ -447,16 +450,21 @@ internal fun RemoteConversation(
                         )
                     }
                     val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
-                    ComposerSendButton(isActionable = active && !stopping && !state.controlling && !submitting &&
-                        (if (showStop) state.runtime?.activeTurnId != null
-                            else field.text.isNotBlank() || attachments.isNotEmpty()),
-                        isBusy = submitting || stopping, showStop = showStop,
-                        onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
-                        if (showStop) vm.stop()
-                        else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, checkedDeliveryText) {
-                            vm.acknowledgeUnknown(owner)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RemoteSpeechButton(speech, enabled = active && !submitting)
+                        Spacer(Modifier.width(8.dp))
+                        ComposerSendButton(isActionable = active && !stopping && !state.controlling && !submitting &&
+                            !speech.exclusive &&
+                            (if (showStop) state.runtime?.activeTurnId != null
+                                else field.text.isNotBlank() || attachments.isNotEmpty()),
+                            isBusy = submitting || stopping, showStop = showStop,
+                            onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
+                            if (showStop) vm.stop()
+                            else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, checkedDeliveryText) {
+                                vm.acknowledgeUnknown(owner)
+                            }
+                            else { vm.editDraft(owner, field.text.toString()); vm.send() }
                         }
-                        else { vm.editDraft(owner, field.text.toString()); vm.send() }
                     }
                 })
         }
