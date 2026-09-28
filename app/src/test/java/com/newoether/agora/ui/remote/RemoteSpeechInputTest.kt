@@ -22,6 +22,10 @@ import com.newoether.agora.speech.SpeechSessionController
 import com.newoether.agora.ui.chat.bottombar.ChatComposerLayout
 import com.newoether.agora.ui.chat.bottombar.ComposerSendButton
 import java.io.File
+import java.util.Properties
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.xpath.XPathConstants
+import javax.xml.xpath.XPathFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -30,6 +34,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.w3c.dom.Element
+import org.w3c.dom.NodeList
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -175,9 +181,11 @@ class RemoteSpeechInputTest {
     }
 
     @Test fun mergedManifestDeclaresTheRecognitionServiceQuery() {
-        // Service discovery is subject to package visibility on Android 11+; the
-        // <queries> entry must survive manifest merging. Robolectric cannot enforce
-        // visibility, so assert on the merged manifest artifact directly.
+        val config = Properties().apply {
+            requireNotNull(RemoteSpeechInputTest::class.java
+                .getResourceAsStream("/com/android/tools/test_config.properties"))
+                .use { load(it) }
+        }
         var directory: File? = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         var moduleRoot: File? = null
         while (directory != null && moduleRoot == null) {
@@ -188,13 +196,19 @@ class RemoteSpeechInputTest {
             }
             directory = directory.parentFile
         }
-        val merged = File(requireNotNull(moduleRoot), "build/intermediates")
-            .walkTopDown()
-            .filter { it.isFile && it.path.contains("merged_manifest") && it.name == "AndroidManifest.xml" }
-            .toList()
-        assertTrue("no merged manifest found for this variant", merged.isNotEmpty())
-        val queries = merged.map { it.readText().substringAfter("<queries>").substringBefore("</queries>") }
-        assertTrue(queries.any { it.contains("android.speech.RecognitionService") })
+        val manifestPath = File(requireNotNull(config.getProperty("android_merged_manifest")))
+        val manifest = if (manifestPath.isAbsolute) manifestPath
+            else File(requireNotNull(moduleRoot), manifestPath.path)
+        assertTrue("no merged manifest found for this variant: $manifest", manifest.isFile)
+        val document = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+            .newDocumentBuilder().parse(manifest)
+        val actions = XPathFactory.newInstance().newXPath()
+            .evaluate("/manifest/queries/intent/action", document, XPathConstants.NODESET) as NodeList
+        assertTrue((0 until actions.length).any { index ->
+            (actions.item(index) as Element)
+                .getAttributeNS("http://schemas.android.com/apk/res/android", "name") ==
+                "android.speech.RecognitionService"
+        })
     }
 
     @Test fun voiceInputLabelFollowsTheTitleCaseConvention() {
