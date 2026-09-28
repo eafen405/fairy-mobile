@@ -13,6 +13,9 @@
     <!-- Optional: capture goes through the platform IMAGE_CAPTURE intent, so the
          camera feature must not exclude hardware-less devices (e.g. Chromebooks). -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Voice input requests RECORD_AUDIO at first use, only inside the composer. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Optional user-granted access; exact automation remains off by default. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Saving images to the gallery on pre-Q only; Q+ uses scoped MediaStore (no permission). -->
@@ -22,6 +25,10 @@
     <queries>
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <!-- Recognition service discovery is subject to package visibility on Android 11+. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 

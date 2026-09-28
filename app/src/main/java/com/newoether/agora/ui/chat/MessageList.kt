@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -132,6 +133,7 @@ internal fun MessageList(
     segmentAppearanceRegistry: SegmentAppearanceRegistry =
         remember { SegmentAppearanceRegistry() },
     lifecycleEntranceTargetMessageId: String? = null,
+    anchoredMessageId: String? = null,
     leadingContentLayer: (@Composable androidx.compose.foundation.layout.BoxScope.() -> Unit)? = null,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -202,7 +204,6 @@ internal fun MessageList(
         cancelMutationAnchoring = ::cancelMutationAnchoring,
         setStreamingTailFollowMode = ::setStreamingTailFollowMode,
     )
-
     val visibleProjectionKey = remember(messages) {
         messages.list.map(ChatMessage::toRunProjectionKey)
     }
@@ -210,7 +211,6 @@ internal fun MessageList(
         allMessages.list.map(ChatMessage::toRunProjectionKey)
     }
     val inContextIds = contextRetainedMessageIds
-
     val activeMessageIds = remember(messages) { messages.list.mapTo(hashSetOf()) { message -> message.id } }
     val presentationMessages = remember(messages, retainedBranchReplacementExitMessages) {
         mergeBranchReplacementPresentationMessages(
@@ -226,7 +226,6 @@ internal fun MessageList(
     val tailHolderKey = messageListTailHolderKey(turns)
     val tailMessageId = turns.lastOrNull()?.messages?.lastOrNull()?.id
     LaunchedEffect(conversationId, turns, searchQuery) { onSearchTurnsChanged(turns) }
-
     MessageListEditScrollEffect(
         conversationId = conversationId,
         editingMessageIdState = editingMessageIdState,
@@ -238,14 +237,12 @@ internal fun MessageList(
     )
     val lastUserMessage =
         messages.list.lastOrNull(MessageGenerationBoundaryResolver::isRealUser)
-
     fun stableVisualKey(messageId: String): String = branchReplacementVisualKey(
         messageId = messageId,
         sourceUserMessageId = regenerationTransition?.sourceUserMessageId,
         targetUserMessageId = regenerationTransition?.targetUserMessageId,
         aliases = editVisualKeyAliases,
     )
-
     SideEffect {
         val sourceUserMessageId = regenerationTransition?.sourceUserMessageId
         val targetUserMessageId = regenerationTransition?.targetUserMessageId
@@ -254,7 +251,6 @@ internal fun MessageList(
                 editVisualKeyAliases[sourceUserMessageId] ?: sourceUserMessageId
         }
     }
-
     LaunchedEffect(regenerationTransition?.id) {
         val transition = regenerationTransition
         if (transition == null) {
@@ -344,6 +340,20 @@ internal fun MessageList(
         )
     }
     val tailMinHeight = with(density) { tailMinHeightPx.toDp() }
+    // While anchored, the sentinel carries the leftover viewport room below the anchored
+    // message. Streaming growth shrinks it one-for-one so the total extent stays put; the
+    // anchored turn's top pad is the 12dp gap, which keeps the anchor reachable at index 0 too.
+    val anchorReservePx = anchorTailReserveForList(
+        anchoredMessageId = anchoredMessageId,
+        turns = turns,
+        messageHeights = messageHeights,
+        tailHolderKey = tailHolderKey,
+        tailMinHeightPx = tailMinHeightPx,
+        viewportHeightPx = viewportHeight,
+        topPaddingPx = with(density) { contentPadding.calculateTopPadding().roundToPx() },
+        bottomPaddingPx = with(density) { contentPadding.calculateBottomPadding().roundToPx() },
+        anchorGapPx = with(density) { AnchoredMessageTopGap.roundToPx() },
+    )
     // One progressive actor owns the complete search movement. Far-away turns are approached in
     // bounded per-frame steps; once composed, the same actor retargets against exact glyph
     // geometry. There is no animateScrollToItem teleport and no second correction animation.
@@ -746,7 +756,15 @@ internal fun MessageList(
         ) {
             items(turns, key = { turn -> stableVisualKey(turn.key) }) { turn ->
                 val holdsTailMinimum = turn.key == tailHolderKey
-                Box(modifier = Modifier) {
+                val holdsAnchor = anchoredMessageId != null &&
+                    turn.messages.any { message -> message.id == anchoredMessageId }
+                Box(
+                    modifier = if (holdsAnchor) {
+                        Modifier.padding(top = AnchoredMessageTopGap)
+                    } else {
+                        Modifier
+                    },
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -767,7 +785,15 @@ internal fun MessageList(
             // indicator. Reaching this item and exhausting canScrollForward means the actual
             // LazyColumn maximum extent has been reached.
             item(key = AbsoluteBottomSentinelKey) {
-                Spacer(Modifier.fillMaxWidth().height(1.dp))
+                Spacer(
+                    Modifier.fillMaxWidth().height(
+                        if (anchoredMessageId == null) {
+                            1.dp
+                        } else {
+                            with(density) { anchorReservePx.coerceAtLeast(1).toDp() }
+                        },
+                    ),
+                )
             }
         }
     }

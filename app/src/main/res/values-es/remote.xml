@@ -42,4 +42,16 @@
     <string name="remote_quick_research">Búscame información</string>
     <string name="remote_quick_file">Mira este archivo</string>
     <string name="remote_context_usage">Contexto %1$s / %2$s</string>
+    <string name="remote_voice_input">Entrada de voz</string>
+    <string name="remote_voice_hold_hint">Mantén pulsado para hablar</string>
+    <string name="remote_voice_listening">Escuchando… desliza hacia arriba para cancelar</string>
+    <string name="remote_voice_release_cancel">Suelta para cancelar</string>
+    <string name="remote_voice_processing">Reconociendo…</string>
+    <string name="remote_voice_permission_request">Se necesita acceso al micrófono para la entrada de voz</string>
+    <string name="remote_voice_permission_denied">Permiso de micrófono denegado — actívalo en Ajustes</string>
+    <string name="remote_voice_unavailable">La entrada de voz no está disponible en este dispositivo</string>
+    <string name="remote_voice_no_match">No se entendió — mantén pulsado para reintentar</string>
+    <string name="remote_voice_network">El reconocimiento de voz necesita conexión de red</string>
+    <string name="remote_voice_failed">Error de entrada de voz — mantén pulsado para reintentar</string>
+    <string name="remote_voice_open_settings">Abrir ajustes</string>
 </resources>

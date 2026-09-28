@@ -42,4 +42,16 @@
     <string name="remote_quick_research">幫我查點資料</string>
     <string name="remote_quick_file">看看這份檔案</string>
     <string name="remote_context_usage">上下文 %1$s / %2$s</string>
+    <string name="remote_voice_input">語音輸入</string>
+    <string name="remote_voice_hold_hint">按住說話</string>
+    <string name="remote_voice_listening">正在聆聽…上滑取消</string>
+    <string name="remote_voice_release_cancel">放開取消</string>
+    <string name="remote_voice_processing">辨識中…</string>
+    <string name="remote_voice_permission_request">語音輸入需要麥克風權限</string>
+    <string name="remote_voice_permission_denied">麥克風權限被拒——請在系統設定中開啟</string>
+    <string name="remote_voice_unavailable">此裝置不支援語音輸入</string>
+    <string name="remote_voice_no_match">沒有聽清——按住重試</string>
+    <string name="remote_voice_network">語音辨識需要可用的網路連線</string>
+    <string name="remote_voice_failed">語音輸入失敗——按住重試</string>
+    <string name="remote_voice_open_settings">開啟設定</string>
 </resources>

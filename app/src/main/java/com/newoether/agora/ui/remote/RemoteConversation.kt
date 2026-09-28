@@ -69,7 +69,6 @@ internal fun RemoteConversation(
     val haptics = LocalAgoraHaptics.current
     val chatWindow = androidx.compose.ui.platform.LocalWindowInfo.current
     val inlineMath by settings.parseInlineDollarMath.collectAsState(initial = false)
-    val stickToBottom by settings.stickToBottom.collectAsState(initial = true)
     val toolCallDisplayMode by settings.toolCallDisplayMode.collectAsState()
     val thinkingSegmentDisplayMode by settings.thinkingSegmentDisplayMode.collectAsState()
     val autoExpandActiveGroup by settings.autoExpandActiveGroup.collectAsState()
@@ -90,6 +89,7 @@ internal fun RemoteConversation(
         onShowLaunchContent = {},
         onInitialFocusRequested = { vm.completeComposerFocus(owner) },
     )
+    val speech = rememberRemoteSpeechController(owner, field, active) { vm.editDraft(owner, it) }
     val messages = remember(state.messageGroups) { state.messageGroups.map { it.stub } }
     val tail = messages.lastOrNull()?.takeIf {
         it.status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)
@@ -204,11 +204,16 @@ internal fun RemoteConversation(
             initiallyPositioned = true
         }
     }
-    val follow = streamingTailAvailability(
-        generationActive = generationVisible,
-        blocked = switching || interaction.searchActive || !motion.allowProgrammaticScrollMotion,
-        programmaticHandoff = scroll.imeBottomAnchorState.active ||
-            scroll.absoluteBottomScrollPhase.isActive || animatedScrollRequest?.conversationId == owner,
+    // A proactive or relayed turn lands on its own MODEL tail. While the reader is at the
+    // bottom that new tail takes over the anchor; otherwise only the bottom button signals it.
+    BindIncomingTurnAnchorEffect(
+        conversationId = owner,
+        messages = messages,
+        enabled = initiallyPositioned && active && !interaction.searchActive,
+        hasPendingAttempt = attempt?.delivery in
+            setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN),
+        withinAttachThreshold = { scroll.isWithinAbsoluteBottomAttachThreshold },
+        onRequestAnchor = vm::requestAnchor,
     )
     val historyStartId = messages.firstOrNull()?.id
     val atHistoryBoundary by remember(scroll.listState, historyStartId) {
@@ -353,8 +358,8 @@ internal fun RemoteConversation(
                     searchScrollRequestKey = interaction.searchScrollRequestKey,
                     onSearchMatchDistance = interaction::recordSearchMatchDistance,
                     onSearchTurnsChanged = interaction::recordSearchTurns,
-                    streamingAutoFollowEnabled = follow.enabled && stickToBottom,
-                    streamingAutoFollowPaused = follow.paused,
+                    streamingAutoFollowEnabled = false,
+                    streamingAutoFollowPaused = false,
                     streamingTailWithinAttachThreshold = scroll.isWithinAbsoluteBottomAttachThreshold,
                     streamingTailController = scroll.streamingTailController,
                     toolCallDisplayMode = toolCallDisplayMode, thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
@@ -367,6 +372,7 @@ internal fun RemoteConversation(
                     onMessageHydrated = scroll::recordMessageHydrated,
                     lifecycleAppearanceRegistry = scroll.messageLifecycleAppearanceRegistry,
                     lifecycleEntranceTargetMessageId = animatedScrollRequest?.takeIf { it.conversationId == owner }?.targetMessageId,
+                    anchoredMessageId = scroll.activeAnchor?.takeIf { it.conversationId == owner }?.messageId,
                     leadingContentLayer = {
                         Box(
                             modifier = Modifier.matchParentSize().offset(y = (-30).dp),
@@ -448,16 +454,18 @@ internal fun RemoteConversation(
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
                 singleLine = true,
                 leadingControls = {
-                    RemoteAttachmentPicker(owner, active && !submitting, vm)
+                    RemoteAttachmentPicker(owner, active && !submitting && !speech.exclusive, vm)
                 },
+                inputReadOnly = speech.exclusive,
                 statusContent = {
+                    RemoteSpeechStatus(speech)
                     ComposerStatusColumn(state.queued, { it.id }) { QueuedMessageRow(text = it.text) }
                 },
                 attachmentContent = {
                     if (attachments.isNotEmpty()) {
                         AttachmentPreviewRow(
                             attachments = attachments,
-                            editable = active && !submitting,
+                            editable = active && !submitting && !speech.exclusive,
                             onRemove = { vm.removeAttachment(owner, it) },
                             onRetry = { vm.retryAttachment(owner, it) },
                             onAllMediaClick = onMediaClick,
@@ -468,16 +476,21 @@ internal fun RemoteConversation(
                 },
                 controls = {
                     val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
-                    ComposerSendButton(isActionable = active && !stopping && !state.controlling && !submitting &&
-                        (if (showStop) state.runtime?.activeTurnId != null
-                            else field.text.isNotBlank() || attachments.isNotEmpty()),
-                        isBusy = submitting || stopping, showStop = showStop,
-                        onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
-                        if (showStop) vm.stop()
-                        else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, checkedDeliveryText) {
-                            vm.acknowledgeUnknown(owner)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RemoteSpeechButton(speech, enabled = active && !submitting)
+                        Spacer(Modifier.width(8.dp))
+                        ComposerSendButton(isActionable = active && !stopping && !state.controlling && !submitting &&
+                            !speech.exclusive &&
+                            (if (showStop) state.runtime?.activeTurnId != null
+                                else field.text.isNotBlank() || attachments.isNotEmpty()),
+                            isBusy = submitting || stopping, showStop = showStop,
+                            onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
+                            if (showStop) vm.stop()
+                            else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, checkedDeliveryText) {
+                                vm.acknowledgeUnknown(owner)
+                            }
+                            else { vm.editDraft(owner, field.text.toString()); vm.send() }
                         }
-                        else { vm.editDraft(owner, field.text.toString()); vm.send() }
                     }
                 })
         }

@@ -42,4 +42,16 @@
     <string name="remote_quick_research">Поищи для меня информацию</string>
     <string name="remote_quick_file">Посмотри этот файл</string>
     <string name="remote_context_usage">Контекст %1$s / %2$s</string>
+    <string name="remote_voice_input">Голосовой ввод</string>
+    <string name="remote_voice_hold_hint">Удерживайте для речи</string>
+    <string name="remote_voice_listening">Слушаю… проведите вверх для отмены</string>
+    <string name="remote_voice_release_cancel">Отпустите для отмены</string>
+    <string name="remote_voice_processing">Распознавание…</string>
+    <string name="remote_voice_permission_request">Для голосового ввода нужен доступ к микрофону</string>
+    <string name="remote_voice_permission_denied">Разрешение на микрофон отклонено — включите его в настройках</string>
+    <string name="remote_voice_unavailable">Голосовой ввод недоступен на этом устройстве</string>
+    <string name="remote_voice_no_match">Не удалось распознать — удерживайте и попробуйте снова</string>
+    <string name="remote_voice_network">Распознаванию речи нужно сетевое подключение</string>
+    <string name="remote_voice_failed">Ошибка голосового ввода — удерживайте и попробуйте снова</string>
+    <string name="remote_voice_open_settings">Открыть настройки</string>
 </resources>
