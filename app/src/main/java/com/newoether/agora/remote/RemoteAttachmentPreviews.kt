@@ -3,6 +3,7 @@ package com.newoether.agora.remote
 import com.newoether.agora.model.RemoteAttachmentRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
@@ -58,7 +59,7 @@ internal class RemoteAttachmentPreviews(
             } }
             active[key] ?: run {
                 val expected = generation
-                scope.async {
+                scope.async(start = CoroutineStart.LAZY) {
                     var staged: StagedRemoteFile? = null
                     try {
                         slots.withPermit {
@@ -94,7 +95,7 @@ internal class RemoteAttachmentPreviews(
                     } finally {
                         synchronized(lock) { if (generation == expected) active.remove(key) }
                     }
-                }.also { active[key] = it }
+                }.also { active[key] = it; it.start() }
             }
         }
         return try {
