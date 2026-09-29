@@ -199,7 +199,7 @@ internal class FiloClient(
 
     suspend fun conversation(id: String, cursor: String? = null): RemoteConversationPage = withContext(Dispatchers.Default) {
         decodePage(
-            request("v1/sessions/${sessionId(id)}", cursor, includeActivity = true, includeMetadata = true),
+            request("v1/sessions/${sessionId(id)}?view=paged", cursor, includeActivity = true, includeMetadata = true),
         )
     }
 

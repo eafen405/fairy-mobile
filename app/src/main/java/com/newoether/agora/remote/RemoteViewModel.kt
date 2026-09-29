@@ -345,7 +345,10 @@ internal class RemoteViewModel(
         if (generation != epoch) return
         historyMutation.withLock {
             if (generation != epoch) return
-            var nodes = state.value.nodes
+            // A first turn may have no persisted overlap anchor before its final snapshot.
+            var nodes = state.value.nodes.filterNot { node ->
+                node.id.startsWith("live-") && node.turnId == page.runtime?.completedTurnId
+            }
             for (chunk in incoming.asReversed()) nodes = admitRemoteNodes(nodes, chunk.nodes)
             val runtime = page.runtime
             val groups = projectRemoteTopology(nodes, runtime)
@@ -446,7 +449,7 @@ internal class RemoteViewModel(
         require(page.nodes.map { it.id } == page.messages.map { it.id }) { "Filo page metadata is missing" }
         hydration.accept(owner, page, emptyList(), live)
         // Retain only topology here; body retention stays in the bounded LRU.
-        return page.copy(messages = emptyList(), nodes = page.nodes.map { it.copy(pageCursor = page.pageCursor) })
+        return page.copy(messages = emptyList(), nodes = page.nodes.map { it.copy(pageCursor = it.pageCursor ?: page.pageCursor) })
     }
 
     private suspend fun prependPage(client: FiloClient, session: String, generation: Long, cursor: String) {
