@@ -36,11 +36,14 @@
     <string name="remote_voice_input">Voice Input</string>
     <string name="remote_voice_hold_hint">Hold to talk</string>
     <string name="remote_voice_listening">Listening… slide up to cancel</string>
+    <string name="remote_voice_preparing">Connecting voice input…</string>
+    <string name="remote_voice_capture_limit">60 seconds reached. Release or slide up.</string>
     <string name="remote_voice_release_cancel">Release to cancel</string>
     <string name="remote_voice_processing">Recognizing…</string>
     <string name="remote_voice_permission_request">Microphone access is needed for voice input</string>
     <string name="remote_voice_permission_denied">Microphone permission denied — enable it in Settings</string>
-    <string name="remote_voice_unavailable">No speech recognition service is available</string>
+    <string name="remote_voice_unavailable">Fairy voice input is unavailable. Use your keyboard’s voice input.</string>
+    <string name="remote_voice_busy">Voice input is busy. Try again shortly.</string>
     <string name="remote_voice_no_match">Didn\'t catch that — hold to try again</string>
     <string name="remote_voice_network">Speech recognition needs a network connection</string>
     <string name="remote_voice_audio">Microphone recording failed; check microphone access</string>

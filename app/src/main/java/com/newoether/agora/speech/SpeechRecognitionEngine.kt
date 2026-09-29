@@ -19,6 +19,8 @@ import java.util.Locale
  */
 internal interface SpeechRecognitionEngine {
     interface Listener {
+        fun onCaptureStarted() {}
+        fun onCaptureLimitReached() {}
         fun onPartialResult(text: String)
         fun onFinalResult(text: String)
         fun onError(error: SpeechInputFailure, code: Int? = null)
@@ -111,6 +113,7 @@ private class AndroidSpeechRecognitionEngine(
 
     override fun start(listener: SpeechRecognitionEngine.Listener) {
         this.listener = listener
+        listener.onCaptureStarted()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)

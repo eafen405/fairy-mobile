@@ -4,9 +4,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-internal enum class SpeechInputPhase { IDLE, AWAITING_PERMISSION, LISTENING, CANCELLING, FINALIZING, ERROR }
+internal enum class SpeechInputPhase { IDLE, AWAITING_PERMISSION, PREPARING, LISTENING, CAPTURED, CANCELLING, FINALIZING, ERROR }
 
-internal enum class SpeechInputFailure { PERMISSION, UNAVAILABLE, NO_MATCH, NETWORK, AUDIO, CLIENT, FAILED }
+internal enum class SpeechInputFailure { PERMISSION, UNAVAILABLE, NO_MATCH, NETWORK, AUDIO, CLIENT, BUSY, FAILED }
 
 /**
  * Exclusive speech-input mode for one composer owner. Public events mirror the
@@ -38,13 +38,22 @@ internal class SpeechSessionController(
     private var base = ""
     private var segment = ""
     private var pendingFinal: String? = null
+    private var beforeCancel = SpeechInputPhase.LISTENING
 
     /** Keyboard edits and draft-changing controls suspend while a session owns the composer. */
     val exclusive: Boolean get() = phase in setOf(
-        SpeechInputPhase.LISTENING, SpeechInputPhase.CANCELLING, SpeechInputPhase.FINALIZING,
+        SpeechInputPhase.PREPARING, SpeechInputPhase.LISTENING, SpeechInputPhase.CAPTURED,
+        SpeechInputPhase.CANCELLING, SpeechInputPhase.FINALIZING,
     )
 
     private val listener = object : SpeechRecognitionEngine.Listener {
+        override fun onCaptureStarted() {
+            if (phase == SpeechInputPhase.PREPARING) phase = SpeechInputPhase.LISTENING
+        }
+        override fun onCaptureLimitReached() {
+            if (phase == SpeechInputPhase.LISTENING) phase = SpeechInputPhase.CAPTURED
+            else if (phase == SpeechInputPhase.CANCELLING) beforeCancel = SpeechInputPhase.CAPTURED
+        }
         override fun onPartialResult(text: String) {
             if (phase != SpeechInputPhase.LISTENING && phase != SpeechInputPhase.CANCELLING) return
             segment = text
@@ -72,7 +81,8 @@ internal class SpeechSessionController(
         }
         override fun onError(error: SpeechInputFailure, code: Int?) {
             if (phase == SpeechInputPhase.CANCELLING) discard()
-            else if (phase == SpeechInputPhase.LISTENING || phase == SpeechInputPhase.FINALIZING) {
+            else if (phase in setOf(SpeechInputPhase.PREPARING, SpeechInputPhase.LISTENING,
+                    SpeechInputPhase.CAPTURED, SpeechInputPhase.FINALIZING)) {
                 fail(error, code)
             }
         }
@@ -105,7 +115,7 @@ internal class SpeechSessionController(
         base = if (preSpeech.isEmpty() || preSpeech.last().isWhitespace()) preSpeech else "$preSpeech "
         segment = ""
         engine = created
-        phase = SpeechInputPhase.LISTENING
+        phase = SpeechInputPhase.PREPARING
         try {
             created.start(listener)
         } catch (denied: SecurityException) {
@@ -116,16 +126,18 @@ internal class SpeechSessionController(
     }
 
     fun pressMoved(upwardPx: Float) {
-        if (phase == SpeechInputPhase.LISTENING && upwardPx >= cancelThresholdPx) {
+        if (phase in setOf(SpeechInputPhase.LISTENING, SpeechInputPhase.CAPTURED) && upwardPx >= cancelThresholdPx) {
+            beforeCancel = phase
             phase = SpeechInputPhase.CANCELLING
         } else if (phase == SpeechInputPhase.CANCELLING && upwardPx < cancelThresholdPx) {
-            phase = SpeechInputPhase.LISTENING
+            phase = beforeCancel
         }
     }
 
     fun pressReleased() {
         when (phase) {
-            SpeechInputPhase.LISTENING -> {
+            SpeechInputPhase.PREPARING -> discard()
+            SpeechInputPhase.LISTENING, SpeechInputPhase.CAPTURED -> {
                 val staged = pendingFinal
                 if (staged != null) commit(staged)
                 else {

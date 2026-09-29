@@ -46,6 +46,10 @@ internal data class RemoteSendReceipt(val turnId: String, val clientId: String, 
 private data class FiloError(val code: String? = null, val error: String? = null)
 @Serializable
 private data class FairyAccount(val username: String, val role: String? = null)
+@Serializable
+internal data class RemoteSpeechAvailability(val available: Boolean, val maxDurationMs: Int)
+@Serializable
+private data class RemoteSpeechResult(val text: String)
 
 internal class FiloHttpException(val status: Int, val code: String? = null, val detail: String? = null) : IOException("Filo HTTP $status")
 internal class FiloStreamException(val detail: String? = null, val code: String? = null) : IOException("Filo could not read the native session")
@@ -176,6 +180,17 @@ internal class FiloClient(
 
     suspend fun me(): String =
         json.decodeFromString<FairyAccount>(request("api/me", base = base)).username
+
+    suspend fun speechAvailability(): RemoteSpeechAvailability =
+        json.decodeFromString<RemoteSpeechAvailability>(request("v1/speech"))
+
+    suspend fun transcribeSpeech(wav: ByteArray): String {
+        require(wav.size in 45..1_920_044) { "Invalid speech recording" }
+        return json.decodeFromString<RemoteSpeechResult>(request(
+            "v1/speech/transcriptions",
+            uploadBody = wav.toRequestBody("audio/wav".toMediaType()),
+        )).text
+    }
 
     suspend fun sessions(cursor: String? = null): RemoteSessionPage = withContext(Dispatchers.Default) {
         val page = json.decodeFromString<RemoteSessionPage>(request("v1/sessions", cursor))

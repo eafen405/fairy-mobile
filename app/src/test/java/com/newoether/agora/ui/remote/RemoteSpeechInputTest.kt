@@ -50,7 +50,10 @@ class RemoteSpeechInputTest {
     private class FakeEngine : SpeechRecognitionEngine {
         var listener: SpeechRecognitionEngine.Listener? = null
         var destroyed = 0
-        override fun start(listener: SpeechRecognitionEngine.Listener) { this.listener = listener }
+        override fun start(listener: SpeechRecognitionEngine.Listener) {
+            this.listener = listener
+            listener.onCaptureStarted()
+        }
         override fun stopListening() {}
         override fun cancel() {}
         override fun destroy() { destroyed++ }

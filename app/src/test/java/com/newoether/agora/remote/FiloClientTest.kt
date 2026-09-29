@@ -23,6 +23,51 @@ class FiloClientTest {
     private val token = "a".repeat(64)
     private val id = "00000000-0000-0000-0000-000000000001"
 
+    @Test fun speechUsesAuthenticatedRawWavTransport() = runBlocking {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val requests = mutableListOf<String>()
+        val wav = ByteArray(48) { it.toByte() }
+        server.createContext("/api/mobile/v1/speech") { exchange ->
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
+            requests += "${exchange.requestMethod} ${exchange.requestURI.path}"
+            val response = if (exchange.requestMethod == "GET") {
+                """{"available":true,"maxDurationMs":60000}"""
+            } else {
+                assertEquals("audio/wav", exchange.requestHeaders.getFirst("Content-Type"))
+                assertArrayEquals(wav, exchange.requestBody.readBytes())
+                """{"text":"recognized"}"""
+            }.toByteArray()
+            exchange.sendResponseHeaders(200, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        server.start()
+        try {
+            val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+            assertTrue(client.speechAvailability().available)
+            assertEquals("recognized", client.transcribeSpeech(wav))
+            assertEquals(listOf("GET /api/mobile/v1/speech", "POST /api/mobile/v1/speech/transcriptions"), requests)
+        } finally { server.stop(0) }
+    }
+
+    @Test fun speechUnavailablePreservesStableErrorCode() = runBlocking {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/mobile/v1/speech/transcriptions") { exchange ->
+            exchange.requestBody.close()
+            val response = """{"error":"not configured","code":"speech_unavailable"}""".toByteArray()
+            exchange.sendResponseHeaders(503, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        server.start()
+        try {
+            val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+            try { client.transcribeSpeech(ByteArray(48)); fail("Expected unavailable") }
+            catch (error: FiloHttpException) {
+                assertEquals(503, error.status)
+                assertEquals("speech_unavailable", error.code)
+            }
+        } finally { server.stop(0) }
+    }
+
     @Test fun sessionListDecodesLightweightStatusAndOldServerFallback() = runBlocking {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/api/mobile/v1/sessions") { exchange ->
