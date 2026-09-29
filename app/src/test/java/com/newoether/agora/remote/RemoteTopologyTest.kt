@@ -13,11 +13,11 @@ import org.junit.Test
 class RemoteTopologyTest {
     @Test fun olderPagesPreserveCanonicalLazyItemsEvenWhenNativeRepliesCrossEveryPage() {
         fun record(id: String, role: String = "assistant") = RemoteMessage(id, "same-turn", null, role, id, 1)
-        var nodes = admitRemotePage(emptyList(), bodyPage(listOf(record("visible")), "older", emptyList()))
+        var nodes = admitRemotePage(emptyList(), bodyPage(listOf(record("visible")), "older"))
         val cache = com.newoether.agora.ui.chat.MessageListTurnCache()
         val before = cache.update(projectRemoteTopology(nodes, null).map { it.stub }).single()
         repeat(200) { index ->
-            val page = bodyPage(listOf(record("user-$index", "user"), record("older-$index")), "next", emptyList())
+            val page = bodyPage(listOf(record("user-$index", "user"), record("older-$index")), "next")
             nodes = admitRemotePage(nodes, page, older = true)
             val turns = cache.update(projectRemoteTopology(nodes, null).map { it.stub })
             assertSame(before, turns.first { it.key == before.key })
@@ -30,35 +30,35 @@ class RemoteTopologyTest {
 
     @Test fun overlappingStreamUpdatesCannotReassignSealedPageKeysOrDropItsNativePrefix() {
         fun record(index: Int) = RemoteMessage("a$index", "turn", null, "assistant", "text $index", 1)
-        var nodes = admitRemotePage(emptyList(), bodyPage((0..127).map(::record), null, emptyList()))
+        var nodes = admitRemotePage(emptyList(), bodyPage((0..127).map(::record), null))
         val firstPage = projectRemoteTopology(nodes, null).single()
-        nodes = admitRemotePage(nodes, bodyPage(listOf(record(127), record(128)), "older", emptyList()))
+        nodes = admitRemotePage(nodes, bodyPage(listOf(record(127), record(128)), "older"))
         val after = projectRemoteTopology(nodes, null)
         assertEquals(firstPage, after.first())
         assertNotEquals(after.first().stub.displayPageId, after.last().stub.displayPageId)
         assertEquals((0..128).map { "a$it" }, nodes.map { it.id })
         val snapshot = nodes
-        nodes = admitRemotePage(nodes, bodyPage(listOf(record(127), record(128)), "older", emptyList()))
+        nodes = admitRemotePage(nodes, bodyPage(listOf(record(127), record(128)), "older"))
         assertEquals(snapshot, nodes)
     }
 
     @Test fun continuousThoughtAndToolGroupsRespectDisplayPageLimitAndPreserveSealedFragments() {
         fun tool(index: Int) = RemoteMessage("tool-$index", "turn", null, "assistant", "", 1,
             activity = RemoteActivity(if (index % 2 == 0) "thought" else "tool", state = "succeeded"))
-        val packet = bodyPage((0..349).map(::tool), "older", emptyList())
+        val packet = bodyPage((0..349).map(::tool), "older")
         val nodes = admitRemotePage(emptyList(), packet)
         val groups = projectRemoteTopology(nodes, null)
         assertEquals(listOf(128, 128, 94), groups.map { it.nodes.size })
         val cache = com.newoether.agora.ui.chat.MessageListTurnCache()
         val before = cache.update(groups.map { it.stub })
         val answer = RemoteMessage("earlier-answer", "turn", null, "assistant", "Earlier", 1)
-        val prepended = admitRemotePage(nodes, bodyPage(listOf(answer), null, emptyList()), older = true)
+        val prepended = admitRemotePage(nodes, bodyPage(listOf(answer), null), older = true)
         val turns = cache.update(projectRemoteTopology(prepended, null).map { it.stub })
         before.forEach { original -> assertSame(original, turns.first { it.key == original.key }) }
         assertEquals(nodes, prepended.drop(1))
-        val extended = admitRemotePage(nodes, bodyPage(listOf(tool(349), tool(350)), "older", emptyList()))
+        val extended = admitRemotePage(nodes, bodyPage(listOf(tool(349), tool(350)), "older"))
         assertEquals(listOf(128, 128, 95), projectRemoteTopology(extended, null).map { it.nodes.size })
-        val complete = admitRemotePage(extended, bodyPage(listOf(tool(350), answer.copy(id = "final")), null, emptyList()))
+        val complete = admitRemotePage(extended, bodyPage(listOf(tool(350), answer.copy(id = "final")), null))
         assertEquals(listOf(128, 128, 96), projectRemoteTopology(complete, null).map { it.nodes.size })
     }
 
@@ -84,16 +84,6 @@ class RemoteTopologyTest {
         assertEquals(1, projectRemoteTopology(listOf(node("u", "user").copy(hasContent = true)), null).size)
     }
 
-    @Test fun transportPartsDoNotBecomeExtraBubblesOrAlterNativeToolCount() {
-        val user = node("u", "user")
-        val first = node("answer").copy(nativeId = "answer", textContinues = true)
-        val part = first.copy(id = "filo-part:answer:16384", textOffset = 16384, textContinues = false)
-        val tool = node("tool").copy(textLength = 0, activity = RemoteNodeActivity("tool", "succeeded"))
-        val groups = projectRemoteTopology(listOf(user, first, part, tool), RemoteRuntime("idle"))
-        assertEquals(listOf("u", "group-turn"), groups.map { it.stub.id })
-        assertEquals(1, groups.last().nodes.count { it.activity?.type == "tool" })
-        assertEquals(3, groups.last().requests.size)
-    }
 
     @Test fun onlyTheNativeAcknowledgedActiveTailReceivesGenerationStatus() {
         val active = RemoteRuntime("active", "turn")
@@ -104,19 +94,6 @@ class RemoteTopologyTest {
         assertEquals(MessageStatus.THINKING, result.last().stub.status)
         val answer = node("answer")
         assertEquals(MessageStatus.SENDING, projectRemoteTopology(nodes + answer, active).last().stub.status)
-    }
-
-    @Test fun queuedEntriesAdmittedByStableIdentityNeverRedisplay() {
-        val admitted = node("u1", "user").copy(clientId = "c1", messageId = "m1")
-        val queued = listOf(
-            RemoteQueuedMessage("q1", "c1", "hi"),                       // same clientId
-            RemoteQueuedMessage("q2", "other", "hi", messageId = "m1"),  // same messageId
-            RemoteQueuedMessage("u1", "different", "hi"),                // same node id
-            RemoteQueuedMessage("q3", "fresh", "hi"),                    // still pending
-        )
-        assertEquals(listOf("q3"), mergeQueuedMessages(queued, listOf(admitted)).map { it.id })
-        assertEquals(queued, mergeQueuedMessages(queued, emptyList()))
-        assertEquals(emptyList<RemoteQueuedMessage>(), mergeQueuedMessages(emptyList(), listOf(admitted)))
     }
 
     @Test fun fileOnlyAndAttachmentOnlyNodesStayRenderable() {
@@ -166,7 +143,7 @@ class RemoteTopologyTest {
     @Test fun pageAndStreamIncludeBodiesAndMetadataWithoutPerMessageRequests() = runBlocking {
         val session = "00000000-0000-0000-0000-000000000001"
         val message = RemoteMessage("a", "turn", null, "assistant", "body", 1)
-        val page = bodyPage(listOf(message), "older", emptyList(), RemoteRuntime("idle"))
+        val page = bodyPage(listOf(message), "older", RemoteRuntime("idle"))
         val paths = mutableListOf<String>()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->

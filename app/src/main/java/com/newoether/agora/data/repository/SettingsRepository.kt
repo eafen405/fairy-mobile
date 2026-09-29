@@ -1,6 +1,5 @@
 package com.newoether.agora.data.repository
 
-import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.model.ToolCallDisplayModes
@@ -47,6 +46,4 @@ class SettingsRepository(
     )
     val autoExpandActiveGroup: StateFlow<Boolean> =
         hot(settingsManager.autoExpandActiveGroup, true)
-    val customProviders: StateFlow<List<CustomProviderConfig>> =
-        hot(settingsManager.customProviders, emptyList())
 }

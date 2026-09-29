@@ -33,7 +33,6 @@ class EmblemAnimatingTest {
             MessageStatus.SUCCESS,
             MessageStatus.STOPPED,
             MessageStatus.ERROR,
-            MessageStatus.TRANSCRIBING,
         ).forEach { status ->
             assertFalse(
                 "$status tail should not animate",

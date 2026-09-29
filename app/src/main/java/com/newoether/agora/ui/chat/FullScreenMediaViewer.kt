@@ -21,7 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -93,9 +92,6 @@ private fun rememberIsVideoMedia(url: String): Boolean? {
 fun FullScreenMediaViewer(
     urls: List<String>,
     initialIndex: Int = 0,
-    pdfPages: List<String>,
-    pdfSelectedPages: Set<Int>? = null,
-    onTogglePdfPage: ((Int) -> Unit)? = null,
     onClose: () -> Unit,
     onNavigate: (Int) -> Unit,
     onMessage: (String) -> Unit = {},
@@ -103,10 +99,6 @@ fun FullScreenMediaViewer(
 ) {
     val url = urls.getOrNull(initialIndex) ?: return
     val haptics = rememberAgoraHaptics(hapticsEnabled)
-    if (pdfPages.isNotEmpty()) {
-        PdfPager(pdfPages, initialIndex, pdfSelectedPages, onTogglePdfPage, onClose, onNavigate)
-        return
-    }
     if (urls.size > 1) {
         MediaPager(urls, initialIndex, onClose, onNavigate, onMessage, haptics = haptics)
         return
@@ -153,110 +145,6 @@ fun FullScreenMediaViewer(
 
     // Single image — full zoom/pan experience
     SingleImage(url = url, onClose = onClose, onMessage = onMessage, haptics = haptics)
-}
-
-// --- PDF pager (existing logic) ---
-
-@Composable
-private fun PdfPager(
-    pdfPages: List<String>,
-    initialIndex: Int,
-    pdfSelectedPages: Set<Int>? = null,
-    onTogglePdfPage: ((Int) -> Unit)? = null,
-    onClose: () -> Unit,
-    onNavigate: (Int) -> Unit
-) {
-    val pdfInitialPage = initialIndex.coerceIn(0, pdfPages.size - 1)
-    var currentScale by remember { mutableFloatStateOf(1f) }
-    var showOverlay by remember { mutableStateOf(true) }
-    val pagerState = rememberPagerState(initialPage = pdfInitialPage) { pdfPages.size }
-    LaunchedEffect(pagerState.currentPage) {
-        val idx = pagerState.currentPage
-        if (idx in pdfPages.indices) onNavigate(idx)
-    }
-    BackHandler { onClose() }
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 1,
-            userScrollEnabled = currentScale <= 1.05f
-        ) { page ->
-            ZoomableImageItem(
-                url = pdfPages[page],
-                onTap = { showOverlay = !showOverlay },
-                onScaleChanged = { if (page == pagerState.currentPage) currentScale = it },
-                consumeConditionally = true
-            )
-        }
-        AnimatedVisibility(
-            visible = showOverlay,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 20.dp, vertical = 24.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    modifier = Modifier.shadow(8.dp, RoundedCornerShape(50))
-                ) {
-                    Text(
-                        "${pagerState.currentPage + 1} / ${pdfPages.size}",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Surface(
-                    onClick = { onClose() },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    modifier = Modifier.shadow(8.dp, CircleShape)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.provider_close), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(48.dp).padding(12.dp))
-                }
-            }
-        }
-
-        // Bottom-left selection capsule
-        if (pdfSelectedPages != null && onTogglePdfPage != null) {
-            val currentPage = pagerState.currentPage
-            AnimatedVisibility(
-                visible = showOverlay,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(24.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Checkbox(
-                        checked = currentPage in pdfSelectedPages,
-                        onCheckedChange = { onTogglePdfPage(currentPage) },
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        "${pdfSelectedPages.size} / ${pdfPages.size} ${stringResource(R.string.pdf_selected)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(end = 10.dp)
-                    )
-                }
-            }
-        }
-    }
 }
 
 // --- Multi-image/video pager ---

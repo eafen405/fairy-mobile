@@ -76,7 +76,7 @@ class HydratedMessagePayloadLruTest {
 
         assertEquals(2, cache.size)
         assertEquals(8L, cache.totalWeightBytes)
-        assertEquals(3, cache["same"]?.tokenCount)
+        assertEquals(3L, cache["same"]?.preparedMarkdownBytes)
     }
 
     private fun cache(
@@ -85,13 +85,13 @@ class HydratedMessagePayloadLruTest {
     ) = HydratedMessagePayloadLru(
         maxEntries = maxEntries,
         maxWeightBytes = maxWeightBytes,
-        weightOf = { message -> message.tokenCount.toLong() },
+        weightOf = { message -> message.preparedMarkdownBytes },
     )
 
     private fun message(id: String, weight: Int) = ChatMessage(
         id = id,
         text = id,
-        tokenCount = weight,
+        preparedMarkdownBytes = weight.toLong(),
         participant = Participant.MODEL,
     )
 }

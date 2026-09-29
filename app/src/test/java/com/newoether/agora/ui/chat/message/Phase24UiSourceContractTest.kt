@@ -110,32 +110,6 @@ class Phase24UiSourceContractTest {
         ))
     }
 
-    @Test
-    fun `generation sources render directly without a follower`() {
-        val list = source("MessageList.kt")
-        val assistant = source("message/AssistantMessageContent.kt")
-        val actionRow = source("message/AssistantActionRow.kt")
-        val retry = source("message/RetryActivityIndicator.kt")
-        val follower = sourceOrEmpty("message/InlineActivityDotFollower.kt")
-        val tail = source("StreamingTailIndicator.kt")
-
-        assertTrue(follower.isEmpty())
-        assertFalse(list.contains("InlineActivityDotFollower"))
-        assertFalse(list.contains("LocalInlineActivityDotOverlayState"))
-        assertTrue(actionRow.contains("GenerationActivityDot()"))
-        assertFalse(assistant.contains("InlineActivityDotMarker"))
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("clip = false"))
-        assertFalse(retry.contains("InlineActivityDotMarker"))
-        val tailIndicator = tail
-            .substringAfter("internal fun StreamingTailIndicator(")
-            .substringBefore("/** One breathing-scale sample")
-        assertTrue(tailIndicator.contains("GenerationActivityDot("))
-        assertTrue(tailIndicator.contains("alpha = opacity"))
-        assertTrue(tailIndicator.contains("clip = false"))
-        assertFalse(tailIndicator.contains("AnimatedVisibility("))
-        assertFalse(tailIndicator.contains("InlineActivityDotMarker"))
-    }
 
     private fun placeholders(value: String): Set<Int> =
         (1..4).filterTo(linkedSetOf()) { value.contains("%${it}\$d") }

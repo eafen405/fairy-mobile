@@ -90,8 +90,7 @@ private fun ChatMessage.hasSegmentDetailPayload(): Boolean =
 private fun MessageStatus.isSegmentDetailStreaming(): Boolean =
     this == MessageStatus.SENDING ||
         this == MessageStatus.THINKING ||
-        this == MessageStatus.TOOL_CALLING ||
-        this == MessageStatus.TRANSCRIBING
+        this == MessageStatus.TOOL_CALLING
 
 @Composable
 internal fun MessageSegmentDetailHost(
@@ -100,7 +99,6 @@ internal fun MessageSegmentDetailHost(
     streamingMessage: ChatMessage?,
     observeMessage: (String) -> Flow<ChatMessage?>,
     parseInlineDollarMath: Boolean,
-    onMediaClick: (List<String>, Int) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ((String, List<Int>, Boolean) -> Unit) -> Unit,
 ) {
@@ -148,7 +146,6 @@ internal fun MessageSegmentDetailHost(
         isStreaming = streamingMessage?.id == messageId &&
             streamingMessage.status.isSegmentDetailStreaming(),
         markdownRenderContext = markdownRenderContext,
-        onMediaClick = onMediaClick,
         handleBackInternally = showSegmentListFirst,
         showSegmentListFirst = showSegmentListFirst,
         onDismiss = { selectedMessageId = null },
@@ -158,13 +155,11 @@ internal fun MessageSegmentDetailHost(
 internal fun usesVirtualizedSegmentDetail(
     selectedSegmentCount: Int,
     segmentType: String,
-    segmentContentIsBlank: Boolean,
     isStreaming: Boolean,
     hasFooter: Boolean,
 ): Boolean =
     selectedSegmentCount == 1 &&
         segmentType != "tool" &&
-        !(segmentType == "transcription" && segmentContentIsBlank) &&
         !isStreaming &&
         !hasFooter
 
@@ -193,7 +188,6 @@ internal fun SegmentDetailSheet(
     selectedSegmentIndices: List<Int>,
     isStreaming: Boolean,
     markdownRenderContext: ChatMarkdownRenderContext,
-    onMediaClick: (List<String>, Int) -> Unit,
     titleOverride: String? = null,
     directMarkdownContent: String? = null,
     directSelectableTextContent: String? = null,
@@ -268,7 +262,6 @@ internal fun SegmentDetailSheet(
                 usesVirtualizedSegmentDetail(
                     selectedSegmentCount = selectedSegs.size,
                     segmentType = seg.type,
-                    segmentContentIsBlank = seg.content.isBlank(),
                     isStreaming = observedStreamingMarkdown,
                     hasFooter = detailFooter != null || errorText != null,
                 )
@@ -324,8 +317,6 @@ internal fun SegmentDetailSheet(
                             useLiveStatus = false,
                         )
                     seg.type == "tool" -> toolDisplayName(seg)
-                    seg.type == "transcription" ->
-                        transcriptionLabel(liveSegs, selectedLiveIndex)
                     else -> stringResource(R.string.tool_thinking)
                 }
                 if (showSegmentListFirst && !showSegmentListPage) {
@@ -457,35 +448,8 @@ internal fun SegmentDetailSheet(
                                                     .fillMaxWidth()
                                                     .padding(horizontal = toolDetailHorizontalPadding(detailSeg)),
                                             ) {
-                                                ToolDetailContent(
-                                                    segment = detailSeg,
-                                                    onMediaClick = onMediaClick,
-                                                )
+                                                ToolDetailContent(segment = detailSeg)
                                             }
-                                        } else if (
-                                            detailSeg.type == "transcription" &&
-                                            detailSeg.content.isBlank()
-                                        ) {
-                                            Text(
-                                                text = "Image transcription is empty.",
-                                                style = ChatType.body,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    .copy(alpha = 0.4f),
-                                                modifier = Modifier.padding(horizontal = 24.dp),
-                                            )
-                                        } else if (
-                                            detailSeg.type == "transcription" &&
-                                            (detailSeg.content ==
-                                                stringResource(R.string.transcription_ellipsis_single) ||
-                                                detailSeg.content ==
-                                                stringResource(R.string.transcription_ellipsis))
-                                        ) {
-                                            Text(
-                                                text = detailSeg.content,
-                                                style = markdownRenderContext.plainTextStyle,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 24.dp),
-                                            )
                                         } else {
                                             val detailIsStreaming =
                                                 isStreaming && index == selectedSegs.lastIndex
@@ -520,35 +484,8 @@ internal fun SegmentDetailSheet(
                                             .fillMaxWidth()
                                             .padding(horizontal = toolDetailHorizontalPadding(seg)),
                                     ) {
-                                        ToolDetailContent(
-                                            segment = seg,
-                                            onMediaClick = onMediaClick,
-                                        )
+                                        ToolDetailContent(segment = seg)
                                     }
-                                } else if (
-                                    seg.type == "transcription" &&
-                                    seg.content.isBlank()
-                                ) {
-                                    Text(
-                                        text = "Image transcription is empty.",
-                                        style = ChatType.body,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            .copy(alpha = 0.4f),
-                                        modifier = Modifier.padding(horizontal = 24.dp),
-                                    )
-                                } else if (
-                                    seg.type == "transcription" &&
-                                    (seg.content ==
-                                        stringResource(R.string.transcription_ellipsis_single) ||
-                                        seg.content ==
-                                        stringResource(R.string.transcription_ellipsis))
-                                ) {
-                                    Text(
-                                        text = seg.content,
-                                        style = markdownRenderContext.plainTextStyle,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 24.dp),
-                                    )
                                 } else {
                                     Box(
                                         modifier = Modifier

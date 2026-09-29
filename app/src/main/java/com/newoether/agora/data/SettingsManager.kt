@@ -3,11 +3,9 @@ package com.newoether.agora.data
 import android.content.Context
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.model.ToolCallDisplayModes
-import com.newoether.agora.util.DebugLog
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.json.Json
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -16,26 +14,12 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
  *
  * The upstream provider/local-model/MCP/automation/sandbox/backup surface was
  * removed in S3 together with the systems that consumed it. What remains is
- * exactly what live code reads: theme/motion/haptics/language, chat rendering
- * toggles, and `customProviders` (still used to normalize provider ids in
- * snackbar text).
+ * exactly what live code reads: theme/motion/haptics/language and chat
+ * rendering toggles.
  */
 class SettingsManager(private val context: Context) {
-    private val json = Json { ignoreUnknownKeys = true }
 
     val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }
-
-    /** Custom provider identities kept only for snackbar/display normalization. */
-    val customProviders: Flow<List<CustomProviderConfig>> = context.dataStore.data.map { pref ->
-        val jsonStr = pref[CUSTOM_PROVIDERS_JSON] ?: "[]"
-        try {
-            val decoded = json.decodeFromString<List<CustomProviderConfig>>(jsonStr)
-            CustomProviderNamePolicy.sanitize(decoded).accepted
-        } catch (e: Exception) {
-            DebugLog.e("SettingsManager", "Failed to decode customProviders", e)
-            emptyList()
-        }
-    }
 
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "FOLLOW_DEVICE" }
     val amoledEnabled: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_ENABLED] ?: false }

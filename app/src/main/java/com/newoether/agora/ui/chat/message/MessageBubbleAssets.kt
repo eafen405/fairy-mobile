@@ -100,26 +100,6 @@ internal fun chatLinkTextStyles(color: Color): TextLinkStyles {
     )
 }
 
-internal fun buildCitationAwareMarkdownAnnotatedString(
-    content: String,
-    textNode: ASTNode,
-    style: TextStyle,
-    annotatorSettings: AnnotatorSettings,
-    citationTokens: Map<Char, CitationInlineToken>,
-    literalText: String? = null,
-): AnnotatedString {
-    val annotated = if (literalText != null) {
-        AnnotatedString(literalText)
-    } else {
-        content.buildMarkdownAnnotatedString(
-            textNode = textNode,
-            style = style,
-            annotatorSettings = annotatorSettings,
-        )
-    }
-    return annotated.replaceCitationInlineTokens(citationTokens)
-}
-
 private const val MARKDOWN_LINE_HEIGHT_MULTIPLIER = 1.1f
 
 // Center extra leading so bold-only lines do not crowd adjacent regular lines.
@@ -154,8 +134,6 @@ private fun ASTNode.findDescendantOfType(type: org.intellij.markdown.IElementTyp
 internal fun rememberChatMarkdownAssets(
     textColor: Color,
     parseInlineDollarMath: Boolean = false,
-    inlineImages: Map<String, com.newoether.agora.model.MarkdownImage> = emptyMap(),
-    onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     bodyFontWeight: FontWeight = FontWeight.Normal,
 ): ChatMarkdownAssets {
@@ -391,12 +369,10 @@ internal fun rememberChatMarkdownAssets(
     val thoughtMarkdownComponents = customMarkdownComponents
 
     val latexTextSize = with(LocalDensity.current) { 22.sp.toPx() }
-    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize) {
+    val latexImageTransformer = remember(textColor, latexTextSize) {
         LatexImageTransformer(
             textSize = latexTextSize,
             color = textColor.toArgb(),
-            inlineImages = inlineImages,
-            onMediaClick = onMediaClick,
         )
     }
     val markdownFlavour = remember { GFMFlavourDescriptor() }
@@ -609,16 +585,16 @@ internal fun SearchHighlightedMarkdownText(
     activeHighlightColor: Color = ActiveSearchHighlightBackground,
 ) {
     val settings = annotatorSettings()
-    val citationTokens = LocalCitationInlineTokens.current
-    val base = remember(model.content, textNode, style, literalText, settings, citationTokens) {
-        buildCitationAwareMarkdownAnnotatedString(
-            content = model.content,
-            textNode = textNode,
-            style = style,
-            annotatorSettings = settings,
-            citationTokens = citationTokens,
-            literalText = literalText,
-        )
+    val base = remember(model.content, textNode, style, literalText, settings) {
+        if (literalText != null) {
+            AnnotatedString(literalText)
+        } else {
+            model.content.buildMarkdownAnnotatedString(
+                textNode = textNode,
+                style = style,
+                annotatorSettings = settings,
+            )
+        }
     }
     val streamingFadeSpec = LocalStreamingGlyphFadeSpec.current
     val nodeFade = remember(streamingFadeSpec, model.content, textNode) {

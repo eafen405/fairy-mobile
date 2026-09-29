@@ -60,25 +60,6 @@ internal fun parseProviderHttpErrorBody(rawBody: String): ParsedProviderHttpErro
     }
 }
 
-internal fun providerHttpError(
-    statusCode: Int,
-    rawBody: String?,
-): GenerationError.Api {
-    val parsed = rawBody
-        ?.let(::parseProviderHttpErrorBody)
-        ?: return GenerationError.Api(
-            code = null,
-            type = null,
-            message = "HTTP $statusCode",
-        )
-
-    return GenerationError.Api(
-        code = parsed.code ?: statusCode.toString(),
-        type = parsed.type,
-        message = parsed.message,
-    )
-}
-
 internal fun extractStructuredProviderHttpErrorMessage(rawBody: String): String? =
     parseProviderHttpErrorBody(rawBody)
         ?.takeIf(ParsedProviderHttpErrorBody::structured)

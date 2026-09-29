@@ -29,17 +29,11 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.util.noOpBringIntoView
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.CitationPolicy
-import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
-import com.newoether.agora.model.citationRecords
-import com.newoether.agora.ui.chat.GenerationActivityDot
-import com.newoether.agora.ui.chat.shouldShowStreamingTailIndicator
-import com.newoether.agora.ui.common.LocalAgoraHaptics
 
 internal val AssistantMessageHorizontalInset = 8.dp
 private val FormerAssistantStatusSpacerHeight = 6.dp
@@ -58,16 +52,8 @@ private val FormerAssistantStatusSpacerHeight = 6.dp
 internal fun AssistantMessageContent(
     message: ChatMessage,
     segmentAppearanceRegistry: SegmentAppearanceRegistry,
-    contextAlpha: Modifier,
     isStreaming: Boolean,
-    isLoading: Boolean,
-    isStopping: Boolean,
-    isRegenerationExiting: Boolean,
-    isEditingAllowed: Boolean,
-    showActions: Boolean,
     includeOuterSpacing: Boolean = true,
-    actionCopyText: String?,
-    showBranchSelector: Boolean,
     toolCallDisplayMode: String,
     thinkingSegmentDisplayMode: String,
     autoExpandActiveGroup: Boolean,
@@ -78,72 +64,11 @@ internal fun AssistantMessageContent(
     searchHighlight: SearchHighlightSpec?,
     // In a Fairy bubble the content wraps its own width instead of filling.
     fillAvailableWidth: Boolean = true,
-    // When true the action row is rendered by the caller below the bubble.
-    actionsOutside: Boolean = false,
-    citationUi: AssistantCitationUiState = rememberAssistantCitationUi(message.id),
-    branchIndex: Int,
-    totalBranches: Int,
-    onSwitchBranch: (Int) -> Unit,
-    onRegenerate: (String) -> Boolean,
-    onFork: () -> Unit,
-    onShare: () -> Unit,
-    onMediaClick: (List<String>, Int) -> Unit,
-    onShowInfo: () -> Unit,
-    onShowDelete: () -> Unit,
     onSegmentSelected: (List<Int>, Boolean) -> Unit,
     onLayoutMutationStarted: (String) -> Unit,
     onLayoutMutationSettled: (String) -> Unit,
     setThoughtBlockHeight: (Int) -> Unit,
 ) {
-    val haptics = LocalAgoraHaptics.current
-    val uriHandler = LocalUriHandler.current
-    val citations = remember(message.text, message.segments) {
-        message.citationRecords()
-    }
-    val onSingleCitationActivate: (CitationRecord) -> Unit = { source ->
-        val safeUrl = CitationPolicy.safeHttpUrl(source.url)
-        if (safeUrl == null || runCatching { uriHandler.openUri(safeUrl) }.isFailure) {
-            citationUi.selectedCitation = source
-        }
-    }
-    val onCitationActivate: (List<CitationRecord>) -> Unit = { sources ->
-        if (sources.size > 1) {
-            citationUi.showSources = false
-            citationUi.groupedSources = sources
-        } else {
-            sources.singleOrNull()?.let(onSingleCitationActivate)
-        }
-    }
-    citationUi.selectedCitation?.let { source ->
-        CitationSourceDetailDialog(
-            source = source,
-            onDismiss = { citationUi.selectedCitation = null },
-        )
-    }
-    if (citationUi.showSources) {
-        CitationSourcesBottomSheet(
-            messageId = message.id,
-            citations = citations,
-            searchSpec = null,
-            onActivate = { source ->
-                haptics.confirm()
-                onSingleCitationActivate(source)
-            },
-            onDismiss = { citationUi.showSources = false },
-        )
-    }
-    citationUi.groupedSources?.let { groupedSources ->
-        CitationSourcesBottomSheet(
-            messageId = message.id,
-            citations = groupedSources,
-            searchSpec = null,
-            onActivate = { source ->
-                haptics.confirm()
-                onSingleCitationActivate(source)
-            },
-            onDismiss = { citationUi.groupedSources = null },
-        )
-    }
     // During generation, eat horizontal nested-scroll so code blocks
     // cannot be panned. Vertical scroll and taps (thinking header,
     // stop button) pass through normally. Text selection is already
@@ -170,22 +95,20 @@ internal fun AssistantMessageContent(
             isStreaming ||
                 message.status == MessageStatus.SENDING ||
                 message.status == MessageStatus.THINKING ||
-                message.status == MessageStatus.TOOL_CALLING ||
-                message.status == MessageStatus.TRANSCRIBING
+                message.status == MessageStatus.TOOL_CALLING
         )
     val hasAnswerContent =
         message.text.isNotBlank() || mergedSegments.any { it.isVisibleAnswerSegment() }
     val inlineActivityPresentation = assistantInlineActivityPresentation(
         generationActive = generationActive,
-        isStopping = isStopping,
+        // Remote rows are not told a stop is pending; only the tail indicator tracks that.
+        isStopping = false,
         hasAnswer = hasAnswerContent,
         hasVisibleInfoSegment = mergedSegments.any { it.isInfoSegment() },
-        retryText = message.retryText,
     )
     val inlineActivityMode = inlineActivityPresentation.mode
     val inlineActivityTransition = updateTransition(
-        targetState = inlineActivityMode != AssistantInlineActivityMode.NONE ||
-            inlineActivityPresentation.retainLayout,
+        targetState = inlineActivityMode != AssistantInlineActivityMode.NONE,
         label = "AssistantInlineActivityVisibility",
     )
     val inlineActivityOpacity by inlineActivityTransition.animateFloat(
@@ -198,7 +121,6 @@ internal fun AssistantMessageContent(
         modifier = Modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
             .padding(horizontal = AssistantMessageHorizontalInset)
-            .then(contextAlpha)
             .then(if (isStreaming) Modifier.nestedScroll(horizontalScrollEater) else Modifier)
     ) {
         Column {
@@ -210,13 +132,7 @@ internal fun AssistantMessageContent(
             // the off-main Markdown parser.
             val renderedText = message.text
 
-            Column {
                 val isError = message.status == MessageStatus.ERROR || message.participant == Participant.ERROR
-
-                // Only zero out thought height when legacy thought block is not shown
-                if (message.segments != null || message.thoughts.isNullOrBlank()) {
-                    setThoughtBlockHeight(0)
-                }
 
                 val failedToGenerateText = stringResource(R.string.failed_to_generate)
                 val errorContent = remember(
@@ -229,13 +145,10 @@ internal fun AssistantMessageContent(
                 ) {
                     assistantErrorContent(message, mergedSegments, failedToGenerateText)
                 }
-                val hasImageGenerationBoundary =
-                    mergedSegments.any { it.isImageGenerationSegment() }
+                // On an errored message with no answer segments the text carries the
+                // recoverable answer prefix and must still render below the error bar.
                 val orderedFallbackAnswerText =
-                    if (
-                        hasImageGenerationBoundary &&
-                        mergedSegments.none { it.isVisibleAnswerSegment() }
-                    ) {
+                    if (mergedSegments.none { it.isVisibleAnswerSegment() }) {
                         errorContent?.answerText ?: renderedText.takeIf { !isError }
                     } else {
                         null
@@ -255,23 +168,15 @@ internal fun AssistantMessageContent(
                         normalizedToolCallDisplayMode,
                     ) == ThinkingSegmentDisplayModes.BOTTOM_SHEET
                 val groupAdjacentTimelineTools = normalizedToolCallDisplayMode == ToolCallDisplayModes.GROUPED_TIMELINE
-                val groupOrderedInfoBlocks =
-                    groupAdjacentTimelineTools ||
-                        (
-                            hasImageGenerationBoundary &&
-                                normalizedToolCallDisplayMode != ToolCallDisplayModes.TIMELINE
-                            )
+                val groupOrderedInfoBlocks = groupAdjacentTimelineTools
                 val useTimelineSegments =
-                    hasImageGenerationBoundary ||
+                    !useThinkingSheet &&
+                        normalizedToolCallDisplayMode != ToolCallDisplayModes.COMPACT &&
                         (
-                            !useThinkingSheet &&
-                                normalizedToolCallDisplayMode != ToolCallDisplayModes.COMPACT &&
+                            mergedSegments.any { it.type == "answer" } ||
                                 (
-                                    mergedSegments.any { it.type == "answer" } ||
-                                        (
-                                            groupAdjacentTimelineTools &&
-                                                mergedSegments.any { it.isInfoSegment() }
-                                            )
+                                    groupAdjacentTimelineTools &&
+                                        mergedSegments.any { it.isInfoSegment() }
                                     )
                             )
                 val detailSegments = remember(mergedSegments) {
@@ -309,12 +214,9 @@ internal fun AssistantMessageContent(
                             if (useThinkingSheet) sheetCollapsedStates else thoughtExpandedStates,
                         renderContext = renderContext,
                         searchHighlight = searchHighlight,
-                        citations = citations,
-                        onCitationActivate = onCitationActivate,
                         segmentAppearanceRegistry = segmentAppearanceRegistry,
                         onLayoutMutationStarted = onLayoutMutationStarted,
                         onLayoutMutationSettled = onLayoutMutationSettled,
-                        onMediaClick = onMediaClick,
                         opensDetailSheet = useThinkingSheet,
                         preserveInitialCompactIdentity =
                             normalizedToolCallDisplayMode == ToolCallDisplayModes.COMPACT ||
@@ -378,14 +280,7 @@ internal fun AssistantMessageContent(
                 }
 
                 val answerBodyText = errorContent?.answerText ?: renderedText.takeIf { !isError }
-                val answerProjection = remember(answerBodyText, citations, isStreaming) {
-                    citationMarkdownProjection(
-                        answerText = answerBodyText.orEmpty(),
-                        citations = citations,
-                        isStreaming = isStreaming,
-                    )
-                }
-                val answerContent = answerProjection?.markdown ?: answerBodyText.orEmpty()
+                val answerContent = answerBodyText.orEmpty()
                 val lastVisibleTerminalPredecessor = if (useTimelineSegments) {
                     mergedSegments.lastOrNull { segment ->
                         segment.isVisibleAnswerSegment() || segment.isInfoSegment()
@@ -408,14 +303,11 @@ internal fun AssistantMessageContent(
                 if (message.participant == Participant.MODEL) {
                     AssistantInlineActivity(
                         mode = inlineActivityMode,
-                        retryText = message.retryText,
                         visibilityTransition = inlineActivityTransition,
                         activityOpacity = inlineActivityOpacity,
                         retainExitLayout = inlineActivityPresentation.retainLayout,
                         terminalText = inlineTerminalText,
                         terminalIsError = errorContent != null,
-                        terminalShowLocalContextHelp =
-                            errorContent?.showLocalContextHelp == true,
                         precededByCard = terminalImmediatelyFollowsCard,
                     )
                 }
@@ -425,61 +317,43 @@ internal fun AssistantMessageContent(
                         .noOpBringIntoView()
                 ) {
                     if (answerContent.isNotEmpty() && !useTimelineSegments) {
-                        CitationTerminalProjectionHost(
-                            animationKey = "${message.id}:answer",
-                            projection = answerProjection,
-                            isStreaming = isStreaming,
-                            onLayoutMutationStarted = onLayoutMutationStarted,
-                            onLayoutMutationSettled = onLayoutMutationSettled,
-                            modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
-                        ) { presentedProjection, presentedIsStreaming ->
-                            val presentedContent =
-                                presentedProjection?.markdown ?: answerBodyText.orEmpty()
-                            CitationInlineContentHost(
-                                projection = presentedProjection,
-                                onActivate = onCitationActivate,
-                            ) {
-                                CompositionLocalProvider(
-                                    LocalSearchHighlightSpec provides searchHighlight,
+                        CompositionLocalProvider(
+                            LocalSearchHighlightSpec provides searchHighlight,
+                        ) {
+                            if (compactAnswerAppearanceKey != null) {
+                                AnimatedTimelineBlockAppearance(
+                                    animationKey = compactAnswerAppearanceKey,
+                                    appearanceRegistry = segmentAppearanceRegistry,
+                                    isStreaming = isStreaming,
                                 ) {
-                                if (compactAnswerAppearanceKey != null) {
-                                    AnimatedTimelineBlockAppearance(
-                                        animationKey = compactAnswerAppearanceKey,
-                                        appearanceRegistry = segmentAppearanceRegistry,
-                                        isStreaming = isStreaming,
-                                    ) {
-                                        StreamingMarkdownMessage(
-                                            content = presentedContent,
-                                            isStreaming = presentedIsStreaming,
-                                            renderContext = renderContext,
-                                            modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
-                                            selectionEnabled = !presentedIsStreaming,
-                                            textDeltas = answerTextDeltas,
-                                            fadeTracker = answerFadeTracker,
-                                        )
-                                    }
-                                } else {
                                     StreamingMarkdownMessage(
-                                        content = presentedContent,
-                                        isStreaming = presentedIsStreaming,
+                                        content = answerContent,
+                                        isStreaming = isStreaming,
                                         renderContext = renderContext,
                                         modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
-                                        selectionEnabled = !presentedIsStreaming,
+                                        selectionEnabled = !isStreaming,
                                         textDeltas = answerTextDeltas,
                                         fadeTracker = answerFadeTracker,
                                     )
                                 }
+                            } else {
+                                StreamingMarkdownMessage(
+                                    content = answerContent,
+                                    isStreaming = isStreaming,
+                                    renderContext = renderContext,
+                                    modifier = if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier,
+                                    selectionEnabled = !isStreaming,
+                                    textDeltas = answerTextDeltas,
+                                    fadeTracker = answerFadeTracker,
+                                )
                             }
                         }
                     }
                 }
-                }
                 var retainedErrorText by remember { mutableStateOf("") }
-                var retainedShowLocalContextHelp by remember { mutableStateOf(false) }
                 LaunchedEffect(errorContent) {
                     errorContent?.let {
                         retainedErrorText = it.errorText
-                        retainedShowLocalContextHelp = it.showLocalContextHelp
                     }
                 }
                 AnimatedVisibility(
@@ -490,9 +364,6 @@ internal fun AssistantMessageContent(
                     GenerationErrorBar(
                         errorText = errorContent?.errorText ?: retainedErrorText,
                         precededByCard = terminalImmediatelyFollowsCard,
-                        showLocalContextHelp =
-                            errorContent?.showLocalContextHelp
-                                ?: retainedShowLocalContextHelp,
                     )
                 }
                 AnimatedVisibility(
@@ -505,55 +376,6 @@ internal fun AssistantMessageContent(
                         precededByCard = terminalImmediatelyFollowsCard,
                     )
                 }
-                if (message.participant == Participant.MODEL && message.images.isNotEmpty()) {
-                    val genImages = message.images
-                    // Generated images are primary output, not input references:
-                    // render as a full-width square card, image cropped to fill
-                    // with rounded corners, tap to view fullscreen.
-                    Column(
-                        modifier = Modifier.padding(top = if (renderedText.isNotEmpty()) 8.dp else 0.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        genImages.forEachIndexed { idx, path ->
-                            coil.compose.AsyncImage(
-                                model = path,
-                                contentDescription = null,
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .combinedClickable(
-                                        onClick = { onMediaClick(genImages, idx) },
-                                        onLongClick = { haptics.longPress() },
-                                        hapticFeedbackEnabled = false,
-                                    )
-                            )
-                        }
-                    }
-                }
-                if (message.participant == Participant.MODEL && showActions && !actionsOutside) {
-                    AssistantActionRow(
-                        message = message,
-                        citations = citations,
-                        citationUi = citationUi,
-                        isStreaming = isStreaming,
-                        isLoading = isLoading,
-                        isStopping = isStopping,
-                        isRegenerationExiting = isRegenerationExiting,
-                        isEditingAllowed = isEditingAllowed,
-                        actionCopyText = actionCopyText,
-                        showBranchSelector = showBranchSelector,
-                        branchIndex = branchIndex,
-                        totalBranches = totalBranches,
-                        onSwitchBranch = onSwitchBranch,
-                        onRegenerate = onRegenerate,
-                        onFork = onFork,
-                        onShare = onShare,
-                        onShowInfo = onShowInfo,
-                        onShowDelete = onShowDelete,
-                    )
-                }
                 if (message.remoteFiles.isNotEmpty()) {
                     RemoteFileCardList(
                         files = message.remoteFiles,
@@ -562,7 +384,6 @@ internal fun AssistantMessageContent(
                 }
 
                 if (includeOuterSpacing) Spacer(modifier = Modifier.height(16.dp))
-            }
         }
     }
 }

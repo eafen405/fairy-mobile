@@ -149,7 +149,6 @@ internal fun MainNavigation(
     val motionPolicy = LocalAgoraMotionPolicy.current
     var mediaPreviewTarget by remember { mutableStateOf<MediaPreviewTarget?>(null) }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
-    val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarVersionState = remember { mutableIntStateOf(0) }
     var snackbarVersion by snackbarVersionState
@@ -219,10 +218,6 @@ internal fun MainNavigation(
             // A dedicated dialog gives the media viewer its own window above source sheets.
             FullScreenMediaPreviewDialog(
                 currentTarget = mediaPreviewTarget,
-                currentPdfPages = pdfPages,
-                currentPdfSelectedPages = emptySet(),
-                currentPdfSelectionEnabled = false,
-                currentPdfTogglePage = null,
                 enter = fullScreenPreviewEnterTransition(motionPolicy.allowSpatialTransitions),
                 exit = fullScreenPreviewExitTransition(motionPolicy.allowSpatialTransitions),
                 onHidden = {
@@ -230,7 +225,6 @@ internal fun MainNavigation(
                 },
                 onClose = { target ->
                     if (mediaPreviewTarget?.requestId != target.requestId) return@FullScreenMediaPreviewDialog
-                    viewModel.mediaPreview.clear()
                     mediaPreviewTarget = null
                 },
                 onNavigate = { target, idx ->

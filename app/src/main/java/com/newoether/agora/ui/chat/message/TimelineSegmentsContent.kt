@@ -8,7 +8,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.ui.components.*
 import com.newoether.agora.util.noOpBringIntoView
@@ -26,12 +25,9 @@ internal fun TimelineSegmentsContent(
     expandedStates: SnapshotStateMap<String, Boolean>,
     renderContext: ChatMarkdownRenderContext,
     searchHighlight: SearchHighlightSpec?,
-    citations: List<CitationRecord>,
-    onCitationActivate: (List<CitationRecord>) -> Unit,
     segmentAppearanceRegistry: SegmentAppearanceRegistry,
     onLayoutMutationStarted: (String) -> Unit,
     onLayoutMutationSettled: (String) -> Unit,
-    onMediaClick: (List<String>, Int) -> Unit,
     opensDetailSheet: Boolean = false,
     preserveInitialCompactIdentity: Boolean = false,
     onGroupHeaderClick: ((List<Int>) -> Unit)? = null,
@@ -52,15 +48,6 @@ internal fun TimelineSegmentsContent(
                     if (seg.content.isNotBlank()) {
                         val answerIsStreaming =
                             isStreaming && index == lastVisibleSegmentIndex
-                        val citationProjection = citationMarkdownProjection(
-                            answerText = seg.content,
-                            citations = citationRecordsForAnswerSlice(
-                                citations = citations,
-                                sliceStart = answerOffset,
-                                sliceText = seg.content,
-                            ),
-                            isStreaming = answerIsStreaming,
-                        )
                         val answerSearchHighlight = searchHighlight?.forSourceSlice(
                             sliceStart = answerOffset,
                             sliceLength = seg.content.length,
@@ -79,36 +66,20 @@ internal fun TimelineSegmentsContent(
                                     .fillMaxWidth()
                                     .padding(top = if (index == 0) 0.dp else 6.dp)
                             ) {
-                                CitationTerminalProjectionHost(
-                                    animationKey = answerAppearanceKey,
-                                    projection = citationProjection,
-                                    isStreaming = answerIsStreaming,
-                                    onLayoutMutationStarted = onLayoutMutationStarted,
-                                    onLayoutMutationSettled = onLayoutMutationSettled,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) { presentedProjection, presentedIsStreaming ->
-                                    val presentedContent =
-                                        presentedProjection?.markdown ?: seg.content
-                                    CitationInlineContentHost(
-                                        projection = presentedProjection,
-                                        onActivate = onCitationActivate,
-                                    ) {
-                                        CompositionLocalProvider(
-                                            LocalSearchHighlightSpec provides answerSearchHighlight,
-                                        ) {
-                                            StreamingMarkdownMessage(
-                                                content = presentedContent,
-                                                isStreaming = presentedIsStreaming,
-                                                renderContext = renderContext,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .noOpBringIntoView(),
-                                                selectionEnabled = !presentedIsStreaming,
-                                                textDeltas = seg.streamingTextDeltas,
-                                                fadeTracker = answerFadeTracker,
-                                            )
-                                        }
-                                    }
+                                CompositionLocalProvider(
+                                    LocalSearchHighlightSpec provides answerSearchHighlight,
+                                ) {
+                                    StreamingMarkdownMessage(
+                                        content = seg.content,
+                                        isStreaming = answerIsStreaming,
+                                        renderContext = renderContext,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .noOpBringIntoView(),
+                                        selectionEnabled = !answerIsStreaming,
+                                        textDeltas = seg.streamingTextDeltas,
+                                        fadeTracker = answerFadeTracker,
+                                    )
                                 }
                             }
                         }
@@ -117,7 +88,7 @@ internal fun TimelineSegmentsContent(
                     answerOffset += seg.content.length
                     index++
                 }
-                "thought", "tool", "transcription" -> {
+                "thought", "tool" -> {
                     if (groupAdjacentBlocks) {
                         val blockSegments = mutableListOf<MessageSegment>()
                         val blockDetailIndices = mutableListOf<Int>()
@@ -132,10 +103,6 @@ internal fun TimelineSegmentsContent(
                             }
                             blockCursor++
                         }
-                        val imageBoundary =
-                            blockSegments.lastOrNull()?.takeIf { it.isImageGenerationSegment() }
-                        val imageDetailIndex =
-                            blockDetailIndices.lastOrNull().takeIf { imageBoundary != null }
                         val firstDetailIndex = blockDetailIndices.firstOrNull() ?: index
                         val useInitialCompactIdentity =
                             preserveInitialCompactIdentity &&
@@ -169,7 +136,6 @@ internal fun TimelineSegmentsContent(
                             autoExpansionController = autoExpansionController,
                             autoExpansionEnabled = autoExpandActiveGroup,
                             autoExpansionActive = isStreaming && blockEnd == segments.size,
-                            collapseForImageBoundary = imageBoundary != null,
                             topPaddingExtra = blockTopPaddingExtra,
                             bottomPaddingExtra = 0.dp,
                             onExpansionStarted = onLayoutMutationStarted,
@@ -186,16 +152,6 @@ internal fun TimelineSegmentsContent(
                             },
                             opensDetailSheet = opensDetailSheet,
                         )
-                        if (imageBoundary != null && imageDetailIndex != null) {
-                            GeneratedImageThumbnail(
-                                segment = imageBoundary,
-                                messageId = message.id,
-                                detailIndex = imageDetailIndex,
-                                isStreaming = isStreaming,
-                                segmentAppearanceRegistry = segmentAppearanceRegistry,
-                                onMediaClick = onMediaClick,
-                            )
-                        }
                         previousVisibleWasAnswer = false
                         index = blockEnd
                     } else {
@@ -217,22 +173,11 @@ internal fun TimelineSegmentsContent(
                             animateAppearance = isStreaming,
                             topPaddingExtra = cardTopPaddingExtra,
                             groupPosition = timelineSegmentGroupPosition(segments, index),
-                            endsAtGeneratedImageBoundary = seg.isImageGenerationSegment(),
                             extendIntoMessageInsets = true,
                             cardAnimationKey = "$timelineKey:card",
                             segmentAppearanceRegistry = segmentAppearanceRegistry,
                             onClick = { onSegmentClick(listOf(currentDetailIndex)) },
                         )
-                        if (seg.isImageGenerationSegment()) {
-                            GeneratedImageThumbnail(
-                                segment = seg,
-                                messageId = message.id,
-                                detailIndex = currentDetailIndex,
-                                isStreaming = isStreaming,
-                                segmentAppearanceRegistry = segmentAppearanceRegistry,
-                                onMediaClick = onMediaClick,
-                            )
-                        }
                         previousVisibleWasAnswer = false
                         index++
                     }

@@ -9,10 +9,8 @@ import kotlinx.serialization.Serializable
 internal data class RemoteMessageNode(
     val id: String, val turnId: String, val clientId: String?, val role: String, val timestamp: Long,
     val revision: String, val textLength: Int,
-    val groupId: String? = null, val nativeId: String? = null,
-    val textOffset: Int = 0, val textContinues: Boolean = false,
+    val groupId: String? = null,
     val activity: RemoteNodeActivity? = null, val hasContent: Boolean? = null,
-    val imageCount: Int = 0,
     val error: Boolean = false,
     val messageId: String? = null,
     val attachments: List<RemoteMessageAttachment> = emptyList(),
@@ -29,13 +27,10 @@ internal fun RemoteMessageNode.hasVisibleContent(): Boolean =
         attachments.isNotEmpty() || files.isNotEmpty())
 @Serializable
 internal data class RemoteNodeActivity(val type: String, val state: String? = null, val durationMs: Long? = null,
-    val hasImage: Boolean = false, val label: String? = null)
-@Serializable
-internal data class RemotePayloadRequest(val id: String, val revision: String, val imageIndex: Int? = null)
+    val label: String? = null)
 
 internal data class RemoteMessageGroup(val stub: ChatMessage, val nodes: List<RemoteMessageNode>) {
     val revision: List<String> get() = nodes.map { it.revision }
-    val requests: List<RemotePayloadRequest> get() = nodes.map { RemotePayloadRequest(it.id, it.revision) }
 }
 
 /** Admitted page structure stays resident. Payload loading never changes its IDs or positions. */
@@ -47,13 +42,13 @@ internal fun projectRemoteTopology(nodes: List<RemoteMessageNode>, runtime: Remo
         while (index < nodes.size) {
             val next = nodes[index]
             val same = if (first.role == "assistant") next.role == "assistant" && next.turnId == first.turnId
-            else next.role == "user" && (next.nativeId ?: next.id) == (first.nativeId ?: first.id)
+            else next.role == "user" && next.id == first.id
             if (!same || next.displayGroupId != first.displayGroupId) break
             group += next
             index++
         }
         if (first.role == "assistant" && group.none { it.hasVisibleContent() }) continue
-        val id = first.displayGroupId ?: first.groupId ?: first.nativeId ?: first.id
+        val id = first.displayGroupId ?: first.groupId ?: first.id
         add(RemoteMessageGroup(ChatMessage(id = id, parentId = lastOrNull()?.stub?.takeIf {
                 it.displayPageId == first.displayPageId
             }?.id, text = "",
@@ -105,7 +100,7 @@ internal fun admitRemoteNodes(
             val sameGroup = preceding?.let {
                 it.displayPageId == pageId && it.role == node.role &&
                     (if (node.role == "assistant") it.turnId == node.turnId
-                    else (it.nativeId ?: it.id) == (node.nativeId ?: node.id))
+                    else it.id == node.id)
             } == true
             pageCount++
             node.copy(displayPageId = pageId, displayGroupId = if (sameGroup) preceding!!.displayGroupId else node.id,
@@ -119,20 +114,4 @@ internal fun admitRemoteNodes(
     val boundary = fresh.firstOrNull()?.id ?: return previous
     val index = previous.indexOfFirst { it.id == boundary }
     return (previous.take(if (index >= 0) index else previous.size) + fresh).distinctBy { it.id }
-}
-
-/**
- * Drop queued entries that have already been admitted to history, matched by
- * stable id, clientId, or messageId so a resubmitted send cannot double-render.
- */
-internal fun mergeQueuedMessages(
-    queued: List<RemoteQueuedMessage>, nodes: List<RemoteMessageNode>,
-): List<RemoteQueuedMessage> {
-    if (queued.isEmpty() || nodes.isEmpty()) return queued
-    return queued.filterNot { entry ->
-        nodes.any { node ->
-            node.id == entry.id || node.clientId == entry.clientId ||
-                (entry.messageId != null && node.messageId == entry.messageId)
-        }
-    }
 }

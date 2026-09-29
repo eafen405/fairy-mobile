@@ -22,7 +22,6 @@ internal fun segmentDetailTitle(
     detailIndex: Int,
 ): String = when (seg.type) {
     "tool" -> toolDisplayName(seg)
-    "transcription" -> transcriptionLabel(detailSegments, detailIndex)
     else -> stringResource(R.string.tool_thinking)
 }
 
@@ -104,31 +103,14 @@ internal fun compactSegmentTitle(
     val isToolInProgress = useLiveStatus && isLastTool && ToolPresentationResolver.resolve(lastSeg).isActive
     val isThinking = useLiveStatus && message.status == MessageStatus.THINKING
     val isToolCalling = useLiveStatus && message.status == MessageStatus.TOOL_CALLING
-    val isTranscribing = useLiveStatus && message.status == MessageStatus.TRANSCRIBING
     val toolCount = segs.count { it.type == "tool" }
     val thoughtMs = thoughtDurationMs(segs, fallbackMs = message.thoughtTimeMs)
     val hasThought = segs.any { it.type == "thought" }
     return when {
         isThinking -> message.thoughtTitle ?: stringResource(R.string.thinking_ellipsis)
-        isTranscribing -> message.thoughtTitle ?: stringResource(R.string.transcription_ellipsis)
-        isToolCalling || isToolInProgress ->
-            if (segs.any { it.type == "transcription" }) {
-                // Tool-result image transcription streams while the message is TOOL_CALLING;
-                // the group title must stay the transcription label, not the tool name
-                // (the transcription segment would otherwise fall back to the generic "Tool").
-                transcriptionLabel(
-                    segs,
-                    segs.indexOfLast { it.type == "transcription" },
-                )
-            } else {
-                toolDisplayName(lastSeg)
-            }
+        isToolCalling || isToolInProgress -> toolDisplayName(lastSeg)
         hasThought -> thoughtDurationTitle(thoughtMs, toolCount)
         toolCount > 0 -> stringResource(R.string.called_n_tools, toolCount)
-        segs.any { it.type == "transcription" } -> transcriptionLabel(
-            segs,
-            segs.indexOfLast { it.type == "transcription" },
-        )
         else -> ""
     }
 }

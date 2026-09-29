@@ -3,7 +3,6 @@ package com.newoether.agora.ui.chat
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
 import com.newoether.agora.ui.chat.message.escapeForMarkdown
-import com.newoether.agora.util.Constants
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
@@ -15,20 +14,14 @@ internal data class ConversationSearchMatch(
     val start: Int,
     val endExclusive: Int,
     val occurrenceInMessage: Int,
-    val citationSourceId: String? = null,
 ) {
-    val key: String get() = citationSourceId?.let { sourceId ->
-        "$messageId:citation:$sourceId:$start:$endExclusive"
-    } ?: "$messageId:$start:$endExclusive"
+    val key: String get() = "$messageId:$start:$endExclusive"
 }
 
 private const val CONVERSATION_SEARCH_PAYLOAD_PAGE_SIZE = 64
 
 internal fun isConversationSearchBodyEligible(message: ChatMessage): Boolean =
-    (message.participant == Participant.USER || message.participant == Participant.MODEL) &&
-        !message.id.startsWith(Constants.TOOL_MSG_PREFIX) &&
-        !message.id.startsWith(Constants.RESULT_MSG_PREFIX) &&
-        !message.id.startsWith(Constants.COMPACT_MSG_PREFIX)
+    message.participant == Participant.USER || message.participant == Participant.MODEL
 
 internal fun conversationSearchMessageIds(messages: List<ChatMessage>): List<String> =
     messages.filter(::isConversationSearchBodyEligible).map(ChatMessage::id)

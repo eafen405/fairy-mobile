@@ -64,7 +64,7 @@ class RemoteActivityRenderingTest {
         val message = mutableStateOf(hydrate("failed", active = false))
         compose.setContent {
             MaterialTheme {
-                Column { ToolDetailContent(message.value.segments!!.single(), onMediaClick = { _, _ -> }) }
+                Column { ToolDetailContent(message.value.segments!!.single()) }
             }
         }
         compose.onNodeWithText("The operation did not finish").assertIsDisplayed()
@@ -87,7 +87,7 @@ class RemoteActivityRenderingTest {
             session = RemoteSession("session", "Task", "", 1), hydrationEnabled = true,
             messageGroups = projectRemoteTopology(listOf(node), runtime)))
         val hydration = RemoteMessageHydration(state,
-            { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = listOf(node), runtime = runtime) },
+            { _, _ -> RemoteConversationPage(listOf(record), null, nodes = listOf(node), runtime = runtime) },
             { throw it })
         return hydration.loadMessages(state.value.owner!!, listOf("activity")).single()
     }
