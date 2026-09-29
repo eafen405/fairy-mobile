@@ -2,6 +2,9 @@ package com.newoether.agora.remote
 
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import org.junit.Assert.*
 import org.junit.Test
@@ -9,6 +12,8 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class FiloFileDownloadTest {
     private val token = "a".repeat(64)
@@ -51,6 +56,85 @@ class FiloFileDownloadTest {
             assertEquals("text/plain", mime)
             assertArrayEquals(bytes, received.toByteArray())
         } finally { server.stop(0) }
+    }
+
+    @Test fun attachmentDownloadAuthenticatesAndEncodesOriginalMessageId() = runBlocking {
+        val bytes = "hello".toByteArray()
+        var rawPath: String? = null
+        val server = serve { exchange ->
+            rawPath = exchange.requestURI.rawPath
+            assertEquals("$FAIRY_LOGIN_COOKIE=$token", exchange.requestHeaders.getFirst("Cookie"))
+            reply(bytes, "text/plain")(exchange)
+        }
+        try {
+            val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+            val received = ByteArrayOutputStream()
+            client.downloadAttachment("12345678-1234-1234-1234-123456789abc", "message/id", 2) { input, length, mime ->
+                assertEquals(bytes.size.toLong(), length)
+                assertEquals("text/plain", mime)
+                input.copyTo(received)
+            }
+            assertEquals("/api/mobile/v1/sessions/12345678-1234-1234-1234-123456789abc/messages/message%2Fid/attachments/2", rawPath)
+            assertArrayEquals(bytes, received.toByteArray())
+        } finally { server.stop(0) }
+    }
+
+    @Test fun attachmentDownloadRejectsRedirectsAndAuthFailures() = runBlocking {
+        val otherHits = AtomicInteger()
+        val other = serve { otherHits.incrementAndGet() }
+        val origin = serve { exchange ->
+            exchange.responseHeaders.add("Location", "http://127.0.0.1:${other.address.port}/escape")
+            exchange.sendResponseHeaders(302, -1)
+            exchange.responseBody.close()
+        }
+        try {
+            val transport = OkHttpClient.Builder().followRedirects(true).build()
+            val client = FiloClient("http://127.0.0.1:${origin.address.port}/", token, transport)
+            val error = runCatching { client.downloadAttachment(
+                "12345678-1234-1234-1234-123456789abc", "m1", 0,
+            ) { _, _, _ -> fail("redirect must not persist") } }.exceptionOrNull()
+            assertEquals(302, (error as FiloHttpException).status)
+            assertEquals(0, otherHits.get())
+        } finally { origin.stop(0); other.stop(0) }
+        for (status in listOf(401, 403, 404)) {
+            val server = serve { exchange ->
+                exchange.sendResponseHeaders(status, -1)
+                exchange.responseBody.close()
+            }
+            try {
+                val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+                val error = runCatching { client.downloadAttachment(
+                    "12345678-1234-1234-1234-123456789abc", "m1", 0,
+                ) { _, _, _ -> fail("rejected body must not persist") } }.exceptionOrNull()
+                assertEquals(status, (error as FiloHttpException).status)
+            } finally { server.stop(0) }
+        }
+    }
+
+    @Test fun cancelledAttachmentDownloadDoesNotPersist() = runBlocking {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val persisted = AtomicInteger()
+        val server = serve { exchange ->
+            started.countDown()
+            release.await(5, TimeUnit.SECONDS)
+            runCatching { reply(byteArrayOf(1))(exchange) }
+        }
+        try {
+            val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+            val pending = async {
+                client.downloadAttachment("12345678-1234-1234-1234-123456789abc", "m1", 0) { _, _, _ ->
+                    persisted.incrementAndGet()
+                }
+            }
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            pending.cancel()
+            withTimeout(5_000) {
+                assertTrue(runCatching { pending.await() }.exceptionOrNull() is CancellationException)
+            }
+            release.countDown()
+            assertEquals(0, persisted.get())
+        } finally { release.countDown(); server.stop(0) }
     }
 
     @Test fun redirectsAreNeverFollowedSoTheCookieCannotLeakCrossOrigin() = runBlocking {

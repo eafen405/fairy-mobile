@@ -268,10 +268,30 @@ internal class FiloClient(
     suspend fun downloadFile(
         fileId: String,
         persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
-    ): Unit = suspendCancellableCoroutine { continuation ->
+    ) {
         require(fileId.isNotBlank() && fileId != "." && fileId != "..") { "Invalid Filo file id" }
         val url = endpoint.newBuilder()
             .addPathSegments("v1/files").addPathSegment(fileId).build()
+        downloadVerified(url, persist)
+    }
+
+    suspend fun downloadAttachment(
+        sessionId: String, messageId: String, index: Int,
+        persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
+    ) {
+        require(messageId.isNotBlank() && messageId != "." && messageId != "..") { "Invalid Filo message id" }
+        require(index in 0 until REMOTE_ATTACHMENT_COUNT) { "Invalid Filo attachment index" }
+        val url = endpoint.newBuilder().addPathSegments("v1/sessions")
+            .addPathSegment(sessionId(sessionId)).addPathSegment("messages")
+            .addPathSegment(messageId).addPathSegment("attachments")
+            .addPathSegment(index.toString()).build()
+        downloadVerified(url, persist)
+    }
+
+    private suspend fun downloadVerified(
+        url: HttpUrl,
+        persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
+    ): Unit = suspendCancellableCoroutine { continuation ->
         val call = fileCalls.newCall(Request.Builder().url(url).authorize().build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -281,6 +301,7 @@ internal class FiloClient(
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
+                        if (continuation.isCancelled) return
                         captureCookies(it)
                         if (!it.isSuccessful) throw httpError(it)
                         val declared = it.body.contentLength()

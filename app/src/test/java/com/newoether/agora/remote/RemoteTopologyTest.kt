@@ -123,6 +123,20 @@ class RemoteTopologyTest {
         assertTrue(projected[0].text.isEmpty() && projected[1].text.isEmpty())
     }
 
+    @Test fun attachmentRefsKeepNativeMessageIdentityAndIndexAcrossProjection() {
+        val first = RemoteMessage("record-a", "t", "c", "assistant", "", 1,
+            messageId = "native-a", attachments = listOf(
+                RemoteMessageAttachment("image", "a.png", "image/png", 3),
+                RemoteMessageAttachment("file", "b.txt", "text/plain", 4)))
+        val next = first.copy(id = "record-b", messageId = "native-b", attachments = listOf(
+            RemoteMessageAttachment("image", "c.png", "image/png", 5)))
+        val grouped = projectRemoteMessages(listOf(first, next)).single().attachmentMeta!!.items
+        assertEquals(listOf("native-a", "native-a", "native-b"), grouped.map { it.remote?.messageId })
+        assertEquals(listOf(0, 1, 0), grouped.map { it.remote?.index })
+        assertNull(projectRemoteMessages(listOf(first.copy(messageId = null)))
+            .single().attachmentMeta!!.items.first().remote)
+    }
+
     @Test fun nodesDecodeCardsAndTolerateUnknownAndMissingFields() {
         val json = Json { ignoreUnknownKeys = true }
         val node = json.decodeFromString<RemoteMessageNode>("""{

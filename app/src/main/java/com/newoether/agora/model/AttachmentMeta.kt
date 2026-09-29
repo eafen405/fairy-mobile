@@ -3,11 +3,7 @@ package com.newoether.agora.model
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
-/**
- * Display-only attachment metadata on a Remote message. Bytes never live on
- * this device — inbound records carry name/type/size only, and outbound picks
- * upload through the Remote upload channel before the message is sent.
- */
+/** Attachment metadata on a Remote message; original bytes load on demand. */
 @Serializable
 data class AttachmentMeta(val items: List<AttachmentItem> = emptyList())
 
@@ -17,6 +13,7 @@ data class AttachmentItem(
     @SerialName("file_name") val fileName: String? = null,
     @SerialName("mime_type") val mimeType: String? = null,
     @SerialName("file_size") val fileSize: Long? = null,
+    val remote: RemoteAttachmentRef? = null,
 )
 
 @Serializable
