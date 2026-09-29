@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
     // Build-time bytecode fix for the Android 15 removeFirst()/removeLast() crash (see build-logic).
     id("buildlogic.removefirstlast-fix")
 }
@@ -30,10 +29,6 @@ android {
         versionName = "2.1.0"
     }
 
-    ksp {
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
-
     signingConfigs {
         create("release") {
             storeFile = file(keystoreProperties.getProperty("storeFile", "."))
@@ -54,16 +49,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-    }
-
-    flavorDimensions += "store"
-    productFlavors {
-        create("play") {
-            dimension = "store"
-        }
-        create("fdroid") {
-            dimension = "store"
         }
     }
 
@@ -100,9 +85,6 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.markdown)
     implementation(libs.jetbrains.markdown)
@@ -110,14 +92,8 @@ dependencies {
     implementation(libs.jlatexmath.android)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
     implementation(libs.okhttp)
     implementation(libs.material.color.utilities)
-    implementation(libs.work.runtime.ktx)
-    implementation(libs.jsch)
-    implementation(libs.commons.compress)
 
     // Unit tests
     testImplementation("junit:junit:4.13.2")

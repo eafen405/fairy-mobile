@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.api.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
+import com.newoether.agora.model.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 

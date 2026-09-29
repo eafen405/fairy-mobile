@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.drawToBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.R
-import com.newoether.agora.mcp.McpConnectionStatus
+import com.newoether.agora.model.McpConnectionStatus
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus

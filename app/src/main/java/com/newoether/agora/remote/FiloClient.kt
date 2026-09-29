@@ -87,7 +87,6 @@ internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (erro
     is RemoteContentLimitException -> RemoteFailure.CONTENT_TOO_LARGE
     is RemoteStorageException -> RemoteFailure.STORAGE
     is RemoteAttachmentException -> RemoteFailure.STORAGE
-    is com.newoether.agora.util.ConchChannelException -> RemoteFailure.PROTOCOL
     is FiloConfigurationException, is FiloInputException -> RemoteFailure.CONFIGURATION
     is FiloIncompatibleException -> RemoteFailure.PROTOCOL
     is FiloStreamException -> RemoteFailure.SERVICE

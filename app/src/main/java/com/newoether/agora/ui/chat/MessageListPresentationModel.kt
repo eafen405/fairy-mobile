@@ -108,7 +108,7 @@ internal fun isEmblemAnimating(
     isTail: Boolean,
 ): Boolean = isLoading && isTail && message.participant == Participant.MODEL &&
     com.newoether.agora.ui.components.fairyPresence(
-        connection = com.newoether.agora.mcp.McpConnectionStatus.CONNECTED,
+        connection = com.newoether.agora.model.McpConnectionStatus.CONNECTED,
         tailParticipant = message.participant,
         tailStatus = message.status,
         tailTextGrowing = false,

@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
 import com.newoether.agora.model.MessageSegment
-import com.newoether.agora.model.RunRecoveryPolicy
 import com.newoether.agora.model.ToolExecutionStates
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -379,23 +378,6 @@ class ToolPresentationResolverTest {
             shellPresentationStatus(terminalWithoutCode),
         )
         assertEquals("done", shellOutputText(terminalWithoutCode))
-    }
-
-    @Test
-    fun recoveredForegroundShellIsStoppedInsteadOfExitWithoutCode() {
-        val recovered = RunRecoveryPolicy.stopIncompleteTools(
-            listOf(
-                MessageSegment(
-                    type = "tool",
-                    toolName = "execute_shell_command",
-                    toolState = ToolExecutionStates.RUNNING,
-                ),
-            ),
-        ).single()
-        val presentation = ToolPresentationResolver.resolve(recovered)
-
-        assertEquals(ToolPresentationState.STOPPED, presentation.state)
-        assertEquals(ShellPresentationStatus.Stopped, shellPresentationStatus(presentation))
     }
 
     @Test

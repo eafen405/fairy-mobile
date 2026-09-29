@@ -24,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.data.SettingsManager
@@ -77,21 +76,8 @@ class MainActivity : ComponentActivity() {
         val settingsManager = SettingsManager(applicationContext)
         val agoraApplication = application as AgoraApplication
         lifecycleScope.launch {
-            val databaseStartupState = agoraApplication.awaitDatabaseStartup()
-            val needsErrorDialog = databaseStartupState is DatabaseStartupState.Blocked
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    settingsManager.initializeFirstInstallDefaults(
-                        locale = java.util.Locale.getDefault()
-                    )
-                }.onFailure { error ->
-                    com.newoether.agora.util.DebugLog.e(
-                        "MainActivity",
-                        "First-install settings initialization failed",
-                        error,
-                    )
-                }
-            }
+            val container = agoraApplication.awaitContainer()
+            container.settingsRepository.awaitInitialLoad()
 
             enableEdgeToEdge()
             // Remove navigation bar scrim so it blends with app content
@@ -130,45 +116,11 @@ class MainActivity : ComponentActivity() {
                 customFontPath = customFontPath
             ) {
                 ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
-                val activity = LocalActivity.current
+                // The shell ViewModel only carries what the remote surface consumes;
+                // RemoteViewModel self-constructs inside the overlay.
+                val viewModel: RemoteShellViewModel = viewModel { container.remoteShellViewModel() }
 
-                if (needsErrorDialog) {
-                    val databaseScope = rememberCoroutineScope()
-                    var clearingDatabase by remember { mutableStateOf(false) }
-                    AlertDialog(
-                        onDismissRequest = { activity?.finish() },
-                        title = { Text(stringResource(R.string.database_incompatible), fontWeight = FontWeight.Bold) },
-                        text = { Text(stringResource(R.string.database_incompatible_desc)) },
-                        dismissButton = {
-                            TextButton(onClick = { activity?.finish() }) { Text(stringResource(R.string.quit)) }
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    if (!clearingDatabase) {
-                                        clearingDatabase = true
-                                        databaseScope.launch {
-                                            val cleared = agoraApplication.clearIncompatibleDatabase()
-                                            if (cleared) {
-                                                activity?.recreate()
-                                            } else {
-                                                clearingDatabase = false
-                                            }
-                                        }
-                                    }
-                                },
-                                enabled = !clearingDatabase,
-                            ) { Text(stringResource(R.string.clear_database)) }
-                        }
-                    )
-                } else {
-                    // The shell ViewModel only carries what the remote surface consumes;
-                    // RemoteViewModel self-constructs inside the overlay.
-                    val container = agoraApplication.requireContainer()
-                    val viewModel: RemoteShellViewModel = viewModel { container.remoteShellViewModel() }
-
-                    MainNavigation(viewModel = viewModel)
-                }
+                MainNavigation(viewModel = viewModel)
             }
             }
             }

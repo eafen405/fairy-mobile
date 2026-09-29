@@ -43,18 +43,22 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.newoether.agora.R
-import com.newoether.agora.api.HttpClient
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.Closeable
 import java.io.File
 import java.io.InputStream
 import java.io.IOException
 import java.util.Locale
+
+// Unauthenticated fetch for plain http(s) image URLs (remote media is already
+// cached on disk or behind content URIs; this only covers bare public links).
+private val imageSourceClient = OkHttpClient()
 
 private fun directImageFile(url: String): File? {
     val path = if (url.startsWith("file://", ignoreCase = true)) {
@@ -86,7 +90,7 @@ private fun openImageSource(context: Context, url: String): OpenedImageSource? {
     if (url.startsWith("http://", ignoreCase = true) ||
         url.startsWith("https://", ignoreCase = true)
     ) {
-        val response = HttpClient.client.newCall(
+        val response = imageSourceClient.newCall(
             Request.Builder().url(url).get().build(),
         ).execute()
         if (!response.isSuccessful) {
