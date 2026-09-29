@@ -1,11 +1,9 @@
 package com.newoether.agora.diagnostics
 
-import com.newoether.agora.api.StreamEvent
-import com.newoether.agora.model.ConversationRuntimeTrace
-import com.newoether.agora.model.ConversationRuntimeTraceEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
+import java.security.MessageDigest
 
 /** Process-wide producer facade for the credential-sanitized persistent diagnostic capture. */
 object DeveloperDiagnostics {
@@ -46,34 +44,13 @@ object DeveloperDiagnostics {
         if (!buffer.isCaptureActive) return null
         return DiagnosticRequestContext(
             requestId = DiagnosticRedactor.safeIdentifier(requestId).take(MAX_IDENTIFIER_LENGTH),
-            conversationIdHash = ConversationRuntimeTrace.hashConversationId(conversationId),
+            conversationIdHash = hashConversationId(conversationId),
             runId = runId?.let(DiagnosticRedactor::safeIdentifier)?.take(MAX_IDENTIFIER_LENGTH),
             pass = pass,
             provider = DiagnosticRedactor.safeIdentifier(provider).take(MAX_IDENTIFIER_LENGTH),
             model = DiagnosticRedactor.safeIdentifier(model).take(MAX_IDENTIFIER_LENGTH),
             requestKind = DiagnosticRedactor.safeIdentifier(requestKind).take(MAX_IDENTIFIER_LENGTH),
         )
-    }
-
-    fun recordRuntimeTransition(entry: ConversationRuntimeTraceEntry) {
-        if (!buffer.isCaptureActive) return
-        val context = DiagnosticRequestContext(
-            conversationIdHash = entry.conversationIdHash,
-            runId = DiagnosticRedactor.safeIdentifier(entry.runId.orEmpty())
-                .take(MAX_IDENTIFIER_LENGTH)
-                .ifEmpty { null },
-            pass = entry.pass,
-        )
-        val payload = DiagnosticEventPayload.RuntimeTransition(
-            oldState = DiagnosticRedactor.safeIdentifier(entry.oldState),
-            commandType = DiagnosticRedactor.safeIdentifier(entry.commandType),
-            newState = DiagnosticRedactor.safeIdentifier(entry.newState),
-            effectId = entry.effectId?.let(DiagnosticRedactor::safeIdentifier),
-            effectTypes = entry.effectTypes.map(DiagnosticRedactor::safeIdentifier),
-        )
-        buffer.record { sequence, timestampMillis ->
-            DiagnosticEvent(sequence, timestampMillis, context, payload)
-        }
     }
 
     fun recordHttpStage(
@@ -145,22 +122,6 @@ object DeveloperDiagnostics {
         }
     }
 
-    fun recordParsedStreamEvent(
-        context: DiagnosticRequestContext?,
-        event: StreamEvent,
-    ) {
-        if (context == null || !buffer.isCaptureActive) return
-        val details = event.diagnosticDetails()
-        val payload = DiagnosticEventPayload.ParsedStreamEvent(
-            eventType = details.eventType,
-            attributes = details.attributes,
-            content = details.content,
-        )
-        buffer.record { sequence, timestampMillis ->
-            DiagnosticEvent(sequence, timestampMillis, context, payload)
-        }
-    }
-
     /** Unknown transport detail keys are discarded before a diagnostic command is queued. */
     internal fun safeHttpAttributes(detail: String): Map<String, String> {
         if (detail.isBlank()) return emptyMap()
@@ -177,93 +138,6 @@ object DeveloperDiagnostics {
             .toMap()
     }
 
-    private fun StreamEvent.diagnosticDetails(): ParsedEventDetails = when (this) {
-        is StreamEvent.TextChunk -> ParsedEventDetails(
-            eventType = "TextChunk",
-            attributes = mapOf("chars" to text.length.toString()),
-            content = DiagnosticRedactor.captureContent(text),
-        )
-        is StreamEvent.CitationUpdate -> ParsedEventDetails(
-            eventType = "CitationUpdate",
-            attributes = mapOf(
-                "provider" to DiagnosticRedactor.safeIdentifier(citation.provider),
-                "kind" to DiagnosticRedactor.safeIdentifier(citation.kind),
-                "anchors" to citation.anchors.size.toString(),
-            ),
-        )
-        is StreamEvent.ThoughtChunk -> ParsedEventDetails(
-            eventType = "ThoughtChunk",
-            attributes = mapOf(
-                "chars" to thought.length.toString(),
-                "titleChars" to (title?.length ?: 0).toString(),
-                "hasSignature" to (signature != null).toString(),
-            ),
-            content = DiagnosticRedactor.captureContent(thought),
-        )
-        is StreamEvent.UsageUpdate -> ParsedEventDetails(
-            eventType = "UsageUpdate",
-            attributes = buildMap {
-                put("totalTokens", usage.totalTokenCount.toString())
-                usage.inputTokenCount?.let { put("inputTokens", it.toString()) }
-                usage.outputTokenCount?.let { put("outputTokens", it.toString()) }
-                usage.reasoningTokenCount?.let { put("reasoningTokens", it.toString()) }
-            },
-        )
-        is StreamEvent.Error -> ParsedEventDetails(
-            eventType = "Error",
-            attributes = mapOf("errorType" to error.javaClass.simpleName),
-            content = DiagnosticRedactor.captureContent(message),
-        )
-        is StreamEvent.HostedToolCallUpdate -> ParsedEventDetails(
-            eventType = "HostedToolCallUpdate",
-            attributes = mapOf(
-                "streamKey" to DiagnosticRedactor.safeIdentifier(streamKey),
-                "name" to DiagnosticRedactor.safeIdentifier(name),
-                "argumentChars" to arguments.length.toString(),
-                "resultChars" to (result?.length ?: 0).toString(),
-                "isError" to isError.toString(),
-            ),
-            content = DiagnosticRedactor.captureContent(result ?: arguments),
-        )
-        is StreamEvent.ToolCallUpdate -> ParsedEventDetails(
-            eventType = "ToolCallUpdate",
-            attributes = mapOf(
-                "streamKey" to DiagnosticRedactor.safeIdentifier(streamKey),
-                "id" to DiagnosticRedactor.safeIdentifier(id.orEmpty()),
-                "name" to DiagnosticRedactor.safeIdentifier(name),
-                "argumentChars" to arguments.length.toString(),
-            ),
-            content = DiagnosticRedactor.captureContent(arguments),
-        )
-        is StreamEvent.ToolCallRequest -> ParsedEventDetails(
-            eventType = "ToolCallRequest",
-            attributes = mapOf(
-                "streamKey" to DiagnosticRedactor.safeIdentifier(streamKey),
-                "id" to DiagnosticRedactor.safeIdentifier(id),
-                "name" to DiagnosticRedactor.safeIdentifier(name),
-                "argumentChars" to arguments.length.toString(),
-            ),
-            content = DiagnosticRedactor.captureContent(arguments),
-        )
-        is StreamEvent.ToolCallsRequest -> ParsedEventDetails(
-            eventType = "ToolCallsRequest",
-            attributes = mapOf("calls" to calls.size.toString()),
-        )
-        is StreamEvent.Retrying -> ParsedEventDetails(
-            eventType = "Retrying",
-            attributes = mapOf(
-                "attempt" to attempt.toString(),
-                "maxAttempts" to maxAttempts.toString(),
-            ),
-        )
-    }
-
-    private data class ParsedEventDetails(
-        val eventType: String,
-        val attributes: Map<String, String>,
-        val content: CapturedDiagnosticText? = null,
-    )
-
     private val SAFE_HTTP_ATTRIBUTE_KEYS = setOf(
         "acceptedDelayMs",
         "addresses",
@@ -278,8 +152,15 @@ object DeveloperDiagnostics {
         "version",
     )
     private val DETAIL_PAIR = Regex("""([A-Za-z][A-Za-z0-9_]*)=([^\s]+)""")
+
+    private fun hashConversationId(conversationId: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(conversationId.toByteArray(Charsets.UTF_8))
+            .take(HASH_BYTES)
+            .joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
     private const val CAPTURE_DIRECTORY = "diagnostic-capture"
     private const val MAX_IDENTIFIER_LENGTH = 160
     private const val MAX_STAGE_LENGTH = 80
     private const val MAX_ATTRIBUTE_LENGTH = 80
+    private const val HASH_BYTES = 12
 }

@@ -3,8 +3,8 @@ package com.newoether.agora.viewmodel
 import android.content.Context
 import androidx.annotation.StringRes
 import com.newoether.agora.R
-import com.newoether.agora.api.GenerationError
-import com.newoether.agora.api.extractStructuredProviderHttpErrorMessage
+import com.newoether.agora.model.GenerationError
+import com.newoether.agora.model.extractStructuredProviderHttpErrorMessage
 import java.util.Locale
 
 private val persistedNetworkErrorRegex =

@@ -109,7 +109,6 @@ object DiagnosticBundleExporter {
 
     private fun DiagnosticEvent.redactContent(): DiagnosticEvent = copy(
         payload = when (val current = payload) {
-            is DiagnosticEventPayload.RuntimeTransition,
             is DiagnosticEventPayload.HttpStage -> current
             is DiagnosticEventPayload.HttpRequest -> current.copy(
                 body = DiagnosticRedactor.redactJsonContent(current.body),
@@ -127,7 +126,6 @@ object DiagnosticBundleExporter {
     )
 
     private fun DiagnosticEventPayload.typeName(): String = when (this) {
-        is DiagnosticEventPayload.RuntimeTransition -> "RuntimeTransition"
         is DiagnosticEventPayload.HttpStage -> "HttpStage"
         is DiagnosticEventPayload.HttpRequest -> "HttpRequest"
         is DiagnosticEventPayload.HttpResponseBody -> "HttpResponseBody"
@@ -136,8 +134,6 @@ object DiagnosticBundleExporter {
     }
 
     private fun DiagnosticEventPayload.summaryAttributes(): String = when (this) {
-        is DiagnosticEventPayload.RuntimeTransition ->
-            " commandType=$commandType oldState=$oldState newState=$newState"
         is DiagnosticEventPayload.HttpStage ->
             " stage=$stage elapsedMillis=$elapsedMillis" + attributes.summaryPairs()
         is DiagnosticEventPayload.HttpRequest -> " method=$method bodyChars=${body.originalLength}"

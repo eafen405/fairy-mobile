@@ -57,15 +57,6 @@ data class CapturedDiagnosticText(
 @Serializable
 sealed interface DiagnosticEventPayload {
     @Serializable
-    data class RuntimeTransition(
-        val oldState: String,
-        val commandType: String,
-        val newState: String,
-        val effectId: String?,
-        val effectTypes: List<String>,
-    ) : DiagnosticEventPayload
-
-    @Serializable
     data class HttpStage(
         val stage: String,
         val elapsedMillis: Long,

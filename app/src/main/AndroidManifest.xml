@@ -1,31 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Optional: capture goes through the platform IMAGE_CAPTURE intent, so the
-         camera feature must not exclude hardware-less devices (e.g. Chromebooks). -->
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Voice input requests RECORD_AUDIO at first use, only inside the composer. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
-    <!-- Optional user-granted access; exact automation remains off by default. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Saving images to the gallery on pre-Q only; Q+ uses scoped MediaStore (no permission). -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
-    <!-- Allows a visibility-safe preflight before using the platform capture contract. -->
     <queries>
-        <intent>
-            <action android:name="android.media.action.IMAGE_CAPTURE" />
-        </intent>
         <!-- Recognition service discovery is subject to package visibility on Android 11+. -->
         <intent>
             <action android:name="android.speech.RecognitionService" />
@@ -56,6 +40,7 @@
             </intent-filter>
         </activity>
 
+        <!-- Shares image/download files out through content Uris. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -65,51 +50,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <provider
-            android:name=".sandbox.SandboxDocumentsProvider"
-            android:authorities="${applicationId}.documents"
-            android:exported="true"
-            android:grantUriPermissions="true"
-            android:permission="android.permission.MANAGE_DOCUMENTS">
-            <intent-filter>
-                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
-            </intent-filter>
-        </provider>
-
-        <service
-            android:name=".service.AgoraForegroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
-
-        <!-- WorkManager owns the foreground lifecycle for scheduled automation runs. -->
-        <service
-            android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync"
-            tools:node="merge" />
-
-        <!-- Fires a scheduled task; internal only. -->
-        <receiver
-            android:name=".automation.AutomationAlarmReceiver"
-            android:exported="false" />
-
-        <!-- Applies a shell-confirmation decision made on a notification; internal only. -->
-        <receiver
-            android:name=".service.ShellConfirmationReceiver"
-            android:exported="false" />
-
-        <!-- Re-arms task alarms after reboot / app update. -->
-        <receiver
-            android:name=".service.BootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>

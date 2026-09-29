@@ -59,10 +59,10 @@ internal fun RemoteConversation(
     val owner = state.owner ?: return
     val session = state.session ?: return
     val connectionStatus = when (state.devices.firstOrNull { it.id == state.deviceId }?.status) {
-        RemoteDeviceStatus.CONNECTED -> com.newoether.agora.mcp.McpConnectionStatus.CONNECTED
-        RemoteDeviceStatus.CONNECTING -> com.newoether.agora.mcp.McpConnectionStatus.CONNECTING
-        RemoteDeviceStatus.ERROR -> com.newoether.agora.mcp.McpConnectionStatus.ERROR
-        else -> com.newoether.agora.mcp.McpConnectionStatus.IDLE
+        RemoteDeviceStatus.CONNECTED -> com.newoether.agora.model.McpConnectionStatus.CONNECTED
+        RemoteDeviceStatus.CONNECTING -> com.newoether.agora.model.McpConnectionStatus.CONNECTING
+        RemoteDeviceStatus.ERROR -> com.newoether.agora.model.McpConnectionStatus.ERROR
+        else -> com.newoether.agora.model.McpConnectionStatus.IDLE
     }
     val density = LocalDensity.current
     val motion = LocalAgoraMotionPolicy.current
@@ -291,8 +291,8 @@ internal fun RemoteConversation(
                 contextTokenBudget = state.runtime?.contextWindow ?: 0,
                 contextAvailable = state.runtime?.contextTokens != null && state.runtime?.contextWindow != null,
                 subtitle = stringResource(when (connectionStatus) {
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTED -> R.string.remote_online
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
+                    com.newoether.agora.model.McpConnectionStatus.CONNECTED -> R.string.remote_online
+                    com.newoether.agora.model.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
                     else -> R.string.remote_offline
                 }),
                 subtitleLeading = { com.newoether.agora.ui.settings.McpStatusDot(connectionStatus) },
