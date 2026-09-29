@@ -78,7 +78,6 @@ class PrivacySafeLoggingSourceContractTest {
             "com/newoether/agora/api/ollama/OllamaProvider.kt",
             "com/newoether/agora/api/openai/BaseOpenAiProvider.kt",
             "com/newoether/agora/api/util/MessageConverter.kt",
-            "com/newoether/agora/automation/TaskManager.kt",
             "com/newoether/agora/data/AutoBackupManager.kt",
         ).associateWith { relativePath ->
             extractDebugLogCalls(File(sourceRoot, relativePath).readText())

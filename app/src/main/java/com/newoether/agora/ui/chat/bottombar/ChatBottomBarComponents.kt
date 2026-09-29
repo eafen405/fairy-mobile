@@ -50,6 +50,20 @@ import com.newoether.agora.ui.theme.LocalFairyTokens
 
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
 
+internal val CHAT_BOTTOM_BAR_OUTER_RADIUS = 28.dp
+internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OUTER_RADIUS)
+internal val CHAT_DROPDOWN_MENU_SHAPE = RoundedCornerShape(16.dp)
+
+internal fun contextUsageExceedsCompactThreshold(
+    estimatedTokens: Int, tokenBudget: Int, thresholdPercent: Int,
+): Boolean {
+    val normalizedBudget = tokenBudget.coerceAtLeast(1)
+    val normalizedPercent = thresholdPercent.coerceIn(50, 100)
+    val threshold = ((normalizedBudget.toLong() * normalizedPercent + 99L) / 100L)
+        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    return tokenBudget > 0 && estimatedTokens > threshold
+}
+
 /** The same controls capsule is used by ordinary and externally owned conversations. */
 @Composable
 internal fun ComposerControlGroup(content: @Composable RowScope.() -> Unit) {

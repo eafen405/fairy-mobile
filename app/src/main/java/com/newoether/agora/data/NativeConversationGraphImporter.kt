@@ -25,7 +25,7 @@ import com.newoether.agora.data.local.migration.regenerationInputFingerprint
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEndReason
-import com.newoether.agora.service.MaintenanceDebtWorker
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -50,7 +50,7 @@ internal class NativeConversationGraphImporter(
     private val chatDao: ChatDao,
     private val importJson: Json,
     private val mediaRestorer: NativeConversationMediaRestorer,
-    private val scheduleMaintenance: () -> Unit = { MaintenanceDebtWorker.schedule() },
+    private val scheduleMaintenance: () -> Unit = {},
 ) {
     private companion object {
         const val IMPORT_MESSAGE_BATCH_SIZE = 64
