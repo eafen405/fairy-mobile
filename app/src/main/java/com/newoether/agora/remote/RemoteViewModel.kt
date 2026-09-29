@@ -82,6 +82,8 @@ internal class RemoteViewModel(
         report = { stage, error -> trace(stage, error) },
     )
     private val clients get() = deviceDirectory.clients
+    fun speechClient(owner: String): FiloClient? =
+        state.value.takeIf { it.owner == owner }?.deviceId?.let { clients[it] }
     private val sendController = RemoteSendController(
         state = mutableState,
         scope = viewModelScope,

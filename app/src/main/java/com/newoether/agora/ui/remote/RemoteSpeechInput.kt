@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -52,19 +51,19 @@ import com.newoether.agora.R
 import com.newoether.agora.speech.SpeechInputFailure
 import com.newoether.agora.speech.SpeechInputPhase
 import com.newoether.agora.speech.SpeechSessionController
-import com.newoether.agora.speech.createSpeechRecognitionEngine
+import com.newoether.agora.speech.CloudSpeechRecognitionEngine
+import com.newoether.agora.remote.FiloClient
 import com.newoether.agora.ui.common.LocalAgoraHaptics
-import java.util.Locale
 
 private val REMOTE_SPEECH_STATUS_HEIGHT = 40.dp
 private val REMOTE_SPEECH_STATUS_HORIZONTAL_INSET = 4.dp
 private val REMOTE_SPEECH_STATUS_SHAPE = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
 
 internal val SPEECH_CANCEL_THRESHOLD = 80.dp
-private const val SPEECH_FINALIZE_TIMEOUT_MS = 8_000L
+private const val SPEECH_FINALIZE_TIMEOUT_MS = 65_000L
 
 /**
- * Speech input scoped to the active composer owner: the recognizer is created on
+ * Speech input scoped to the active composer owner: the recorder is created on
  * each press and destroyed when the session ends, the owner changes, or the
  * composable leaves composition. Microphone permission is requested only when the
  * user actually presses the control.
@@ -74,17 +73,16 @@ internal fun rememberRemoteSpeechController(
     owner: String,
     field: TextFieldState,
     active: Boolean,
+    client: FiloClient?,
     persistDraft: (String) -> Unit = {},
 ): SpeechSessionController {
     val context = LocalContext.current
-    val appContext = context.applicationContext
     val focusManager = LocalFocusManager.current
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
     val threshold = with(LocalDensity.current) { SPEECH_CANCEL_THRESHOLD.toPx() }
     val permissionRequest = remember(owner) { mutableStateOf(false) }
-    val controller = remember(owner) {
+    val controller = remember(owner, client) {
         SpeechSessionController(
-            engineFactory = { createSpeechRecognitionEngine(appContext) { locale } },
+            engineFactory = { client?.let(::CloudSpeechRecognitionEngine) },
             hasPermission = {
                 ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
                     android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -119,10 +117,10 @@ internal fun rememberRemoteSpeechController(
             controller.finalizeExpired()
         }
     }
-    LaunchedEffect(active) {
+    LaunchedEffect(controller, active) {
         if (!active) controller.dispose()
     }
-    DisposableEffect(owner) {
+    DisposableEffect(controller) {
         onDispose { controller.dispose() }
     }
     return controller
@@ -137,12 +135,13 @@ internal fun RemoteSpeechButton(
 ) {
     val haptics = LocalAgoraHaptics.current
     val phase = controller.phase
-    val listening = phase == SpeechInputPhase.LISTENING
+    val listening = phase == SpeechInputPhase.LISTENING || phase == SpeechInputPhase.CAPTURED
     val cancelling = phase == SpeechInputPhase.CANCELLING
     val description = stringResource(R.string.remote_voice_input)
     val stateText = stringResource(
         when {
             cancelling -> R.string.remote_voice_release_cancel
+            phase == SpeechInputPhase.CAPTURED -> R.string.remote_voice_capture_limit
             listening -> R.string.remote_voice_listening
             else -> R.string.remote_voice_hold_hint
         },
@@ -208,6 +207,8 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
     val failure = controller.failure
     val text = when {
         phase == SpeechInputPhase.LISTENING -> stringResource(R.string.remote_voice_listening)
+        phase == SpeechInputPhase.PREPARING -> stringResource(R.string.remote_voice_preparing)
+        phase == SpeechInputPhase.CAPTURED -> stringResource(R.string.remote_voice_capture_limit)
         phase == SpeechInputPhase.CANCELLING -> stringResource(R.string.remote_voice_release_cancel)
         phase == SpeechInputPhase.FINALIZING -> stringResource(R.string.remote_voice_processing)
         phase == SpeechInputPhase.AWAITING_PERMISSION -> stringResource(R.string.remote_voice_permission_request)
@@ -219,6 +220,7 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
                 SpeechInputFailure.NETWORK -> R.string.remote_voice_network
                 SpeechInputFailure.AUDIO -> R.string.remote_voice_audio
                 SpeechInputFailure.CLIENT -> R.string.remote_voice_client
+                SpeechInputFailure.BUSY -> R.string.remote_voice_busy
                 else -> R.string.remote_voice_failed
             },
         )
@@ -258,18 +260,13 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            if (error && failure in setOf(
-                    SpeechInputFailure.PERMISSION, SpeechInputFailure.UNAVAILABLE,
-                    SpeechInputFailure.CLIENT,
-                )
+            if (error && failure == SpeechInputFailure.PERMISSION
             ) {
                 TextButton(onClick = {
-                    val intent = if (failure == SpeechInputFailure.PERMISSION) {
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = android.net.Uri.fromParts("package", context.packageName, null)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    } else Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", context.packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
                     try {
                         context.startActivity(intent)
                     } catch (missing: ActivityNotFoundException) {

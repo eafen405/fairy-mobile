@@ -90,7 +90,7 @@ internal fun RemoteConversation(
         onShowLaunchContent = {},
         onInitialFocusRequested = { vm.completeComposerFocus(owner) },
     )
-    val speech = rememberRemoteSpeechController(owner, field, active) { vm.editDraft(owner, it) }
+    val speech = rememberRemoteSpeechController(owner, field, active, vm.speechClient(owner)) { vm.editDraft(owner, it) }
     val messages = remember(state.messageGroups) { state.messageGroups.map { it.stub } }
     val tail = messages.lastOrNull()?.takeIf {
         it.status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)

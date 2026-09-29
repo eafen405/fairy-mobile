@@ -14,10 +14,12 @@ class SpeechSessionControllerTest {
         var destroyed = 0
         var startFailure: Exception? = null
         var stopFailure: Exception? = null
+        var signalStarted = true
         override fun start(listener: SpeechRecognitionEngine.Listener) {
             startFailure?.let { throw it }
             started++
             this.listener = listener
+            if (signalStarted) listener.onCaptureStarted()
         }
         override fun stopListening() {
             stopFailure?.let { throw it }
@@ -186,6 +188,42 @@ class SpeechSessionControllerTest {
         assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
         assertEquals("typed", h.draft)
         assertEquals(1, h.engine?.destroyed)
+    }
+
+    @Test fun lateTranscriptionAfterOwnerDisposalCannotChangeTheDraft() {
+        val h = Harness(draft = "typed")
+        h.controller.pressStarted()
+        h.controller.pressReleased()
+        h.controller.dispose()
+        h.final("late cloud result")
+        assertEquals("typed", h.draft)
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+    }
+
+    @Test fun releaseWhilePreparingCancelsBeforeCapture() {
+        val engine = FakeEngine().apply { signalStarted = false }
+        val h = Harness(engine = engine, draft = "typed")
+        h.controller.pressStarted()
+        assertEquals(SpeechInputPhase.PREPARING, h.controller.phase)
+        h.controller.pressReleased()
+        engine.listener?.onCaptureStarted()
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals(0, engine.stopped)
+        assertEquals(1, engine.cancelled)
+        assertEquals("typed", h.draft)
+    }
+
+    @Test fun durationLimitStillAllowsSlideCancel() {
+        val engine = FakeEngine()
+        val h = Harness(engine = engine, draft = "typed")
+        h.controller.pressStarted()
+        engine.listener?.onCaptureLimitReached()
+        assertEquals(SpeechInputPhase.CAPTURED, h.controller.phase)
+        h.controller.pressMoved(threshold)
+        h.controller.pressReleased()
+        assertEquals(0, engine.stopped)
+        assertEquals(1, engine.cancelled)
+        assertEquals("typed", h.draft)
     }
 
     @Test fun aProviderFinalDuringTheHoldCommitsOnRelease() {
