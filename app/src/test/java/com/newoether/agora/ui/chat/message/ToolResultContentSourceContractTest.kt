@@ -228,8 +228,7 @@ class ToolResultContentSourceContractTest {
     fun `Tool presentation resources keep locale key and placeholder parity`() {
         val resourceRoot = locateResourceRoot()
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh", "values-zh-rTW",
+            "values", "values-zh",
         )
         val resources = directories.associateWith { directory ->
             val file = File(resourceRoot, "$directory/tool_presentation_strings.xml")

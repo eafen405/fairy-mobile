@@ -44,7 +44,6 @@ private fun fullScreenPreviewExitTransition(allowSpatialTransitions: Boolean): E
 class MainActivity : ComponentActivity() {
 
     companion object {
-        const val EXTRA_SCREENSHOT_DESTINATION = "com.newoether.agora.extra.SCREENSHOT_DESTINATION"
         const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
     }
 
@@ -55,16 +54,6 @@ class MainActivity : ComponentActivity() {
         val locale = when (langCode) {
             "zh" -> java.util.Locale("zh", "CN")
             "en" -> java.util.Locale("en")
-            "es" -> java.util.Locale("es")
-            "fr" -> java.util.Locale("fr")
-            "de" -> java.util.Locale("de")
-            "ru" -> java.util.Locale("ru")
-            "pt-BR" -> java.util.Locale("pt", "BR")
-            "ja" -> java.util.Locale("ja")
-            "ko" -> java.util.Locale("ko")
-            "ar" -> java.util.Locale("ar")
-            "vi" -> java.util.Locale("vi")
-            "zh-Hant" -> java.util.Locale.forLanguageTag("zh-Hant")
             else -> null
         }
         if (locale != null) {
@@ -91,21 +80,6 @@ class MainActivity : ComponentActivity() {
             val databaseStartupState = agoraApplication.awaitDatabaseStartup()
             val needsErrorDialog = databaseStartupState is DatabaseStartupState.Blocked
             withContext(Dispatchers.IO) {
-                intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION)?.let { destination ->
-                    runCatching {
-                        Class.forName("com.newoether.agora.screenshot.ScreenshotFixture")
-                            .getMethod("seed", AgoraApplication::class.java, String::class.java)
-                            .invoke(null, agoraApplication, destination)
-                    }.onFailure { error ->
-                        if (error !is ClassNotFoundException) {
-                            com.newoether.agora.util.DebugLog.e(
-                                "MainActivity",
-                                "Screenshot fixture failed",
-                                error,
-                            )
-                        }
-                    }
-                }
                 runCatching {
                     settingsManager.initializeFirstInstallDefaults(
                         locale = java.util.Locale.getDefault()
@@ -197,7 +171,6 @@ class MainActivity : ComponentActivity() {
                     MainNavigation(
                         viewModel = viewModel,
                         settingsManager = settingsManager,
-                        screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
                     )
                 }
             }
@@ -224,7 +197,6 @@ class MainActivity : ComponentActivity() {
 fun MainNavigation(
     viewModel: ChatViewModel,
     settingsManager: SettingsManager,
-    screenshotDestination: String? = null,
 ) {
     val activity = LocalActivity.current
     val motionPolicy = LocalAgoraMotionPolicy.current
