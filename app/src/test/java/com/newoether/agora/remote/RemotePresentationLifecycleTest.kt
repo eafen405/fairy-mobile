@@ -16,7 +16,7 @@ class RemotePresentationLifecycleTest {
     @Test fun nativeGenerationArrivingAfterHistoryResumesThinkingAboveTheCompletedTool() = runTest {
         val tool = RemoteMessage("tool", "turn", null, "assistant", "", 1,
             activity = RemoteActivity("tool", state = "succeeded", label = "执行代码"))
-        val page = bodyPage(listOf(tool), null, emptyList(), RemoteRuntime("notLoaded"))
+        val page = bodyPage(listOf(tool), null, RemoteRuntime("notLoaded"))
         val controller = GroupedSegmentAutoExpansionController()
         val nodes = admitRemotePage(emptyList(), page)
         val historical = projectRemoteTopology(nodes, page.runtime).single()
@@ -54,7 +54,6 @@ class RemotePresentationLifecycleTest {
             coEvery { client.logout() } returns Unit
             coEvery { client.me() } returns "user"
             coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
-            coEvery { client.models() } returns emptyList()
             every { client.events(any()) } returns events
             val vm = RemoteViewModel(store, projectionDispatcher = dispatcher) { _, _ -> client }
             runCurrent(); vm.setVisible(true)
@@ -63,7 +62,7 @@ class RemotePresentationLifecycleTest {
             vm.selectSession(session); runCurrent()
             val thought = RemoteMessage("thought", "turn", null, "assistant", "Working", 1,
                 activity = RemoteActivity("thought"))
-            val page = bodyPage(listOf(thought), null, emptyList(),
+            val page = bodyPage(listOf(thought), null,
                 RemoteRuntime("active", "turn", activeTurnHasUserMessage = true))
             events.emit(page); runCurrent()
             val controller = GroupedSegmentAutoExpansionController()

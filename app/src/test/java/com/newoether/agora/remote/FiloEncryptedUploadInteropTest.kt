@@ -15,6 +15,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35], application = android.app.Application::class)
 class FiloEncryptedUploadInteropTest {
     @get:Rule val temporary = TemporaryFolder()
+
     @Test fun originalBytesReachTheSelectedGoStoreBeforeOneNativeSend() = runBlocking {
         val url = System.getenv("FILO_ATTACHMENT_FIXTURE_URL")
         assumeTrue("Opt-in isolated Go Filo server", !url.isNullOrBlank())
@@ -26,7 +27,8 @@ class FiloEncryptedUploadInteropTest {
             fileName = "original.bin", mimeType = "application/octet-stream", fileSize = file.length(), localPath = file.path))
         assertEquals(file.length(), uploaded.size)
         assertFalse(uploaded.path.isNullOrBlank())
-        val created = client.create("Read the attached file", "11111111-1111-4111-8111-111111111111", listOf(uploaded.id))
-        assertTrue(created.session.id.isNotBlank())
+        // Upload bytes must reach the Go store intact before a native send can
+        // reference them; session creation is no longer part of this path.
+        assertTrue(uploaded.id.isNotBlank())
     }
 }

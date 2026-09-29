@@ -7,97 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExperimentalGenerationUiSourceContractTest {
-    @Test
-    fun `terminal states use retry text tokens without active animation or shell`() {
-        val root = locateMainSourceRoot()
-        val assistant = source(root, "message/AssistantMessageContent.kt")
-        val activity = source(root, "message/AssistantInlineActivity.kt")
-        val actionRow = source(root, "message/AssistantActionRow.kt")
-        val terminalBar = source(root, "message/GenerationErrorBar.kt")
-        val retry = source(root, "message/RetryActivityIndicator.kt")
-        val tail = source(root, "StreamingTailIndicator.kt")
-
-        assertFalse((assistant + activity).contains("AssistantStatusRow("))
-        assertFalse((assistant + activity).contains("AssistantStatusKind"))
-        assertTrue(assistant.contains("private val FormerAssistantStatusSpacerHeight = 6.dp"))
-        assertTrue(assistant.contains(
-            "Spacer(modifier = Modifier.height(FormerAssistantStatusSpacerHeight))"
-        ))
-        assertTrue(assistant.contains("AssistantInlineActivity("))
-        assertTrue(activity.contains("RetryActivityIndicator("))
-        assertTrue(assistant.contains("StoppedGenerationBar("))
-        assertTrue(assistant.contains("AnimatedVisibility("))
-        assertTrue(assistant.contains("fadeIn(tween(durationMillis = 180"))
-        assertTrue(assistant.contains("fadeOut(tween(durationMillis = 180"))
-        assertTrue(assistant.contains("errorText = errorContent?.errorText ?: retainedErrorText"))
-        assertTrue(assistant.contains("precededByCard = terminalImmediatelyFollowsCard"))
-        assertTrue(assistant.contains("lastVisibleTerminalPredecessor"))
-        assertTrue(terminalBar.contains("precededByCard: Boolean = false"))
-        assertTrue(terminalBar.contains("if (precededByCard) 12.dp else 8.dp"))
-        assertTrue(terminalBar.contains("if (precededByCard) 12.dp"))
-        assertFalse((assistant + activity).contains("if (mode == AssistantInlineActivityMode.NONE) return"))
-        assertTrue(activity.contains("var retainedMode by remember"))
-        assertTrue(activity.contains("visibilityTransition.targetState ||"))
-        assertTrue(activity.contains(
-            "visibilityTransition.targetState || retainExitLayout"
-        ))
-        assertTrue(activity.contains(
-            "alpha = if (terminalText == null) activityOpacity else 1f"
-        ))
-        assertTrue(assistant.contains("retainExitLayout = inlineActivityPresentation.retainLayout"))
-        assertTrue(activity.contains("clip = false"))
-        assertTrue(actionRow.contains("GenerationActivityDot()"))
-        val messageContent = assistant.substringAfter("internal fun AssistantMessageContent(")
-        val fixedSpacerIndex = messageContent.indexOf(
-            "Spacer(modifier = Modifier.height(FormerAssistantStatusSpacerHeight))"
-        )
-        val compactIndex = messageContent.indexOf("if (compactVisible)")
-        val activityIndex = messageContent.indexOf("AssistantInlineActivity(")
-        val answerIndex = messageContent.indexOf("val answerBodyText")
-        assertTrue(fixedSpacerIndex >= 0)
-        assertTrue(compactIndex > fixedSpacerIndex)
-        assertTrue(activityIndex > compactIndex)
-        assertTrue(activityIndex > answerIndex)
-
-        assertTrue(terminalBar.contains("internal fun GenerationTerminalText("))
-        assertTrue(terminalBar.contains("style = ChatType.body"))
-        assertTrue(terminalBar.contains("onSurfaceVariant.copy(alpha = 0.55f)"))
-        assertTrue(terminalBar.contains("NoAutoScrollSelectionContainer"))
-        assertTrue(terminalBar.contains("normalizePersistedGenerationErrorText("))
-        assertFalse(terminalBar.contains("Surface("))
-        assertFalse(terminalBar.contains("Icon("))
-        assertFalse(terminalBar.contains("RoundedCornerShape"))
-        assertFalse(terminalBar.contains("GenerationActivityDot("))
-        assertFalse(terminalBar.contains("surfaceVariant.copy"))
-        assertFalse(terminalBar.contains("colorScheme.error"))
-
-        assertTrue(retry.contains("RETRY_REVEAL_MS_PER_GRAPHEME = 27"))
-        assertTrue(retry.contains("RETRY_REVEAL_MIN_MS = 225"))
-        assertTrue(retry.contains("RETRY_REVEAL_MAX_MS = 600"))
-        assertTrue(retry.contains("easing = LinearOutSlowInEasing"))
-        assertTrue(retry.contains("val revealProgress = remember {"))
-        assertTrue(retry.contains("entranceStarted"))
-        assertFalse(retry.contains("remember(label) {\n        Animatable"))
-        assertTrue(retry.contains("retryGraphemeBoundaries("))
-        assertTrue(retry.contains("retryRevealDurationMillis("))
-        assertTrue(retry.contains("retryGraphemeAlpha("))
-        assertTrue(retry.contains("retryCaretPosition("))
-        assertTrue(retry.contains("getHorizontalPosition("))
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("translationX = dotTranslationPx"))
-        assertTrue(retry.contains("translationY = dotVerticalOffsetPx"))
-        assertTrue(retry.contains("clip = false"))
-        assertFalse(retry.contains("InlineActivityDotMarker("))
-
-        assertTrue(tail.contains("internal fun GenerationActivityDot("))
-        assertTrue(tail.contains("rememberInfiniteTransition("))
-        assertTrue(tail.contains("internal val GenerationActivityDotSize = 11.dp"))
-        assertTrue(tail.contains(".size(GenerationActivityDotSize)"))
-        assertTrue(tail.contains("alpha = opacity"))
-        assertTrue(tail.contains("scaleX = appearanceScale"))
-        assertTrue(tail.contains("clip = false"))
-        assertFalse(tail.contains("InlineActivityDotSource"))
-    }
 
     @Test
     fun `Thinking card uses compact chrome one trailing rotating arrow and synchronized motion`() {
@@ -254,64 +163,7 @@ class ExperimentalGenerationUiSourceContractTest {
         assertTrue(sharedBackButton.contains("tonalElevation: Dp = 6.dp"))
     }
 
-    @Test
-    fun `Sources summary shares information action fade without scale or measured host`() {
-        val root = locateMainSourceRoot()
-        val assistant = source(root, "message/AssistantActionRow.kt")
-        val transitionHost = source(root, "message/CitationTerminalProjectionHost.kt")
-        val citations = source(root, "message/CitationMessageContent.kt")
-        val summary = assistant
-            .substringAfter("if (sourcesSummaryVisible || informationActionsAlpha > 0f)")
-            .substringBefore("val answerTailVisible")
-        val capsule = citations
-            .substringAfter("internal fun CitationSourcesSummaryCapsule(")
-            .substringBefore("internal fun CitationSourcesBottomSheet(")
 
-        assertTrue(summary.contains("CitationSourcesSummaryCapsule("))
-        assertTrue(summary.contains("visible = sourcesSummaryVisible"))
-        assertTrue(summary.contains("enabled = sourcesSummaryVisible"))
-        assertTrue(summary.contains("citationUi.showSources = true"))
-        assertFalse(summary.contains("haptics."))
-        assertTrue(summary.contains(".offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)"))
-        assertTrue(summary.contains(".padding(top = 12.dp)"))
-        assertTrue(summary.contains(".graphicsLayer { alpha = informationActionsAlpha }"))
-        assertTrue(assistant.contains("durationMillis = if (actionAvailability.informationVisible)"))
-        assertTrue(assistant.contains("ACTIONS_ENTER_DURATION_MS"))
-        assertTrue(assistant.contains("ACTIONS_EXIT_DURATION_MS"))
-        assertTrue(assistant.contains("easing = LinearEasing"))
-        assertFalse(assistant.contains("CitationSourcesSummaryHost("))
-        assertFalse(transitionHost.contains("CitationSourcesSummaryHost("))
-        assertFalse(transitionHost.contains("MutableTransitionState"))
-        assertFalse(transitionHost.contains("expandVertically("))
-        assertFalse(transitionHost.contains("shrinkVertically("))
-        assertFalse(transitionHost.contains("CITATION_SOURCES_SUMMARY_SIZE_DURATION_MS"))
-        assertFalse(capsule.contains("citationCapsuleFadeModifier("))
-        assertFalse(summary.contains("scale"))
-    }
-
-    @Test
-    fun `Sources sheet reuses smooth shell with neutral numbered badges`() {
-        val citations = source(locateMainSourceRoot(), "message/CitationMessageContent.kt")
-
-        assertTrue(citations.contains("val sheetState = rememberSmoothBottomSheetState()"))
-        assertTrue(citations.contains("val listState = rememberLazyListState()"))
-        assertTrue(citations.contains("SmoothBottomSheet("))
-        assertTrue(citations.contains("sheetState.requestDismiss()"))
-        assertTrue(citations.contains("contentAtTop = {"))
-        assertTrue(citations.contains("listState.firstVisibleItemIndex == 0"))
-        assertTrue(citations.contains("listState.firstVisibleItemScrollOffset == 0"))
-        assertTrue(citations.contains(".fillMaxSize()"))
-        assertFalse(citations.contains("rememberModalBottomSheetState()"))
-        assertFalse(citations.contains("ModalBottomSheet("))
-        assertTrue(citations.contains("onSurfaceVariant.copy("))
-        assertTrue(citations.contains("alpha = CITATION_SOURCE_BADGE_BACKGROUND_ALPHA"))
-        assertTrue(citations.contains("alpha = CITATION_SOURCE_BADGE_FOREGROUND_ALPHA"))
-        val sourceRow = citations
-            .substringAfter("private fun CitationSourceRow(")
-            .substringBefore("private fun CitationBadgeVisual(")
-        assertTrue(sourceRow.contains("val titleColor = MaterialTheme.colorScheme.onSurface"))
-        assertFalse(sourceRow.contains("MaterialTheme.colorScheme.primary"))
-    }
 
     @Test
     fun `thinking tool errors and stopped states reuse shared neutral terminal text`() {
@@ -325,22 +177,7 @@ class ExperimentalGenerationUiSourceContractTest {
         val terminalText = source(locateMainSourceRoot(), "message/GenerationErrorBar.kt")
             .substringAfter("internal fun GenerationTerminalText(")
             .substringBefore("internal fun GenerationErrorBar(")
-        val webSearchCompletionOnly = detail
-            .substringAfter("presentation.kind == ToolKind.WEB_SEARCH &&")
-            .substringBefore("ToolCompletedContent(presentation)")
-        val failedContent = detail
-            .substringAfter("ToolPresentationState.FAILED -> {")
-            .substringBefore("ToolPresentationState.STOPPED ->")
-        val completedContent = toolResult
-            .substringAfter("private fun ToolCompletedContent(")
-            .substringBefore("private fun McpResultContent(")
-
-        assertTrue(detail.contains("ToolPresentationState.FAILED ->"))
-        assertTrue(detail.contains("ToolErrorContent("))
-        assertFalse(failedContent.contains("McpResultContent("))
-        assertFalse(failedContent.contains("rawTextResult"))
-        assertFalse(failedContent.contains("rawStructuredResult"))
-        assertTrue(completedContent.contains("ToolKind.MCP -> McpResultContent(presentation)"))
+        assertTrue(detail.contains("ToolPresentationState.FAILED -> ToolErrorContent("))
         assertTrue(detail.contains("ToolPresentationState.STOPPED -> GenerationTerminalText("))
         assertTrue(errorContent.contains("GenerationTerminalText("))
         assertTrue(errorContent.contains("selectable = true"))
@@ -354,10 +191,6 @@ class ExperimentalGenerationUiSourceContractTest {
                 "color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)",
             ),
         )
-        assertTrue(webSearchCompletionOnly.contains("ToolPresentationState.EMPTY"))
-        assertTrue(webSearchCompletionOnly.contains("ToolPresentationState.COMPLETED"))
-        assertFalse(webSearchCompletionOnly.contains("ToolPresentationState.FAILED"))
-        assertFalse(webSearchCompletionOnly.contains("ToolPresentationState.STOPPED"))
     }
 
     @Test
@@ -389,27 +222,6 @@ class ExperimentalGenerationUiSourceContractTest {
         assertTrue(assets.contains("Modifier.padding(top = LocalMarkdownPadding.current.block)"))
     }
 
-    @Test
-    fun `user actions move from the bottom row into the bubble long press menu`() {
-        val user = source(locateMainSourceRoot(), "message/UserMessageBubble.kt")
-
-        assertTrue(user.contains(".combinedClickable("))
-        assertTrue(user.contains("onLongClick ="))
-        assertFalse(user.contains("NoAutoScrollSelectionContainer"))
-        assertTrue(user.contains("R.string.copy"))
-        assertTrue(user.contains("R.string.edit"))
-        assertTrue(user.contains("val editFocusRequester = remember(message.id)"))
-        assertTrue(user.contains("LaunchedEffect(isEditing, editFocusRequester)"))
-        assertTrue(user.contains("editFocusRequester.requestFocus()"))
-        assertTrue(user.contains(".focusRequester(editFocusRequester)"))
-        assertTrue(user.contains("R.string.select_text"))
-        assertTrue(user.contains("R.string.info"))
-        assertTrue(user.contains("R.string.delete"))
-
-        val branch = user.substringAfter("if (showBranchSelector")
-        assertTrue(branch.contains("onSwitchBranch(-1)"))
-        assertTrue(branch.contains("onSwitchBranch(1)"))
-    }
 
     @Test
     fun `Select Text reuses the sheet shell with twelve dp raw-content top inset`() {
@@ -419,7 +231,7 @@ class ExperimentalGenerationUiSourceContractTest {
 
         assertTrue(item.contains("showUserTextSelection"))
         assertTrue(item.contains("titleOverride = stringResource(R.string.select_text)"))
-        assertTrue(item.contains("directSelectableTextContent = displayMessage.text"))
+        assertTrue(item.contains("directSelectableTextContent = message.text"))
         assertTrue(detail.contains("directSelectableTextContent: String? = null"))
         assertTrue(detail.contains("NoAutoScrollSelectionContainer("))
         assertTrue(detail.contains("SearchHighlightedPlainText("))

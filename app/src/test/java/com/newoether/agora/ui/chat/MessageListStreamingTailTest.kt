@@ -239,152 +239,6 @@ class MessageListStreamingTailTest {
     }
 
     @Test
-    fun inlineAndAnswerStatesHaveExactlyOneWhiteDotOwner() {
-        val empty = ChatMessage(
-            id = "empty",
-            text = "",
-            status = MessageStatus.SENDING,
-            participant = Participant.MODEL,
-        )
-        val retryBeforeOutput = empty.copy(
-            id = "retry-before-output",
-            retryText = "Retrying 1/5",
-        )
-        val retryAfterPartialAnswer = empty.copy(
-            id = "retry-after-answer",
-            text = "Partial answer",
-            segments = listOf(MessageSegment(type = "answer", content = "Partial answer")),
-            retryText = "Retrying 1/5",
-        )
-        val answer = empty.copy(
-            id = "answer",
-            text = "Answer",
-            segments = listOf(MessageSegment(type = "answer", content = "Answer")),
-        )
-        val answerWithCitation = answer.copy(
-            id = "answer-with-citation",
-            segments = checkNotNull(answer.segments) +
-                MessageSegment(type = "citation", content = "metadata"),
-        )
-        val cardThenAnswer = answer.copy(
-            id = "card-then-answer",
-            segments = listOf(
-                MessageSegment(type = "thought", content = "Reasoning"),
-                MessageSegment(type = "answer", content = "Answer"),
-            ),
-        )
-
-        val activeOwners = listOf(
-            Triple(
-                "empty",
-                assistantInlineActivityMode(true, false, false, null) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, empty),
-            ),
-            Triple(
-                "retry before output",
-                assistantInlineActivityMode(true, false, false, retryBeforeOutput.retryText) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, retryBeforeOutput),
-            ),
-            Triple(
-                "retry after partial answer",
-                assistantInlineActivityMode(true, true, false, retryAfterPartialAnswer.retryText) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, retryAfterPartialAnswer),
-            ),
-            Triple(
-                "answer",
-                assistantInlineActivityMode(true, true, false, null) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, answer),
-            ),
-            Triple(
-                "answer with citation",
-                assistantInlineActivityMode(true, true, false, null) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, answerWithCitation),
-            ),
-            Triple(
-                "card followed by answer",
-                assistantInlineActivityMode(true, true, true, null) !=
-                    AssistantInlineActivityMode.NONE,
-                shouldShowStreamingTailIndicator(true, false, cardThenAnswer),
-            ),
-        )
-
-        activeOwners.forEach { (label, inlineVisible, tailVisible) ->
-            assertEquals(label, 1, listOf(inlineVisible, tailVisible).count { it })
-        }
-    }
-
-    @Test
-    fun visibleCardTailsHaveNoWhiteDotOwner() {
-        val empty = ChatMessage(
-            id = "empty",
-            text = "",
-            status = MessageStatus.SENDING,
-            participant = Participant.MODEL,
-        )
-        val thinking = empty.copy(
-            id = "thinking",
-            status = MessageStatus.THINKING,
-            segments = listOf(MessageSegment(type = "thought", content = "Reasoning")),
-        )
-        val tool = empty.copy(
-            id = "tool",
-            status = MessageStatus.TOOL_CALLING,
-            segments = listOf(MessageSegment(type = "tool", toolState = "running")),
-        )
-        val transcription = empty.copy(
-            id = "transcription",
-            status = MessageStatus.TRANSCRIBING,
-            segments = listOf(MessageSegment(type = "transcription", content = "Image text")),
-        )
-        val answerSegment = MessageSegment(type = "answer", content = "Earlier answer")
-        val cardTailMessages = listOf(
-            thinking,
-            tool,
-            transcription,
-            thinking.copy(id = "sending-thinking", status = MessageStatus.SENDING),
-            tool.copy(id = "sending-tool", status = MessageStatus.SENDING),
-            transcription.copy(id = "sending-transcription", status = MessageStatus.SENDING),
-            thinking.copy(
-                id = "answer-then-thinking",
-                text = answerSegment.content,
-                status = MessageStatus.SENDING,
-                segments = listOf(answerSegment) + checkNotNull(thinking.segments),
-            ),
-            tool.copy(
-                id = "answer-then-tool",
-                text = answerSegment.content,
-                status = MessageStatus.SENDING,
-                segments = listOf(answerSegment) + checkNotNull(tool.segments),
-            ),
-            transcription.copy(
-                id = "answer-then-transcription",
-                text = answerSegment.content,
-                status = MessageStatus.SENDING,
-                segments = listOf(answerSegment) + checkNotNull(transcription.segments),
-            ),
-        )
-
-        cardTailMessages.forEach { message ->
-            assertEquals(
-                message.id,
-                AssistantInlineActivityMode.NONE,
-                assistantInlineActivityMode(
-                    generationActive = true,
-                    hasAnswer = message.text.isNotBlank(),
-                    hasVisibleInfoSegment = true,
-                    retryText = null,
-                ),
-            )
-            assertFalse(message.id, shouldShowStreamingTailIndicator(true, false, message))
-        }
-    }
-
-    @Test
     fun stoppingAndTerminalGenerationStatesHaveNoWhiteDotOwner() {
         val activeAnswer = ChatMessage(
             id = "active-answer",
@@ -401,13 +255,13 @@ class MessageListStreamingTailTest {
 
         assertEquals(
             AssistantInlineActivityMode.NONE,
-            assistantInlineActivityMode(true, true, false, null),
+            assistantInlineActivityMode(true, true, false),
         )
         assertFalse(shouldShowStreamingTailIndicator(true, true, activeAnswer))
         terminalMessages.forEach { message ->
             assertEquals(
                 AssistantInlineActivityMode.NONE,
-                assistantInlineActivityMode(false, true, false, null),
+                assistantInlineActivityMode(false, true, false),
             )
             assertFalse(shouldShowStreamingTailIndicator(true, false, message))
         }
@@ -491,45 +345,6 @@ class MessageListStreamingTailTest {
     }
 
     @Test
-    fun activeStreamingPayloadAlwaysUsesLatestRuntimeSnapshot() {
-        val stub = ChatMessage(
-            id = "active",
-            text = "",
-            participant = Participant.MODEL,
-            status = MessageStatus.TOOL_CALLING,
-        )
-        val firstCall = stub.copy(
-            segments = listOf(
-                MessageSegment(
-                    type = "tool",
-                    toolCallId = "call-stream-1",
-                    toolArgs = "",
-                ),
-            ),
-        )
-        val secondCall = firstCall.copy(
-            segments = firstCall.segments.orEmpty() +
-                MessageSegment(
-                    type = "tool",
-                    toolCallId = "call-stream-2",
-                    toolArgs = "",
-                ),
-        )
-
-        assertSame(
-            firstCall,
-            resolveMessagePayloadForRender(stub, firstCall, stub, stub),
-        )
-        val latest = resolveMessagePayloadForRender(stub, secondCall, firstCall, firstCall)
-        assertSame(secondCall, latest)
-        assertEquals(
-            listOf("call-stream-1", "call-stream-2"),
-            latest.segments.orEmpty().map(MessageSegment::toolCallId),
-        )
-        assertTrue(latest.segments.orEmpty().all { it.toolName == null && it.toolArgs.isNullOrEmpty() })
-    }
-
-    @Test
     fun authoritativeTerminalPayloadWinsOverStaleHydration() {
         val terminal = ChatMessage(
             id = "terminal",
@@ -603,37 +418,6 @@ class MessageListStreamingTailTest {
     }
 
     @Test
-    fun groupedSegmentDetailSelectionTracksNewAuthoritativeSegments() {
-        val initial = ChatMessage(
-            id = "detail",
-            participant = Participant.MODEL,
-            text = "",
-            segments = listOf(
-                MessageSegment(type = "thought", content = "reasoning"),
-                MessageSegment(type = "answer", content = "partial"),
-                MessageSegment(type = "tool", toolName = "shell"),
-            ),
-        )
-        val grown = initial.copy(
-            segments = initial.segments.orEmpty() +
-                MessageSegment(type = "transcription", content = "image text"),
-        )
-
-        assertEquals(
-            listOf(0, 1),
-            segmentDetailIndicesForSnapshot(initial, listOf(0), showSegmentListFirst = true),
-        )
-        assertEquals(
-            listOf(0, 1, 2),
-            segmentDetailIndicesForSnapshot(grown, listOf(0), showSegmentListFirst = true),
-        )
-        assertEquals(
-            listOf(1),
-            segmentDetailIndicesForSnapshot(grown, listOf(1), showSegmentListFirst = false),
-        )
-    }
-
-    @Test
     fun coalescedTailStepIsBoundedAndMovesTowardTarget() {
         assertEquals(
             32f,
@@ -694,6 +478,183 @@ class MessageListStreamingTailTest {
         assertTrue(startup in 0f..adaptiveStep)
         assertEquals(adaptiveStep, adaptiveTail, 0.001f)
         assertEquals(-adaptiveStep, bottomButtonStep, 0.001f)
+    }
+
+    @Test
+    fun inlineAndAnswerStatesHaveExactlyOneWhiteDotOwner() {
+        val empty = ChatMessage(
+            id = "empty",
+            text = "",
+            status = MessageStatus.SENDING,
+            participant = Participant.MODEL,
+        )
+        val answer = empty.copy(
+            id = "answer",
+            text = "Answer",
+            segments = listOf(MessageSegment(type = "answer", content = "Answer")),
+        )
+        val answerWithCitation = answer.copy(
+            id = "answer-with-citation",
+            segments = checkNotNull(answer.segments) +
+                MessageSegment(type = "citation", content = "metadata"),
+        )
+        val cardThenAnswer = answer.copy(
+            id = "card-then-answer",
+            segments = listOf(
+                MessageSegment(type = "thought", content = "Reasoning"),
+                MessageSegment(type = "answer", content = "Answer"),
+            ),
+        )
+
+        val activeOwners = listOf(
+            Triple(
+                "empty",
+                assistantInlineActivityMode(true, false, false) !=
+                    AssistantInlineActivityMode.NONE,
+                shouldShowStreamingTailIndicator(true, false, empty),
+            ),
+            Triple(
+                "answer",
+                assistantInlineActivityMode(true, true, false) !=
+                    AssistantInlineActivityMode.NONE,
+                shouldShowStreamingTailIndicator(true, false, answer),
+            ),
+            Triple(
+                "answer with citation",
+                assistantInlineActivityMode(true, true, false) !=
+                    AssistantInlineActivityMode.NONE,
+                shouldShowStreamingTailIndicator(true, false, answerWithCitation),
+            ),
+            Triple(
+                "card followed by answer",
+                assistantInlineActivityMode(true, true, true) !=
+                    AssistantInlineActivityMode.NONE,
+                shouldShowStreamingTailIndicator(true, false, cardThenAnswer),
+            ),
+        )
+
+        activeOwners.forEach { (label, inlineVisible, tailVisible) ->
+            assertEquals(label, 1, listOf(inlineVisible, tailVisible).count { it })
+        }
+    }
+
+    @Test
+    fun visibleCardTailsHaveNoWhiteDotOwner() {
+        val empty = ChatMessage(
+            id = "empty",
+            text = "",
+            status = MessageStatus.SENDING,
+            participant = Participant.MODEL,
+        )
+        val thinking = empty.copy(
+            id = "thinking",
+            status = MessageStatus.THINKING,
+            segments = listOf(MessageSegment(type = "thought", content = "Reasoning")),
+        )
+        val tool = empty.copy(
+            id = "tool",
+            status = MessageStatus.TOOL_CALLING,
+            segments = listOf(MessageSegment(type = "tool", toolState = "running")),
+        )
+        val answerSegment = MessageSegment(type = "answer", content = "Earlier answer")
+        val cardTailMessages = listOf(
+            thinking,
+            tool,
+            thinking.copy(id = "sending-thinking", status = MessageStatus.SENDING),
+            tool.copy(id = "sending-tool", status = MessageStatus.SENDING),
+            thinking.copy(
+                id = "answer-then-thinking",
+                text = answerSegment.content,
+                status = MessageStatus.SENDING,
+                segments = listOf(answerSegment) + checkNotNull(thinking.segments),
+            ),
+            tool.copy(
+                id = "answer-then-tool",
+                text = answerSegment.content,
+                status = MessageStatus.SENDING,
+                segments = listOf(answerSegment) + checkNotNull(tool.segments),
+            ),
+        )
+
+        cardTailMessages.forEach { message ->
+            assertEquals(
+                message.id,
+                AssistantInlineActivityMode.NONE,
+                assistantInlineActivityMode(
+                    generationActive = true,
+                    hasAnswer = message.text.isNotBlank(),
+                    hasVisibleInfoSegment = true,
+                ),
+            )
+            assertFalse(message.id, shouldShowStreamingTailIndicator(true, false, message))
+        }
+    }
+
+    @Test
+    fun activeStreamingPayloadAlwaysUsesLatestRuntimeSnapshot() {
+        val stub = ChatMessage(
+            id = "active",
+            text = "",
+            participant = Participant.MODEL,
+            status = MessageStatus.TOOL_CALLING,
+        )
+        val firstCall = stub.copy(
+            segments = listOf(
+                MessageSegment(
+                    type = "tool",
+                    toolCallId = "call-stream-1",
+                ),
+            ),
+        )
+        val secondCall = firstCall.copy(
+            segments = firstCall.segments.orEmpty() +
+                MessageSegment(
+                    type = "tool",
+                    toolCallId = "call-stream-2",
+                ),
+        )
+
+        assertSame(
+            firstCall,
+            resolveMessagePayloadForRender(stub, firstCall, stub, stub),
+        )
+        val latest = resolveMessagePayloadForRender(stub, secondCall, firstCall, firstCall)
+        assertSame(secondCall, latest)
+        assertEquals(
+            listOf("call-stream-1", "call-stream-2"),
+            latest.segments.orEmpty().map(MessageSegment::toolCallId),
+        )
+    }
+
+    @Test
+    fun groupedSegmentDetailSelectionTracksNewAuthoritativeSegments() {
+        val initial = ChatMessage(
+            id = "detail",
+            participant = Participant.MODEL,
+            text = "",
+            segments = listOf(
+                MessageSegment(type = "thought", content = "reasoning"),
+                MessageSegment(type = "answer", content = "partial"),
+                MessageSegment(type = "tool", toolCallId = "call"),
+            ),
+        )
+        val grown = initial.copy(
+            segments = initial.segments.orEmpty() +
+                MessageSegment(type = "tool"),
+        )
+
+        assertEquals(
+            listOf(0, 1),
+            segmentDetailIndicesForSnapshot(initial, listOf(0), showSegmentListFirst = true),
+        )
+        assertEquals(
+            listOf(0, 1, 2),
+            segmentDetailIndicesForSnapshot(grown, listOf(0), showSegmentListFirst = true),
+        )
+        assertEquals(
+            listOf(1),
+            segmentDetailIndicesForSnapshot(grown, listOf(1), showSegmentListFirst = false),
+        )
     }
 
 }

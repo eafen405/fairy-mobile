@@ -29,21 +29,6 @@ class FiloTransportRecoveryTest {
         }
     private fun client(server: HttpServer) = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
 
-    @Test fun readRecoversWhenAPooledConnectionClosesBeforeResponseHeaders() = runBlocking {
-        val requests = AtomicInteger()
-        val server = server { exchange ->
-            assertEquals("GET", exchange.requestMethod)
-            if (requests.incrementAndGet() == 1) exchange.close()
-            else exchange.reply(200, """{"models":[]}""")
-        }
-        try {
-            val client = client(server)
-            client.connect()
-            assertTrue(client.models().isEmpty())
-            assertEquals(2, requests.get())
-        } finally { server.stop(0) }
-    }
-
     @Test fun eventsRecoverBeforeTheFirstResponseWithoutReplayingWrites() = runBlocking {
         val requests = AtomicInteger()
         val server = server { exchange ->
@@ -59,20 +44,18 @@ class FiloTransportRecoveryTest {
         } finally { server.stop(0) }
     }
 
-    @Test fun archiveIsNeverRetriedAfterAnAmbiguousConnectionClose() = runBlocking {
+    @Test fun readRecoversWhenAPooledConnectionClosesBeforeResponseHeaders() = runBlocking {
         val requests = AtomicInteger()
         val server = server { exchange ->
-            assertEquals("POST", exchange.requestMethod)
-            requests.incrementAndGet()
-            exchange.requestBody.use { it.readBytes() }
-            exchange.close()
+            assertEquals("GET", exchange.requestMethod)
+            if (requests.incrementAndGet() == 1) exchange.close()
+            else exchange.reply(200, """{"sessions":[],"nextCursor":null}""")
         }
         try {
             val client = client(server)
             client.connect()
-            try { client.archiveSession(id); fail("An unconfirmed archive must fail") }
-            catch (_: IOException) { }
-            assertEquals(1, requests.get())
+            assertTrue(client.sessions().sessions.isEmpty())
+            assertEquals(2, requests.get())
         } finally { server.stop(0) }
     }
 
@@ -82,7 +65,7 @@ class FiloTransportRecoveryTest {
         try {
             val client = client(server)
             client.connect()
-            try { client.models(); fail("Authentication must fail") }
+            try { client.sessions(); fail("401 must surface") }
             catch (error: FiloHttpException) { assertEquals(401, error.status) }
             assertEquals(1, requests.get())
         } finally { server.stop(0) }

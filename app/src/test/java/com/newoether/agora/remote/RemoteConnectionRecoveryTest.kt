@@ -32,7 +32,7 @@ class RemoteConnectionRecoveryTest {
     private val client = mockk<FiloClient>()
     private val connections = mockk<RemoteConnectionStore>(relaxed = true)
     private val session = RemoteSession("session", "Existing", "/workspace", 1)
-    private val page = bodyPage(emptyList(), null, emptyList(), RemoteRuntime("idle", model = "model"))
+    private val page = bodyPage(emptyList(), null, RemoteRuntime("idle", model = "model"))
 
     @Before fun setup() {
         Dispatchers.setMain(dispatcher)
@@ -45,7 +45,6 @@ class RemoteConnectionRecoveryTest {
         coEvery { client.logout() } returns Unit
         coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
-        coEvery { client.models() } returns listOf(RemoteModel("model", "Model", true))
         coEvery { client.conversation(any(), any()) } throws FiloHttpException(503)
     }
     @After fun tearDown() { Dispatchers.resetMain() }
@@ -68,26 +67,6 @@ class RemoteConnectionRecoveryTest {
         backgroundScope.launch(dispatcher) { vm.notices.collect { result += it } }
         runCurrent()
         return result
-    }
-
-    @Test fun transientStreamDisconnectRecoversWithoutOfflineOrSnackbar() = runTest(dispatcher) {
-        var reads = 0
-        every { client.events(any()) } answers { flow {
-            if (++reads == 1) throw IOException("connection reset")
-            emit(page); awaitCancellation()
-        } }
-        val vm = open()
-        val notices = notices(vm)
-        assertEquals(RemoteDeviceStatus.CONNECTED, vm.state.value.devices.single().status)
-        assertNull(vm.state.value.failure)
-        assertNull(vm.state.value.runtime)
-        assertTrue(notices.isEmpty())
-        advanceTimeBy(3000); runCurrent()
-        assertEquals(2, reads)
-        assertEquals("idle", vm.state.value.runtime?.status)
-        assertTrue(notices.isEmpty())
-        coVerify(exactly = 0) { client.create(any(), any(), any(), any()); client.send(any(), any(), any(), any()) }
-        vm.setVisible(false)
     }
 
     @Test fun persistentSessionReadFailureKeepsHealthyDeviceOnlineAndReportsOnce() = runTest(dispatcher) {
@@ -161,16 +140,6 @@ class RemoteConnectionRecoveryTest {
         vm.setVisible(false)
     }
 
-    @Test fun authenticationFailureRemainsImmediateAndCannotEnableControls() = runTest(dispatcher) {
-        every { client.events(any()) } returns flow { throw FiloHttpException(401) }
-        val vm = open()
-        val notices = notices(vm)
-        assertEquals(RemoteDeviceStatus.ERROR, vm.state.value.devices.single().status)
-        assertEquals(RemoteFailure.AUTHENTICATION, notices.single().failure)
-        assertFalse(vm.state.value.canEditSettings)
-        vm.setVisible(false)
-    }
-
     @Test fun staleHealthResultCannotOverwriteNewSelectionOrStartAnotherRead() = runTest(dispatcher) {
         val disconnect = CompletableDeferred<Unit>()
         val health = CompletableDeferred<String>()
@@ -206,11 +175,40 @@ class RemoteConnectionRecoveryTest {
         vm.setVisible(false)
     }
 
+    @Test fun transientStreamDisconnectRecoversWithoutOfflineOrSnackbar() = runTest(dispatcher) {
+        var reads = 0
+        every { client.events(any()) } answers { flow {
+            if (++reads == 1) throw IOException("connection reset")
+            emit(page); awaitCancellation()
+        } }
+        val vm = open()
+        val notices = notices(vm)
+        assertEquals(RemoteDeviceStatus.CONNECTED, vm.state.value.devices.single().status)
+        assertNull(vm.state.value.failure)
+        assertNull(vm.state.value.runtime)
+        assertTrue(notices.isEmpty())
+        advanceTimeBy(3000); runCurrent()
+        assertEquals(2, reads)
+        assertEquals("idle", vm.state.value.runtime?.status)
+        assertTrue(notices.isEmpty())
+        coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }
+        vm.setVisible(false)
+    }
+
+    @Test fun authenticationFailureRemainsImmediateAndCannotEnableControls() = runTest(dispatcher) {
+        every { client.events(any()) } returns flow { throw FiloHttpException(401) }
+        val vm = open()
+        val notices = notices(vm)
+        assertEquals(RemoteDeviceStatus.ERROR, vm.state.value.devices.single().status)
+        assertEquals(RemoteFailure.AUTHENTICATION, notices.single().failure)
+        vm.setVisible(false)
+    }
+
     @Test fun reconnectKeepsBoundedActivityPresentationWithoutRecoveringInternals() = runTest(dispatcher) {
         val activity = RemoteMessage("tool", "turn", null, "assistant", "", 1,
             RemoteActivity("tool", "failed", 30, label = "搜索网络", note = "网络请求失败"),
             groupId = "tool-group")
-        val activityPage = bodyPage(listOf(activity), null, emptyList(), RemoteRuntime("idle"))
+        val activityPage = bodyPage(listOf(activity), null, RemoteRuntime("idle"))
         var reads = 0
         every { client.events(any()) } answers { flow {
             if (++reads == 1) throw IOException("connection reset")
@@ -227,16 +225,13 @@ class RemoteConnectionRecoveryTest {
         assertEquals("搜索网络", segment.toolDisplayName)
         assertEquals("网络请求失败", segment.toolNote)
         assertEquals("failed", segment.toolState)
-        assertNull(segment.toolName)
-        assertNull(segment.toolArgs)
-        assertNull(segment.toolResult)
         vm.setVisible(false)
     }
 
     @Test fun historyIsReadableWhenStreamFailsButSameOwnersSnapshotIsAvailable() = runTest(dispatcher) {
         every { client.events(any()) } returns flow { throw IOException("stream unavailable") }
         val message = RemoteMessage("answer", "turn", null, "assistant", "Retained native history", 1)
-        coEvery { client.conversation("session", null) } returns bodyPage(listOf(message), null, emptyList(), page.runtime)
+        coEvery { client.conversation("session", null) } returns bodyPage(listOf(message), null, page.runtime)
         val vm = open()
         vm.state.first { it.nodes.isNotEmpty() }
         val notices = notices(vm)
@@ -244,14 +239,12 @@ class RemoteConnectionRecoveryTest {
         assertEquals(RemoteDeviceStatus.CONNECTED, vm.state.value.devices.single().status)
         assertFalse(vm.state.value.loading)
         assertNull(vm.state.value.runtime)
-        assertEquals("model", vm.state.value.selectedModel)
-        assertFalse(vm.state.value.canEditSettings)
         assertTrue(notices.isEmpty())
         advanceTimeBy(3000); runCurrent()
         assertEquals(listOf("answer"), vm.state.value.nodes.map { it.id })
         assertEquals(RemoteFailure.SERVICE, notices.single().failure)
         coVerify(exactly = 1) { client.connect() }
-        coVerify(exactly = 0) { client.create(any(), any(), any(), any()); client.send(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }
         vm.setVisible(false)
     }
 }

@@ -21,9 +21,7 @@ import java.util.UUID
 
 /** Remote owns saved connections and presentation; native Codex owns durable execution. */
 internal class RemoteViewModel(
-    private val connections: RemoteConnectionStore,
-    private val imageStore: com.newoether.agora.tool.ToolImageStore? = null,
-    private val imageCache: RemoteImageCache? = null,
+    connections: RemoteConnectionStore,
     projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
     private val attachmentStore: RemoteAttachmentStore? = null,
     private val fileStore: RemoteFileStore? = null,
@@ -44,22 +42,11 @@ internal class RemoteViewModel(
         if (snapshot.owner != owner) throw CancellationException()
         val client = clients[snapshot.deviceId] ?: throw CancellationException()
         client.conversation(snapshot.session!!.id, cursor)
-    }, { trace("payload_failed", it) }, { owner, request ->
-        val snapshot = state.value
-        if (snapshot.owner != owner) throw CancellationException()
-        val client = clients[snapshot.deviceId] ?: throw CancellationException()
-        val store = imageStore ?: throw java.io.IOException("Image storage is unavailable")
-        val cache = imageCache ?: throw java.io.IOException("Image cache is unavailable")
-        cache.load(owner + "/" + request.id + "/" + request.revision + "/" + request.imageIndex) {
-            client.image(snapshot.session!!.id, request, store::persistStream)
-        }
-    }, projectionDispatcher = projectionDispatcher)
+    }, { trace("payload_failed", it) }, projectionDispatcher = projectionDispatcher)
     private val historyMutation = kotlinx.coroutines.sync.Mutex()
     fun cachedMessage(owner: String, id: String) = state.value.messageGroups.firstOrNull { it.stub.id == id }
         ?.let { hydration.cachedMessage(owner, it) }
     fun observeMessage(owner: String, id: String) = hydration.observeMessage(owner, id)
-    suspend fun loadToolImage(owner: String, id: String, revision: String) =
-        hydration.loadToolImage(owner, id, revision)
     suspend fun searchMessages(owner: String, ids: List<String>) = try {
         hydration.loadMessages(owner, ids)
     } catch (cancelled: CancellationException) { throw cancelled }
@@ -77,10 +64,6 @@ internal class RemoteViewModel(
     private var visible = false
     private var polling: Job? = null
     private var paging: Job? = null
-    private var statusPolling: Job? = null
-    private var visibleSessions: List<String> = emptyList()
-    private var modelLoading: Job? = null
-    private var modelEpoch = 0L
     private val createdAt = System.nanoTime()
     private val diagnosticContext = DiagnosticRequestContext(
         requestId = UUID.randomUUID().toString(), provider = "Fairy", model = "Fairy", requestKind = "remote",
@@ -109,7 +92,6 @@ internal class RemoteViewModel(
         sendBlocked = { !visible || state.value.controlling || state.value.isStopping },
         stale = { selected, client -> selected != selectionEpoch || clients[state.value.deviceId] !== client },
         trace = { stage, error -> trace(stage, error) },
-        refresh = ::refresh,
     )
     private val fileDownloads = RemoteFileDownloads(
         state = mutableState,
@@ -158,12 +140,6 @@ internal class RemoteViewModel(
     private fun clearPendingFileExports() = fileDownloads.clear()
 
     fun restoreConnections() = deviceDirectory.restoreConnections()
-    suspend fun usage(): RemoteUsage? {
-        val device = state.value.deviceId ?: return null
-        return try { clients[device]?.usage()?.takeIf { state.value.deviceId == device } }
-        catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) { if (state.value.deviceId == device) trace("usage_failed", error); null }
-    }
 
     fun editorConnection(): RemoteConnection? = deviceDirectory.editorConnection()
 
@@ -185,8 +161,6 @@ internal class RemoteViewModel(
         deviceDirectory.expireConnection(id)
     }
 
-    fun removeDevice(id: String) = deviceDirectory.removeDevice(id)
-
     private fun checkDevice(id: String) = deviceDirectory.checkDevice(id)
 
     private fun updateDevice(id: String, update: (RemoteDevice) -> RemoteDevice) {
@@ -205,20 +179,16 @@ internal class RemoteViewModel(
     fun selectDevice(id: String?) {
         if (id != null && id !in clients) return
         beginSelection()
-        modelEpoch++
-        modelLoading?.cancel()
         mutableState.value = state.value.copy(deviceId = id, addingDevice = false, editedDeviceId = null,
             sessions = emptyList(), sessionCursor = null,
-            session = null, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null,
-            runtime = null, lastKnownModel = null, models = emptyList(), modelsLoading = false, composerFocusOwner = null,
-            draftSessionId = null, draftSettings = RemoteSettings())
+            session = null, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, failure = null,
+            runtime = null, composerFocusOwner = null)
         refresh()
     }
 
     fun selectSession(session: RemoteSession?) {
         beginSelection()
-        mutableState.value = state.value.copy(session = session, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null, runtime = null, lastKnownModel = null, composerFocusOwner = null,
-            draftSessionId = null, draftSettings = RemoteSettings())
+        mutableState.value = state.value.copy(session = session, nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, failure = null, runtime = null, composerFocusOwner = null)
         refresh()
     }
 
@@ -226,12 +196,7 @@ internal class RemoteViewModel(
         if (visible == value) return
         visible = value
         trace(if (value) "visible" else "hidden")
-        if (value) refresh() else {
-            invalidateReads()
-            modelEpoch++
-            modelLoading?.cancel()
-            mutableState.value = state.value.copy(modelsLoading = false)
-        }
+        if (value) refresh() else invalidateReads()
     }
 
     private fun invalidateReads() {
@@ -239,13 +204,12 @@ internal class RemoteViewModel(
         epoch++
         polling?.cancel()
         paging?.cancel()
-        statusPolling?.cancel()
         // Suspend control readiness, not the last native presentation. Reconnecting is not completion.
         mutableState.value = state.value.copy(loading = false, loadingMore = false, runtime = null, hydrationEnabled = false)
     }
 
     fun refresh() {
-        if (!visible || state.value.restoring || state.value.addingDevice || state.value.isDraft) return
+        if (!visible || state.value.restoring || state.value.addingDevice) return
         invalidateReads()
         val id = state.value.deviceId
         if (id == null) {
@@ -260,22 +224,6 @@ internal class RemoteViewModel(
         }
         val generation = epoch
         val session = state.value.session
-        if (modelLoading?.isActive != true) {
-            val modelGeneration = ++modelEpoch
-            mutableState.value = state.value.copy(modelsLoading = true)
-            modelLoading = viewModelScope.launch {
-                try {
-                    val models = client.models()
-                    if (modelGeneration == modelEpoch && clients[id] === client && state.value.deviceId == id) {
-                        mutableState.value = state.value.copy(models = models)
-                    }
-                } catch (cancelled: CancellationException) { throw cancelled }
-                catch (error: Exception) { trace("models_failed", error) }
-                finally {
-                    if (modelGeneration == modelEpoch) mutableState.value = state.value.copy(modelsLoading = false)
-                }
-            }
-        }
         polling = viewModelScope.launch {
             mutableState.value = state.value.copy(loading = true)
             var consecutiveFailures = 0
@@ -290,10 +238,8 @@ internal class RemoteViewModel(
                         if (generation != epoch) return@launch
                         mutableState.value = state.value.copy(
                             sessions = page.sessions, sessionCursor = page.nextCursor,
-                            sessionStatuses = mergeListedSessionStatuses(id, page),
                             loading = false, failure = null,
                         )
-                        startSessionStatusReads()
                     } else {
                         client.events(session.id).collect { page ->
                             if (generation == epoch) {
@@ -399,96 +345,13 @@ internal class RemoteViewModel(
             mutableState.value = state.value.copy(
                 nodes = nodes, messageGroups = groups, hydrationEnabled = visible,
                 historyCursor = if (old.isEmpty()) incoming.last().nextCursor else state.value.historyCursor,
-                queued = mergeQueuedMessages(page.queued, nodes), loading = false, failure = null,
+                loading = false, failure = null,
                 runtime = page.runtime.takeIf { liveControl },
-                lastKnownModel = page.runtime?.model ?: state.value.lastKnownModel,
             )
         }
         state.value.deviceId?.let { id -> updateDevice(id) { it.copy(status = RemoteDeviceStatus.CONNECTED, failure = null) } }
         state.value.attempts[owner]?.let { attempt -> confirmDelivery(owner, attempt, state.value.nodes) }
         settleStop()
-        page.runtime?.takeIf { it.status in setOf("idle", "active", "ready") }?.let { runtime ->
-            val key = "${state.value.deviceId}/$sessionId"
-            mutableState.value = state.value.copy(sessionStatuses = state.value.sessionStatuses +
-                (key to RemoteSessionStatus(sessionId, runtime.status, runtime.activeTurnId, runtime.completedTurnId)))
-        }
-        page.runtime?.completedTurnId?.let { turn ->
-            val address = state.value.deviceId ?: return@let
-            val key = "$address/$sessionId"
-            if (visible && state.value.viewedTurns[key] != turn) {
-                mutableState.value = state.value.copy(viewedTurns = state.value.viewedTurns + (key to turn))
-                viewModelScope.launch {
-                    try { connections.markViewed(address, sessionId, turn) }
-                    catch (error: Exception) {
-                        if (error is CancellationException) throw error
-                        trace("mark_viewed_failed", error)
-                        mutableState.value = state.value.copy(storageError = true)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun mergeListedSessionStatuses(
-        address: String, page: RemoteSessionPage,
-    ): Map<String, RemoteSessionStatus> {
-        val previous = state.value.sessionStatuses
-        val exact = page.statuses.associateBy { it.id }
-        val listed = page.sessions.mapNotNull { session ->
-            val key = "$address/${session.id}"
-            val old = previous[key]
-            val item = exact[session.id]
-                ?: session.status?.let { old?.copy(status = it) ?: RemoteSessionStatus(session.id, it) }
-                ?: return@mapNotNull null
-            val resolved = if (item.status == null && old != null) old else item
-            key to resolved.copy(hasUnreadTurn = resolved.hasUnreadTurn ||
-                item.completedTurnId != null && (old?.activeTurnId == item.completedTurnId &&
-                    old.completedTurnId != item.completedTurnId ||
-                    old?.hasUnreadTurn == true && old.completedTurnId == item.completedTurnId))
-        }.toMap()
-        return previous + listed
-    }
-
-    fun observeSessions(deviceId: String, ids: List<String>) {
-        if (state.value.deviceId != deviceId || state.value.session != null) return
-        val allowed = state.value.sessions.map { it.id }.toSet()
-        val next = ids.distinct().filter { it in allowed }.take(12)
-        if (next == visibleSessions && statusPolling?.isActive == true) return
-        visibleSessions = next
-        startSessionStatusReads()
-    }
-
-    private fun startSessionStatusReads() {
-        statusPolling?.cancel()
-        val snapshot = state.value
-        if (!visible || snapshot.session != null || snapshot.addingDevice) return
-        val address = snapshot.deviceId ?: return
-        val client = clients[address] ?: return
-        val ids = visibleSessions.filter { id -> snapshot.sessions.any { it.id == id } }
-        if (ids.isEmpty()) return
-        val selected = selectionEpoch
-        statusPolling = viewModelScope.launch {
-            while (isActive && visible && selected == selectionEpoch) {
-                // The list already supplied exact status. Refresh that same page only after the interval.
-                delay(3000)
-                try {
-                    val cursors = state.value.sessions.filter { it.id in ids }.map { it.listCursor }.distinct()
-                    for (cursor in cursors) {
-                        val page = client.sessions(cursor)
-                        if (selected != selectionEpoch || clients[address] !== client || !visible) return@launch
-                        mutableState.value = state.value.copy(
-                            sessionStatuses = mergeListedSessionStatuses(address, page),
-                        )
-                    }
-                } catch (cancelled: CancellationException) { throw cancelled }
-                catch (error: Exception) {
-                    if (selected != selectionEpoch) return@launch
-                    trace("session_status_failed", error)
-                    // A failed read does not erase the last confirmed presentation.
-                    if (error is FiloHttpException && error.status in setOf(401, 403, 404, 501)) return@launch
-                }
-            }
-        }
     }
 
     private fun settleStop() {
@@ -500,84 +363,8 @@ internal class RemoteViewModel(
         }
     }
 
-    fun newSession() {
-        val snapshot = state.value
-        if (snapshot.deviceId !in clients || snapshot.isDraft || snapshot.controlling) return
-        beginSelection()
-        val id = UUID.randomUUID().toString()
-        // A local composer identity survives promotion to the first native session.
-        mutableState.value = state.value.copy(
-            session = RemoteSession(id, "", "", 0), draftSessionId = id, draftSettings = RemoteSettings(),
-            nodes = emptyList(), messageGroups = emptyList(), historyCursor = null, queued = emptyList(), failure = null,
-            lastKnownModel = null, composerFocusOwner = "${snapshot.deviceId}/$id",
-        )
-    }
-
     fun completeComposerFocus(owner: String) {
         if (state.value.composerFocusOwner == owner) mutableState.value = state.value.copy(composerFocusOwner = null)
-    }
-
-    fun setModel(model: String) {
-        val snapshot = state.value
-        val session = snapshot.session ?: return
-        val available = snapshot.models.firstOrNull { it.id == model } ?: return
-        if (!snapshot.canEditSettings || model == snapshot.selectedModel) return
-        val settings = if (available.reasoningEfforts != null) snapshot.settingsForModel(available) else RemoteSettings(model = model)
-        if (snapshot.isDraft) {
-            mutableState.value = snapshot.copy(draftSettings = snapshot.draftSettings.merge(settings))
-        } else if (available.reasoningEfforts == null) {
-            val selected = selectionEpoch
-            control { client -> client.setModel(session.id, model); if (selected == selectionEpoch) refresh() }
-        } else changeSettings(settings)
-    }
-
-    fun setThinkingEnabled(enabled: Boolean) {
-        val snapshot = state.value
-        if (enabled == (snapshot.selectedEffort != null && snapshot.selectedEffort != "none")) return
-        val model = snapshot.settingsModel ?: return
-        val effort = if (enabled) model.defaultReasoningEffort?.takeUnless { it == "none" }
-            ?: model.reasoningEfforts?.firstOrNull { it != "none" } else "none"
-        effort?.let(::setThinkingLevel)
-    }
-
-    fun setThinkingLevel(effort: String) {
-        val snapshot = state.value
-        if (effort == snapshot.selectedEffort || effort !in snapshot.settingsModel?.reasoningEfforts.orEmpty()) return
-        changeSettings(RemoteSettings(effort = effort))
-    }
-
-    fun setServiceTierEnabled(enabled: Boolean) {
-        val snapshot = state.value
-        if (enabled == (snapshot.selectedServiceTier != null)) return
-        val model = snapshot.settingsModel ?: return
-        val tier = if (enabled) model.defaultServiceTier?.takeIf { value -> model.serviceTiers.orEmpty().any { it.id == value } }
-            ?: model.serviceTiers?.firstOrNull()?.id ?: return else null
-        setServiceTier(tier)
-    }
-
-    fun setServiceTier(tier: String?) {
-        val snapshot = state.value
-        if (snapshot.settingsModel?.serviceTiers == null || tier == snapshot.selectedServiceTier ||
-            tier != null && snapshot.settingsModel?.serviceTiers.orEmpty().none { it.id == tier }) return
-        changeSettings(RemoteSettings(serviceTier = tier, updateServiceTier = true))
-    }
-
-    private fun changeSettings(settings: RemoteSettings) {
-        val snapshot = state.value
-        if (!snapshot.canEditSettings) return
-        if (snapshot.isDraft) {
-            mutableState.value = snapshot.copy(draftSettings = snapshot.draftSettings.merge(settings))
-            return
-        }
-        val selected = selectionEpoch
-        control { client ->
-            val id = snapshot.session!!.id
-            client.updateSettings(id, settings)
-            if (selected == selectionEpoch && clients[snapshot.deviceId] === client && visible) {
-                val generation = epoch
-                applyPage(client, id, generation, client.conversation(id))
-            }
-        }
     }
 
     fun stop() {
@@ -604,8 +391,7 @@ internal class RemoteViewModel(
                 val failure = trace("control_failed", error)
                 if (selected == selectionEpoch) mutableState.value = state.value.copy(failure = failure)
             } finally {
-                if (selected == selectionEpoch) mutableState.value = state.value.copy(controlling = false,
-                    settingsRevision = state.value.settingsRevision + 1)
+                if (selected == selectionEpoch) mutableState.value = state.value.copy(controlling = false)
                 if (stoppingTurnId != null && state.value.stoppingOwner == owner &&
                     state.value.stoppingTurnId == stoppingTurnId && (!succeeded || selected != selectionEpoch)) {
                     mutableState.value = state.value.copy(stoppingOwner = null, stoppingTurnId = null)
@@ -613,35 +399,6 @@ internal class RemoteViewModel(
                 // A Stop receipt and the native end-of-turn snapshot may arrive in either order.
                 settleStop()
             }
-        }
-    }
-
-    fun renameSession(id: String, name: String) {
-        if (name.isBlank() || name.length > 4096) return
-        manageSession(id) { it.rename(id, name) }
-    }
-    fun archiveSession(id: String) = manageSession(id) { it.archiveSession(id); null }
-
-    private fun manageSession(id: String, operation: suspend (FiloClient) -> RemoteSession?) {
-        val snapshot = state.value
-        if (snapshot.session != null || snapshot.controlling || snapshot.sessions.none { it.id == id }) return
-        val selected = selectionEpoch
-        invalidateReads()
-        control { client ->
-            try {
-                val updated = operation(client)
-                if (selected != selectionEpoch || clients[snapshot.deviceId] !== client) return@control
-                val owner = snapshot.sessionOwners["${snapshot.deviceId}/$id"] ?: "${snapshot.deviceId}/$id"
-                mutableState.value = state.value.copy(
-                    sessions = state.value.sessions.mapNotNull { session ->
-                        if (session.id != id) session else updated?.let { session.copy(title = it.title, updatedAt = it.updatedAt) }
-                    },
-                    sessionStatuses = if (updated == null) state.value.sessionStatuses - "${snapshot.deviceId}/$id" else state.value.sessionStatuses,
-                    drafts = if (updated == null) state.value.drafts - owner else state.value.drafts,
-                    attempts = if (updated == null) state.value.attempts - owner else state.value.attempts,
-                    failure = null,
-                )
-            } finally { if (selected == selectionEpoch) startSessionStatusReads() }
         }
     }
 
@@ -663,7 +420,6 @@ internal class RemoteViewModel(
                         val sessions = (state.value.sessions + page.sessions).distinctBy { it.id }
                         mutableState.value = state.value.copy(
                             sessions = sessions,
-                            sessionStatuses = mergeListedSessionStatuses(requireNotNull(snapshot.deviceId), page),
                             sessionCursor = page.nextCursor, failure = null,
                         )
                     }

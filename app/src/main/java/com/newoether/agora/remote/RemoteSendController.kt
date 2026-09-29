@@ -22,7 +22,6 @@ internal class RemoteSendController(
     private val sendBlocked: () -> Boolean,
     private val stale: (Long, FiloClient) -> Boolean,
     private val trace: (String, Exception) -> RemoteFailure?,
-    private val refresh: () -> Unit,
 ) {
     fun acknowledgeUnknown(owner: String) {
         // 用户确认知情后仍保留 attempt：原样重发复用同一 clientId 与已完成 uploadIds。
@@ -79,36 +78,8 @@ internal class RemoteSendController(
                 }
                 uploadComplete = true
                 if (stale(selected, client)) throw FiloInputException()
-                var sessionId = snapshot.session!!.id
-                var receipt: RemoteSendReceipt? = null
-                if (snapshot.isDraft) {
-                    // One mutation: the session is created together with this first message.
-                    val settingsModel = snapshot.settingsModel
-                    val settings = if (settingsModel == null) null else if (settingsModel.reasoningEfforts != null) RemoteSettings(
-                        settingsModel.id, snapshot.selectedEffort, snapshot.selectedServiceTier, updateServiceTier = true,
-                    ) else RemoteSettings(model = settingsModel.id)
-                    val created = client.create(text, attempt.clientId, uploads, settings)
-                    receipt = created.receipt
-                    // Creation includes the first turn, even if its owner is no longer selected.
-                    state.value = state.value.copy(
-                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.session.id}" to owner),
-                    )
-                    if (stale(selected, client) ||
-                        state.value.attempts[owner]?.clientId != attempt.clientId) {
-                        // Keep the accepted outcome on the original owner without replacing the selection.
-                        markAccepted(owner, attempt.clientId, receipt.messageId)
-                        return@launch
-                    }
-                    sessionId = created.session.id
-                    state.value = state.value.copy(
-                        session = created.session,
-                        lastKnownModel = snapshot.selectedModel,
-                        sessionOwners = state.value.sessionOwners + ("${snapshot.deviceId}/${created.session.id}" to owner),
-                    )
-                    refresh()
-                } else if (stale(selected, client)) throw FiloInputException()
-                if (!snapshot.isDraft) receipt = client.send(sessionId, text, attempt.clientId, uploads)
-                markAccepted(owner, attempt.clientId, receipt?.messageId)
+                val receipt = client.send(snapshot.session!!.id, text, attempt.clientId, uploads)
+                markAccepted(owner, attempt.clientId, receipt.messageId)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 val failure = trace("send_failed", error)
@@ -163,7 +134,7 @@ internal class RemoteSendController(
         val stubId = state.value.messageGroups
             .lastOrNull { group -> group.nodes.any { node -> node.id == message.id } }
             ?.stub?.id
-            ?: message.nativeId ?: message.id
+            ?: message.id
         scrollRequests.requestAnchor(owner, stubId)
     }
 }

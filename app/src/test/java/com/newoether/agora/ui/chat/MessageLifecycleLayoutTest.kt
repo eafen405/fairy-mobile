@@ -96,23 +96,6 @@ class MessageLifecycleLayoutTest {
         )
     }
 
-    @Test
-    fun protocolRowsNeverReceiveMessageEntranceAnimations() {
-        val tool = message("tool_call", Participant.MODEL).copy(
-            status = MessageStatus.TOOL_CALLING,
-        )
-
-        assertFalse(
-            shouldAnimateMessageLifecycleEntrance(
-                message = tool,
-                isKnown = false,
-                isLoading = true,
-                isStreaming = true,
-                lastUserMessageId = "user",
-                requestedTargetMessageId = "user",
-            )
-        )
-    }
 
     @Test
     fun assistantActionRowFadesForStreamingAndRegenerateOnly() {

@@ -3,10 +3,8 @@ package com.newoether.agora.ui.chat
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.CitationPolicy
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.toMessageSegment
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -146,63 +144,4 @@ class ConversationSearchTest {
         assertEquals(matchingIds.toList(), matches.map(ConversationSearchMatch::messageId))
     }
 
-    @Test
-    fun searchMatchesOnlyOrdinaryUserAndAssistantBodies() {
-        val citation = requireNotNull(
-            CitationPolicy.create(
-                provider = "openai",
-                kind = "url",
-                title = "needle citation title",
-                url = "https://needle.example/internal-path",
-                providerSourceId = "needle-provider-id",
-            ),
-        )
-        val messages = listOf(
-            ChatMessage(id = "user", text = "needle user", participant = Participant.USER),
-            ChatMessage(
-                id = "assistant",
-                text = "needle assistant",
-                participant = Participant.MODEL,
-                thoughts = "needle thinking",
-                thoughtTitle = "needle thought title",
-                segments = listOf(
-                    MessageSegment(type = "thought", content = "needle thought segment"),
-                    MessageSegment(type = "tool", toolArgs = "needle tool args"),
-                ),
-            ),
-            ChatMessage(id = "tool_call", text = "needle tool row", participant = Participant.MODEL),
-            ChatMessage(id = "result_call", text = "needle result row", participant = Participant.USER),
-            ChatMessage(id = "compact_summary", text = "needle compact", participant = Participant.MODEL),
-            ChatMessage(id = "error", text = "needle error", participant = Participant.ERROR),
-            ChatMessage(
-                id = "metadata-only",
-                text = "ordinary answer",
-                participant = Participant.MODEL,
-                segments = listOf(citation.toMessageSegment()),
-            ),
-            ChatMessage(
-                id = "attachment-only",
-                text = "ordinary user body",
-                participant = Participant.USER,
-                attachmentMeta = AttachmentMeta(
-                    items = listOf(
-                        AttachmentItem(
-                            type = "file",
-                            fileName = "needle-file.txt",
-                            textContent = "needle attachment text",
-                        ),
-                    ),
-                ),
-            ),
-        )
-
-        val matches = findConversationSearchMatches(messages, "needle")
-
-        assertEquals(
-            listOf("user", "assistant", "metadata-only", "attachment-only"),
-            conversationSearchMessageIds(messages),
-        )
-        assertEquals(listOf("user", "assistant"), matches.map { it.messageId })
-        assertTrue(matches.all { it.citationSourceId == null })
-    }
 }

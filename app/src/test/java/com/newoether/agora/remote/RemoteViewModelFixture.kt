@@ -32,8 +32,7 @@ internal abstract class RemoteViewModelFixture {
         coEvery { client.logout() } returns Unit
         coEvery { client.connect() } returns "fairy"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
-        coEvery { client.conversation(any(), any()) } returns bodyPage(emptyList(), null, emptyList())
-        coEvery { client.models() } returns listOf(RemoteModel("model", "Model", true))
+        coEvery { client.conversation(any(), any()) } returns bodyPage(emptyList(), null)
         every { client.events(any()) } answers {
             val id = firstArg<String>()
             flow {

@@ -3,12 +3,7 @@ package com.newoether.agora.ui.chat
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
-import com.newoether.agora.model.ToolCallData
-import com.newoether.agora.model.ToolImageAttachment
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import com.newoether.agora.model.RemoteFile
 
 internal const val HYDRATED_MESSAGE_CACHE_MAX_ENTRIES = 16
 internal const val HYDRATED_MESSAGE_CACHE_MAX_BYTES = 8L * 1024L * 1024L
@@ -62,85 +57,39 @@ internal fun ChatMessage.estimatedHydratedPayloadBytes(): Long {
     bytes += id.estimatedHeapBytes()
     bytes += parentId.estimatedHeapBytes()
     bytes += text.estimatedHeapBytes()
-    bytes += images.estimatedStringListHeapBytes()
-    bytes += markdownImages.entries.sumOf { (link, image) -> 64L + link.estimatedHeapBytes() + (image.attachment?.estimatedHeapBytes() ?: 0L) }
     bytes += thoughts.estimatedHeapBytes()
     bytes += thoughtTitle.estimatedHeapBytes()
     bytes += modelName.estimatedHeapBytes()
-    bytes += retryText.estimatedHeapBytes()
     bytes += runId.estimatedHeapBytes()
-    bytes += toolCall?.estimatedHeapBytes() ?: 0L
+    bytes += displayPageId.estimatedHeapBytes()
+    bytes += remoteFiles.sumOf(RemoteFile::estimatedHeapBytes)
     bytes += segments.orEmpty().sumOf(MessageSegment::estimatedHeapBytes)
     bytes += attachmentMeta?.items.orEmpty().sumOf(AttachmentItem::estimatedHeapBytes)
     return bytes
 }
 
-private fun ToolCallData.estimatedHeapBytes(): Long =
-    256L +
-        toolName.estimatedHeapBytes() +
-        arguments.estimatedHeapBytes() +
-        result.estimatedHeapBytes() +
-        signature.estimatedHeapBytes() +
-        toolCallId.estimatedHeapBytes() +
-        displayName.estimatedHeapBytes() +
-        resultText.estimatedHeapBytes() +
-        structuredResult.estimatedHeapBytes() +
-        responseOutputItemProvider.estimatedHeapBytes() +
-        transcription.estimatedHeapBytes() +
-        resultImages.sumOf(ToolImageAttachment::estimatedHeapBytes) +
-        responseOutputItems.sumOf(JsonObject::estimatedHeapBytes)
-
 private fun MessageSegment.estimatedHeapBytes(): Long =
-    320L +
+    160L +
         type.estimatedHeapBytes() +
         content.estimatedHeapBytes() +
-        toolName.estimatedHeapBytes() +
-        toolArgs.estimatedHeapBytes() +
-        toolResult.estimatedHeapBytes() +
         toolCallId.estimatedHeapBytes() +
-        signature.estimatedHeapBytes() +
-        signatureProvider.estimatedHeapBytes() +
         toolState.estimatedHeapBytes() +
-        toolProgress.estimatedHeapBytes() +
-        toolTarget.estimatedHeapBytes() +
         toolDisplayName.estimatedHeapBytes() +
-        toolResultText.estimatedHeapBytes() +
-        toolStructuredResult.estimatedHeapBytes() +
-        toolNote.estimatedHeapBytes() +
-        toolTranscription.estimatedHeapBytes() +
-        responseOutputItemProvider.estimatedHeapBytes() +
-        toolImages.sumOf(ToolImageAttachment::estimatedHeapBytes) +
-        responseOutputItems.sumOf(JsonObject::estimatedHeapBytes)
+        toolNote.estimatedHeapBytes()
 
-private fun ToolImageAttachment.estimatedHeapBytes(): Long =
-    128L +
-        path.estimatedHeapBytes() +
-        mimeType.estimatedHeapBytes() +
-        sha256.estimatedHeapBytes()
+private fun RemoteFile.estimatedHeapBytes(): Long =
+    96L +
+        fileId.estimatedHeapBytes() +
+        deliveryId.estimatedHeapBytes() +
+        name.estimatedHeapBytes() +
+        mime.estimatedHeapBytes() +
+        source.estimatedHeapBytes()
 
 private fun AttachmentItem.estimatedHeapBytes(): Long =
-    160L +
-        originalUri.estimatedHeapBytes() +
+    96L +
         type.estimatedHeapBytes() +
         fileName.estimatedHeapBytes() +
-        mimeType.estimatedHeapBytes() +
-        warning.estimatedHeapBytes() +
-        textContent.estimatedHeapBytes() +
-        transcription.estimatedHeapBytes()
-
-private fun JsonElement.estimatedHeapBytes(): Long = when (this) {
-    is JsonObject -> estimatedHeapBytes()
-    is JsonArray -> 64L + sumOf(JsonElement::estimatedHeapBytes)
-    is JsonPrimitive -> 48L + content.estimatedHeapBytes()
-}
-
-private fun JsonObject.estimatedHeapBytes(): Long =
-    96L + entries.sumOf { (key, value) ->
-        32L + key.estimatedHeapBytes() + value.estimatedHeapBytes()
-    }
+        mimeType.estimatedHeapBytes()
 
 private fun String?.estimatedHeapBytes(): Long =
     this?.let { value -> 24L + value.length.toLong() * 2L } ?: 0L
-
-private fun List<String>.estimatedStringListHeapBytes(): Long =
-    24L + sumOf { value -> 8L + value.estimatedHeapBytes() }

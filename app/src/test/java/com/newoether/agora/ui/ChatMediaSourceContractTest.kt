@@ -65,10 +65,7 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         val textFieldBlock = source(root, "com/newoether/agora/ui/chat/bottombar/ChatComposerLayout.kt").substringAfter("TextField(")
             .substringBefore("placeholder =")
         assertFalse(textFieldBlock.contains("enabled ="))
-        assertTrue(storedMessage.contains("projectStoredMediaOccurrences("))
-        assertFalse(storedMessage.contains("allMediaUrls.indexOf("))
-        assertTrue(viewer.contains("initialIndex.coerceIn(0, pdfPages.size - 1)"))
-        assertFalse(viewer.contains("pdfPages.indexOf("))
+        assertTrue(viewer.contains("initialIndex.coerceIn(0, urls.size - 1)"))
     }
 
     @Test
@@ -95,9 +92,6 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         val tool = source(
             root,
             "com/newoether/agora/ui/chat/message/ToolResultContent.kt",
-        ) + source(
-            root,
-            "com/newoether/agora/ui/chat/message/GeneratedImageThumbnail.kt",
         )
         val stableText = source(
             root,
@@ -132,7 +126,7 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         assertTrue(assets.contains("rememberStreamingGlyphFade("))
         assertFalse(assets.contains(".stableStreamingGlyphFade("))
         assertFalse(timeline.contains("StableStreamingText("))
-        assertEquals(2, Regex("StreamingMutedText\\(").findAll(timeline).count())
+        assertEquals(1, Regex("StreamingMutedText\\(").findAll(timeline).count())
         assertFalse(tool.contains("StableStreamingText("))
         assertFalse(timeline.contains("tailFadeEnabled ="))
         assertFalse(tool.contains("tailFadeEnabled ="))
@@ -159,10 +153,10 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         assertTrue(timeline.contains("containsToolSummary && allowSpatialTransitions ->"))
         assertTrue(timeline.contains("EnterTransition.None"))
         assertTrue(timeline.contains("ExitTransition.None"))
-        assertTrue(tool.contains("private fun ToolActiveContent(text: String, output: String?) {\n    Text("))
+        assertTrue(tool.contains("private fun ToolActiveContent(text: String) {\n    Text("))
         assertTrue(lifecycle.contains("alpha = if (forceOpaque) 1f else value"))
         assertTrue(messageItem.contains(
-            "forceOpaque = displayMessage.segments.orEmpty().any { it.type == \"tool\" }",
+            "forceOpaque = message.segments.orEmpty().any { it.type == \"tool\" }",
         ))
         assertTrue(assistant.contains("forceOpaque = detailSegments.any { it.type == \"tool\" }"))
         assertTrue(segments.contains("forceOpaque = forceOpaque"))

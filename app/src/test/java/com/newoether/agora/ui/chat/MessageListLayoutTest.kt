@@ -153,32 +153,6 @@ class MessageListLayoutTest {
         assertEquals(viewport - top, layoutHeight + bottom)
     }
 
-    @Test
-    fun postAnchorGrowthAndShrinkKeepAllBlankCapacityAtThePhysicalEnd() {
-        val turns = buildMessageListTurns(
-            listOf(
-                message("user", Participant.USER),
-                message("assistant", Participant.MODEL),
-                message("compact_boundary", Participant.MODEL),
-                message("later-assistant", Participant.MODEL),
-            ),
-        )
-        val baseMinimum = calculateTailMinHeightPx(1_000, 140, 180)
-
-        fun tailRegionHeight(compactHeight: Int, assistantHeight: Int): Int {
-            val holderMinimum = calculateTailHolderMinHeightPx(
-                turns = turns,
-                semanticAnchorKey = messageListTailAnchorKey(turns),
-                baseMinimumHeightPx = baseMinimum,
-                messageHeights = mapOf("compact_boundary" to compactHeight),
-            )
-            return compactHeight + calculateTailLayoutHeightPx(holderMinimum, assistantHeight)
-        }
-
-        assertEquals(baseMinimum, tailRegionHeight(compactHeight = 80, assistantHeight = 220))
-        assertEquals(baseMinimum, tailRegionHeight(compactHeight = 240, assistantHeight = 220))
-        assertEquals(920, tailRegionHeight(compactHeight = 240, assistantHeight = 680))
-    }
 
     @Test
     fun bottomBarGrowthReducesTheTailMinimumDirectly() {
@@ -512,102 +486,6 @@ class MessageListLayoutTest {
     }
 
     @Test
-    fun scrollToBottomButtonUsesRealScrollableExtentAndLocksDuringSeek() {
-        assertTrue(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.SEEKING,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = false,
-                isNearBottom = true,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = true,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = true,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = false,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-            ),
-        )
-        assertFalse(
-            shouldShowAbsoluteBottomButton(
-                isNewChatMode = false,
-                isSwitching = false,
-                conversationContentReady = true,
-                shareSelectionActive = false,
-                hasItems = true,
-                canScrollForward = true,
-                isNearBottom = false,
-                isStreamingAutoFollowing = false,
-                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
-                competingProgrammaticScrollActive = true,
-            ),
-        )
-    }
-
-    @Test
     fun scrollToBottomProximityUsesHysteresis() {
         var nearBottom = reduceAbsoluteBottomProximity(
             wasNearBottom = false,
@@ -720,27 +598,6 @@ class MessageListLayoutTest {
     }
 
     @Test
-    fun newToolSegmentCannotBeDeferredDuringActiveScroll() {
-        val before = message("assistant", Participant.MODEL).copy(
-            status = MessageStatus.THINKING,
-            segments = listOf(MessageSegment(type = "thought", content = "reasoning")),
-        )
-        val after = before.copy(
-            status = MessageStatus.TOOL_CALLING,
-            segments = checkNotNull(before.segments) + MessageSegment(
-                type = "tool",
-                toolName = "arbitrary_tool",
-                toolCallId = "call",
-            ),
-        )
-
-        assertEquals(
-            false,
-            sameStreamingRenderStructure(listOf(before), listOf(after)),
-        )
-    }
-
-    @Test
     fun terminalStateCannotBeDeferredDuringActiveScroll() {
         val before = message("assistant", Participant.MODEL).copy(
             status = MessageStatus.SENDING,
@@ -761,4 +618,120 @@ class MessageListLayoutTest {
         text = id,
         participant = participant,
     )
+    @Test
+    fun scrollToBottomButtonUsesRealScrollableExtentAndLocksDuringSeek() {
+        assertTrue(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.SEEKING,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = false,
+                isNearBottom = true,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = true,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = true,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = false,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+            ),
+        )
+        assertFalse(
+            shouldShowAbsoluteBottomButton(
+                isNewChatMode = false,
+                isSwitching = false,
+                conversationContentReady = true,
+                shareSelectionActive = false,
+                hasItems = true,
+                canScrollForward = true,
+                isNearBottom = false,
+                isStreamingAutoFollowing = false,
+                scrollPhase = AbsoluteBottomScrollPhase.IDLE,
+                competingProgrammaticScrollActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun newToolSegmentCannotBeDeferredDuringActiveScroll() {
+        val before = message("assistant", Participant.MODEL).copy(
+            status = MessageStatus.THINKING,
+            segments = listOf(MessageSegment(type = "thought", content = "reasoning")),
+        )
+        val after = before.copy(
+            status = MessageStatus.TOOL_CALLING,
+            segments = checkNotNull(before.segments) + MessageSegment(
+                type = "tool",
+                toolCallId = "call",
+            ),
+        )
+
+        assertEquals(
+            false,
+            sameStreamingRenderStructure(listOf(before), listOf(after)),
+        )
+    }
+
 }

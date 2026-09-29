@@ -15,7 +15,6 @@ internal data class RunProjectionMessageKey(
     val participant: Participant,
     val timestamp: Long,
     val runId: String?,
-    val runSequence: Long?,
 )
 
 internal fun ChatMessage.toRunProjectionKey(): RunProjectionMessageKey =
@@ -25,7 +24,6 @@ internal fun ChatMessage.toRunProjectionKey(): RunProjectionMessageKey =
         participant = participant,
         timestamp = timestamp,
         runId = runId,
-        runSequence = runSequence,
     )
 
 internal fun compactMessageActionsEnabled(
@@ -39,16 +37,12 @@ internal fun userBubbleSizeAnimationReady(hydrationPending: Boolean): Boolean =
 
 internal fun ChatMessage.hasAuthoritativeRenderPayload(): Boolean =
     text.isNotEmpty() ||
-        images.isNotEmpty() ||
         thoughts != null ||
         thoughtTitle != null ||
-        tokenUsage != null ||
         thoughtTimeMs != null ||
-        toolCall != null ||
         segments != null ||
         attachmentMeta != null ||
-        remoteFiles.isNotEmpty() ||
-        retryText != null
+        remoteFiles.isNotEmpty()
 
 internal fun resolveMessagePayloadForRender(
     messageStub: ChatMessage,
@@ -75,8 +69,7 @@ internal fun streamingTailPresentation(
         val segments = it.segments.orEmpty()
         val generationActive = it.status == MessageStatus.SENDING ||
             it.status == MessageStatus.THINKING ||
-            it.status == MessageStatus.TOOL_CALLING ||
-            it.status == MessageStatus.TRANSCRIBING
+            it.status == MessageStatus.TOOL_CALLING
         (isLoading || isStopping) && generationActive &&
             MessageGenerationBoundaryResolver.isOrdinaryAssistant(it) &&
             (segments.lastOrNull { segment ->
@@ -87,7 +80,6 @@ internal fun streamingTailPresentation(
                 hasAnswer = it.text.isNotBlank() ||
                     segments.any { segment -> segment.isVisibleAnswerSegment() },
                 hasVisibleInfoSegment = segments.any { segment -> segment.isInfoSegment() },
-                retryText = it.retryText,
             ) == AssistantInlineActivityMode.NONE
     } == true
     return StreamingTailPresentation(

@@ -1,13 +1,11 @@
 package com.newoether.agora.model
 
-import com.newoether.agora.util.Constants
-
 /**
  * One visible generation group.
  *
  * Every row participates in Run grouping. A real USER is always a hard boundary, while rows with
- * one nonblank durable Run id remain indivisible. This policy locates Regenerate/UI scope only; it
- * has no authority over Provider context assembly.
+ * one nonblank durable Run id remain indivisible. Remote conversations are linear, so this only
+ * locates which assistant row is a generation's terminal output.
  */
 internal data class MessageGenerationBoundary(
     val messages: List<ChatMessage>,
@@ -61,16 +59,8 @@ internal object MessageGenerationBoundaryResolver {
     }
 
     fun isRealUser(message: ChatMessage): Boolean =
-        message.participant == Participant.USER &&
-            !isProtocolRow(message) &&
-            !message.isContextCompact()
+        message.participant == Participant.USER
 
     fun isOrdinaryAssistant(message: ChatMessage): Boolean =
-        message.participant == Participant.MODEL &&
-            !isProtocolRow(message) &&
-            !message.isContextCompact()
-
-    private fun isProtocolRow(message: ChatMessage): Boolean =
-        message.id.startsWith(Constants.TOOL_MSG_PREFIX) ||
-            message.id.startsWith(Constants.RESULT_MSG_PREFIX)
+        message.participant == Participant.MODEL
 }

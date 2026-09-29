@@ -1,7 +1,6 @@
 package com.newoether.agora.remote
 
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.MarkdownImage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.ui.chat.HydratedMessagePayloadLru
@@ -29,7 +28,6 @@ internal class RemoteMessageHydration(
     private val state: StateFlow<RemoteState>,
     private val read: suspend (String, String?) -> RemoteConversationPage,
     private val failed: (Exception) -> Unit,
-    private val image: (suspend (String, RemotePayloadRequest) -> com.newoether.agora.model.ToolImageAttachment)? = null,
     private val maxRecordBytes: Long = 8L * 1024 * 1024,
     projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
 ) {
@@ -60,10 +58,9 @@ internal class RemoteMessageHydration(
     }
     private fun weight(message: RemoteMessage) = 256L + 2L * (message.text.length.toLong() +
         (message.activity?.label?.length ?: 0) + (message.activity?.note?.length ?: 0)) +
-        32L * message.streamingTextDeltas.size + message.imageLinks.sumOf { 32L + 2L * it.length } +
+        32L * message.streamingTextDeltas.size +
         message.attachments.sumOf { 96L + 2L * (it.name.length + (it.mime?.length ?: 0)) } +
-        message.files.sumOf { 96L + 2L * (it.fileId.length + it.name.length + (it.mime?.length ?: 0)) } +
-        message.inlineImages.entries.sumOf { (link, image) -> 256L + 2L * (link.length + (image.attachment?.path?.length ?: 0)) }
+        message.files.sumOf { 96L + 2L * (it.fileId.length + it.name.length + (it.mime?.length ?: 0)) }
     internal val retainedRecordBytes: Long get() = synchronized(cacheLock) { recordBytes }
     internal val retainedPayloadBytes: Long get() = synchronized(cacheLock) { cache.totalWeightBytes }
     fun resetStreaming() = synchronized(cacheLock) {
@@ -71,7 +68,7 @@ internal class RemoteMessageHydration(
         deltas = RemoteStreamDeltas()
     }
 
-    private fun rememberRecords(owner: String, page: RemoteConversationPage, live: Boolean, preserveImages: Boolean = true) = synchronized(cacheLock) {
+    private fun rememberRecords(owner: String, page: RemoteConversationPage, live: Boolean) = synchronized(cacheLock) {
         checkOwner(owner)
         val messages = if (live) deltas.apply(if (previousRuntime == null) emptyList() else records.values.map { it.second },
             page.messages, previousRuntime, page.runtime)
@@ -80,14 +77,9 @@ internal class RemoteMessageHydration(
         val nodes = page.nodes.associateBy { it.id }
         for (message in messages) {
             val node = nodes[message.id] ?: error("Filo page metadata is missing")
-            val old = records.remove(message.id)
-            old?.let { recordBytes -= weight(it.second) }
-            val retained = if (preserveImages && old?.first == node.revision)
-                message.copy(activity = message.activity?.copy(images = old.second.activity?.images.orEmpty()),
-                    inlineImages = old.second.inlineImages)
-                else message
-            records[message.id] = node.revision to retained
-            recordBytes += weight(retained)
+            records.remove(message.id)?.let { recordBytes -= weight(it.second) }
+            records[message.id] = node.revision to message
+            recordBytes += weight(message)
             while (recordBytes > maxRecordBytes && records.isNotEmpty()) {
                 val key = records.keys.first()
                 recordBytes -= weight(records.remove(key)!!.second)
@@ -124,13 +116,12 @@ internal class RemoteMessageHydration(
 
     private suspend fun project(group: RemoteMessageGroup, messages: List<RemoteMessage>): ChatMessage {
         val message = projector.project {
-            val imageKeys = group.nodes.filter { it.activity?.hasImage == true }.associate { it.id to it.revision }
             // The node index is the same bounded projection: its label can fill in a
             // record that lacks one, but it can never restore tool names or payloads.
             val nodeLabels = group.nodes.mapNotNull { node ->
                 node.activity?.label?.let { node.id to it }
             }.toMap()
-            val projected = projectRemoteMessages(messages.map { record ->
+            projectRemoteMessages(messages.map { record ->
                 val activity = record.activity
                 record.copy(groupId = group.stub.id,
                     activity = if (activity == null || activity.label != null) activity
@@ -138,9 +129,6 @@ internal class RemoteMessageHydration(
             }).firstOrNull()
                 ?.copy(id = group.stub.id, parentId = group.stub.parentId, status = group.stub.status,
                     displayPageId = group.stub.displayPageId) ?: group.stub
-            projected.copy(segments = projected.segments?.map { segment ->
-                segment.copy(toolImageRequestKey = imageKeys[segment.toolCallId])
-            })
         }
         if (message.participant != Participant.MODEL ||
             message.status !in setOf(MessageStatus.SUCCESS, MessageStatus.ERROR, MessageStatus.STOPPED)) return message
@@ -220,80 +208,19 @@ internal class RemoteMessageHydration(
             val cached = cachedMessage(owner, group)
             if (cached != null) send(cached)
             try {
-                val needsImages = group.nodes.any { it.imageCount > 0 } &&
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        (group.nodes.sumOf { it.imageCount } > cached?.markdownImages.orEmpty().size) ||
-                            cached?.markdownImages.orEmpty().values.any { it.attachment?.path?.let { path -> java.io.File(path).isFile } != true }
-                    }
-                if (cached != null && !needsImages) return@collectLatest
+                if (cached != null) return@collectLatest
                 val records = loadRecords(owner, group)
-                val fresh = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    records.map { message -> message.copy(inlineImages = message.inlineImages.mapValues { (_, value) ->
-                        value.takeIf { it.attachment?.path?.let { path -> java.io.File(path).isFile } == true }
-                            ?: MarkdownImage()
-                    }) }.toMutableList()
-                }
-                suspend fun publish() {
-                    currentCoroutineContext().ensureActive()
-                    if (target(owner, id)?.group?.revision != group.revision) throw CancellationException()
-                    val projected = project(group, fresh)
-                    currentCoroutineContext().ensureActive()
-                    if (target(owner, id)?.group?.revision != group.revision) throw CancellationException()
-                    rememberRecords(owner, RemoteConversationPage(fresh.toList(), null, emptyList(), nodes = group.nodes),
-                        live = false, preserveImages = false)
-                    remember(owner, group, projected)
-                    send(projected)
-                }
-                // Publish fixed pending slots before waiting for any authenticated image bytes.
-                if (fresh.any { it.imageLinks.isNotEmpty() }) publish()
-                for ((position, message) in fresh.toList().withIndex()) {
-                    var hydrated = message
-                    if (image != null) {
-                        val request = group.requests.first { it.id == message.id }
-                        suspend fun load(index: Int? = null) = try {
-                            image.invoke(owner, request.copy(imageIndex = index))
-                        } catch (cancelled: CancellationException) { throw cancelled }
-                        catch (error: Exception) { failed(error); null }
-                        val inline = message.inlineImages.toMutableMap()
-                        for ((index, link) in message.imageLinks.withIndex()) {
-                            val attachment = inline[link]?.attachment ?: load(index)
-                            inline[link] = MarkdownImage(attachment, failed = attachment == null)
-                            hydrated = hydrated.copy(inlineImages = inline.toMap())
-                            fresh[position] = hydrated
-                            publish()
-                        }
-                    }
-                    fresh[position] = hydrated
-                }
-                publish()
+                currentCoroutineContext().ensureActive()
+                if (target(owner, id)?.group?.revision != group.revision) throw CancellationException()
+                val projected = project(group, records)
+                currentCoroutineContext().ensureActive()
+                if (target(owner, id)?.group?.revision != group.revision) throw CancellationException()
+                rememberRecords(owner, RemoteConversationPage(records, null, nodes = group.nodes), live = false)
+                remember(owner, group, projected)
+                send(projected)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { failed(error); if (cached == null) send(null) }
         }
-    }
-
-    /** Only an expanded preview admits image bytes; topology and text observation never do. */
-    suspend fun loadToolImage(owner: String, id: String, revision: String): com.newoether.agora.model.ToolImageAttachment {
-        fun validate() {
-            val snapshot = state.value
-            if (snapshot.owner != owner || !snapshot.hydrationEnabled || snapshot.messageGroups.none { group ->
-                group.nodes.any { it.id == id && it.revision == revision && it.activity?.hasImage == true }
-            }) throw CancellationException()
-        }
-        currentCoroutineContext().ensureActive()
-        validate()
-        val attachment = try {
-            image?.invoke(owner, RemotePayloadRequest(id, revision))
-                ?: throw java.io.IOException("Image storage is unavailable")
-        } catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) {
-            currentCoroutineContext().ensureActive()
-            validate()
-            failed(error)
-            throw error
-        }
-        currentCoroutineContext().ensureActive()
-        validate()
-        return attachment
     }
 
     /** Original Search requests bounded batches without downloading image bytes. */

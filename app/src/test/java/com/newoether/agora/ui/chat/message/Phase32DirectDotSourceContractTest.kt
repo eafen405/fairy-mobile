@@ -10,7 +10,6 @@ class Phase32DirectDotSourceContractTest {
     fun `generation dots render directly without an overlay follower`() {
         val list = chatSource("MessageList.kt")
         val assistant = messageSource("AssistantMessageContent.kt")
-        val retry = messageSource("RetryActivityIndicator.kt")
         val tail = chatSource("StreamingTailIndicator.kt")
         val follower = messageSourceOrEmpty("InlineActivityDotFollower.kt")
 
@@ -27,7 +26,7 @@ class Phase32DirectDotSourceContractTest {
         val assistantActivity = activity
             .substringAfter("internal fun AssistantInlineActivity(")
             .substringBefore("/**")
-        assertTrue(assistant.contains("import com.newoether.agora.ui.chat.GenerationActivityDot"))
+        assertTrue(activity.contains("rememberGenerationActivityDotBreathingScale"))
         assertTrue(assistantActivity.contains("ThinkingDots()"))
         assertTrue(assistantActivity.contains("visibilityTransition.targetState ||"))
         assertTrue(assistantActivity.contains(
@@ -47,12 +46,6 @@ class Phase32DirectDotSourceContractTest {
         assertFalse((assistant + activity).contains("InlineActivityDotMarker"))
         assertFalse((assistant + activity).contains("InlineActivityDotSource"))
 
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("translationX = dotTranslationPx"))
-        assertTrue(retry.contains("translationY = dotVerticalOffsetPx"))
-        assertTrue(retry.contains("clip = false"))
-        assertFalse(retry.contains("InlineActivityDotMarker"))
-        assertFalse(retry.contains("InlineActivityDotSource"))
 
         val tailIndicator = tail
             .substringAfter("internal fun StreamingTailIndicator(")

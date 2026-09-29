@@ -34,17 +34,14 @@ private val AssistantInlineActivityHeight = StreamingTailAnchorHeight
 internal enum class AssistantInlineActivityMode {
     NONE,
     EMPTY,
-    RETRY,
 }
 
 internal fun assistantInlineActivityMode(
     generationActive: Boolean,
     hasAnswer: Boolean,
     hasVisibleInfoSegment: Boolean,
-    retryText: String?,
 ): AssistantInlineActivityMode = when {
     !generationActive -> AssistantInlineActivityMode.NONE
-    !retryText.isNullOrBlank() -> AssistantInlineActivityMode.RETRY
     !hasAnswer && !hasVisibleInfoSegment -> AssistantInlineActivityMode.EMPTY
     else -> AssistantInlineActivityMode.NONE
 }
@@ -59,13 +56,11 @@ internal fun assistantInlineActivityPresentation(
     isStopping: Boolean,
     hasAnswer: Boolean,
     hasVisibleInfoSegment: Boolean,
-    retryText: String?,
 ): AssistantInlineActivityPresentation {
     val ownedMode = assistantInlineActivityMode(
         generationActive,
         hasAnswer,
         hasVisibleInfoSegment,
-        retryText,
     )
     return AssistantInlineActivityPresentation(
         mode = if (isStopping) AssistantInlineActivityMode.NONE else ownedMode,
@@ -76,13 +71,11 @@ internal fun assistantInlineActivityPresentation(
 @Composable
 internal fun AssistantInlineActivity(
     mode: AssistantInlineActivityMode,
-    retryText: String?,
     visibilityTransition: Transition<Boolean>,
     activityOpacity: Float,
     retainExitLayout: Boolean,
     terminalText: String?,
     terminalIsError: Boolean,
-    terminalShowLocalContextHelp: Boolean,
     precededByCard: Boolean,
 ) {
     var retainedMode by remember {
@@ -91,17 +84,14 @@ internal fun AssistantInlineActivity(
                 ?: AssistantInlineActivityMode.EMPTY,
         )
     }
-    var retainedRetryText by remember { mutableStateOf(retryText) }
-    LaunchedEffect(mode, retryText) {
+    LaunchedEffect(mode) {
         if (mode != AssistantInlineActivityMode.NONE) {
             retainedMode = mode
-            retainedRetryText = retryText
         }
     }
     val activityVisible = visibilityTransition.targetState
     val ownsCurrentActivity = activityVisible && mode != AssistantInlineActivityMode.NONE
     val visibleMode = if (ownsCurrentActivity) mode else retainedMode
-    val visibleRetryText = if (ownsCurrentActivity) retryText else retainedRetryText
     if (visibilityTransition.targetState || retainExitLayout || terminalText != null) {
         Box(
             modifier = Modifier
@@ -123,16 +113,13 @@ internal fun AssistantInlineActivity(
                         },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (visibleMode == AssistantInlineActivityMode.RETRY) {
-                            RetryActivityIndicator(label = visibleRetryText.orEmpty() + "...")
-                        } else {
+                        if (visibleMode == AssistantInlineActivityMode.EMPTY) {
                             ThinkingDots()
                         }
                     }
                 } else if (terminalIsError) {
                     GenerationErrorBar(
                         errorText = visibleTerminalText,
-                        showLocalContextHelp = terminalShowLocalContextHelp,
                         topPadding = 0.dp,
                     )
                 } else {

@@ -1,9 +1,5 @@
 package com.newoether.agora.ui.chat
 
-import android.app.Activity
-import android.content.ClipData
-import android.content.Context
-import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -22,23 +18,16 @@ import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
-import com.newoether.agora.util.DebugLog
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 
-private const val INLINE_SHARE_LIMIT_BYTES = 256 * 1024
-private const val SHARE_ERROR_DETAIL_TOKEN = "__AGORA_SHARE_ERROR_DETAIL__"
 private const val STREAM_SCROLL_RESUME_DELAY_MS = 160L
 
 /**
@@ -60,8 +49,7 @@ internal fun sameStreamingRenderStructure(
             before.parentId != after.parentId ||
             before.participant != after.participant ||
             before.status != after.status ||
-            before.images.size != after.images.size ||
-            before.retryText != after.retryText ||
+            before.remoteFiles.size != after.remoteFiles.size ||
             before.thoughts.isNullOrBlank() != after.thoughts.isNullOrBlank()
         ) {
             return@all false
@@ -77,9 +65,9 @@ internal fun sameStreamingRenderStructure(
             val afterSegment = afterSegments[segmentIndex]
             beforeSegment.type == afterSegment.type &&
                 beforeSegment.toolCallId == afterSegment.toolCallId &&
-                beforeSegment.toolName == afterSegment.toolName &&
                 beforeSegment.toolState == afterSegment.toolState &&
-                (beforeSegment.toolResult == null) == (afterSegment.toolResult == null)
+                beforeSegment.toolDisplayName == afterSegment.toolDisplayName &&
+                (beforeSegment.toolNote == null) == (afterSegment.toolNote == null)
         }
     }
 }
@@ -151,43 +139,6 @@ internal fun rememberScrollIsolatedMessages(
         }
     }
     return rendered
-}
-
-internal suspend fun launchConversationShare(
-    context: Context,
-    text: String,
-    chooserTitle: String,
-) {
-    val sendIntent = withContext(Dispatchers.IO) {
-        val utf8 = text.toByteArray(Charsets.UTF_8)
-        if (utf8.size <= INLINE_SHARE_LIMIT_BYTES) {
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
-        } else {
-            val shareDirectory = File(context.cacheDir, "shared").apply { mkdirs() }
-            val file = File.createTempFile("agora_conversation_", ".md", shareDirectory).apply {
-                writeBytes(utf8)
-            }
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/markdown"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                clipData = ClipData.newRawUri("Agora conversation", uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-        }
-    }
-    withContext(Dispatchers.Main.immediate) {
-        val chooser = Intent.createChooser(sendIntent, chooserTitle)
-        if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
-    }
 }
 
 @Composable

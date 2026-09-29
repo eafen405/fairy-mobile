@@ -120,7 +120,7 @@ internal class RemoteSendRetryTest : RemoteViewModelFixture() {
 
         // An equal-length user node with no identity must not confirm the attachment send.
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("other", text = "hello")), null, emptyList())
+            listOf(nodeMessage("other", text = "hello")), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.ACCEPTED, vm.state.value.attempts[owner]?.delivery)
         assertEquals("hello", vm.state.value.drafts[owner])
@@ -128,7 +128,7 @@ internal class RemoteSendRetryTest : RemoteViewModelFixture() {
 
         // The node echoing this attempt's clientId does confirm it.
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("mine", clientId = clientId)), null, emptyList())
+            listOf(nodeMessage("mine", clientId = clientId)), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.DELIVERED, vm.state.value.attempts[owner]?.delivery)
         assertNull(vm.state.value.drafts[owner])
@@ -144,12 +144,12 @@ internal class RemoteSendRetryTest : RemoteViewModelFixture() {
 
         // An equal-length node carrying another message's identity is not this attempt.
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("other", text = "hello", messageId = "m-other")), null, emptyList())
+            listOf(nodeMessage("other", text = "hello", messageId = "m-other")), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.ACCEPTED, vm.state.value.attempts[owner]?.delivery)
 
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("mine", text = "hello", messageId = "m-mine")), null, emptyList())
+            listOf(nodeMessage("mine", text = "hello", messageId = "m-mine")), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.DELIVERED, vm.state.value.attempts[owner]?.delivery)
     }
@@ -161,13 +161,13 @@ internal class RemoteSendRetryTest : RemoteViewModelFixture() {
         assertEquals(RemoteDelivery.ACCEPTED, vm.state.value.attempts[owner]?.delivery)
 
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("other", clientId = "someone-else", text = "hello")), null, emptyList())
+            listOf(nodeMessage("other", clientId = "someone-else", text = "hello")), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.ACCEPTED, vm.state.value.attempts[owner]?.delivery)
 
         // The legacy no-identity fallback still applies to a bare equal-length node.
         coEvery { client.conversation(session.id, any()) } returns bodyPage(
-            listOf(nodeMessage("mine", text = "hello")), null, emptyList())
+            listOf(nodeMessage("mine", text = "hello")), null)
         vm.refresh(); runCurrent()
         assertEquals(RemoteDelivery.DELIVERED, vm.state.value.attempts[owner]?.delivery)
     }
@@ -231,6 +231,5 @@ internal class RemoteSendRetryTest : RemoteViewModelFixture() {
         assertNull(vm.state.value.attempts[owner])
         coVerify(exactly = 0) { client.upload(any()) }
         coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }
-        coVerify(exactly = 0) { client.create(any(), any(), any(), any()) }
     }
 }

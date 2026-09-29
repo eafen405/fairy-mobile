@@ -19,7 +19,7 @@ class RemoteGroupPaginationTest {
     private fun tool(index: Int) = RemoteMessage("tool-$index", "turn", null, "assistant", "", 1,
         activity = RemoteActivity("tool", state = "succeeded", label = "执行命令"))
     private fun packet(range: IntRange, next: String?, continuation: String?, bookmark: String) =
-        bodyPage(range.map(::tool), next, emptyList()).copy(continuationCursor = continuation, pageCursor = bookmark)
+        bodyPage(range.map(::tool), next).copy(continuationCursor = continuation, pageCursor = bookmark)
 
     @Before fun setup() {
         Dispatchers.setMain(dispatcher)
@@ -32,7 +32,6 @@ class RemoteGroupPaginationTest {
         coEvery { client.logout() } returns Unit
         coEvery { client.me() } returns "user"
         coEvery { client.sessions(any()) } returns RemoteSessionPage(listOf(session), null)
-        coEvery { client.models() } returns emptyList()
         every { client.events(any()) } answers {
             val id = firstArg<String>()
             flow { emit(client.conversation(id)); awaitCancellation() }
@@ -92,7 +91,7 @@ class RemoteGroupPaginationTest {
 
     @Test fun olderPacketsPublishSeparatelyAndPreserveTheExistingAnswerDuringADeferredLoad() = runTest(dispatcher) {
         val answer = RemoteMessage("answer", "turn", null, "assistant", "Answer", 2)
-        coEvery { client.conversation("history", null) } returns bodyPage(listOf(answer), "older", emptyList())
+        coEvery { client.conversation("history", null) } returns bodyPage(listOf(answer), "older")
         coEvery { client.conversation("history", "older") } returns packet(128..255, "prefix", "prefix", "tail-bookmark")
         val prefix = CompletableDeferred<RemoteConversationPage>()
         coEvery { client.conversation("history", "prefix") } coAnswers { prefix.await() }

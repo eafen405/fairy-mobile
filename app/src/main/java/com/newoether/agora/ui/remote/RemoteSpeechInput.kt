@@ -51,11 +51,12 @@ import com.newoether.agora.speech.SpeechInputFailure
 import com.newoether.agora.speech.SpeechInputPhase
 import com.newoether.agora.speech.SpeechSessionController
 import com.newoether.agora.speech.createSpeechRecognitionEngine
-import com.newoether.agora.ui.chat.bottombar.QUEUED_MESSAGE_HEIGHT
-import com.newoether.agora.ui.chat.bottombar.QUEUED_MESSAGE_HORIZONTAL_INSET
-import com.newoether.agora.ui.chat.bottombar.QUEUED_MESSAGE_SHAPE
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import java.util.Locale
+
+private val REMOTE_SPEECH_STATUS_HEIGHT = 40.dp
+private val REMOTE_SPEECH_STATUS_HORIZONTAL_INSET = 4.dp
+private val REMOTE_SPEECH_STATUS_SHAPE = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
 
 internal val SPEECH_CANCEL_THRESHOLD = 80.dp
 private const val SPEECH_FINALIZE_TIMEOUT_MS = 8_000L
@@ -224,9 +225,9 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = QUEUED_MESSAGE_HORIZONTAL_INSET)
-            .height(QUEUED_MESSAGE_HEIGHT),
-        shape = QUEUED_MESSAGE_SHAPE,
+            .padding(horizontal = REMOTE_SPEECH_STATUS_HORIZONTAL_INSET)
+            .height(REMOTE_SPEECH_STATUS_HEIGHT),
+        shape = REMOTE_SPEECH_STATUS_SHAPE,
         color = when {
             phase == SpeechInputPhase.CANCELLING || error -> MaterialTheme.colorScheme.errorContainer
             else -> MaterialTheme.colorScheme.secondaryContainer

@@ -21,7 +21,6 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         val first = messages[index++]
         require(first.role == "user" || first.role == "assistant")
         val answerText = StringBuilder()
-        val inlineImages = mutableMapOf<String, com.newoether.agora.model.MarkdownImage>()
         var previousAnswerId: String? = null
         var userText = first.displayText()
         val attachments = mutableListOf<RemoteMessageAttachment>()
@@ -34,9 +33,9 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         }
         accumulate(first)
         if (first.role == "user") {
-            val nativeId = first.nativeId ?: first.id
+            val nativeId = first.id
             while (messages.getOrNull(index)?.let {
-                it.role == "user" && (it.nativeId ?: it.id) == nativeId
+                it.role == "user" && it.id == nativeId
             } == true) {
                 userText += messages[index].displayText()
                 accumulate(messages[index++])
@@ -47,9 +46,6 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
             var previousNativeId: String? = null
             while (true) {
                 if (current.id != first.id) accumulate(current)
-                current.imageLinks.forEach { link ->
-                    inlineImages[link] = current.inlineImages[link] ?: com.newoether.agora.model.MarkdownImage()
-                }
                 val activity = current.activity
                 val segment = if (current.error) MessageSegment(type = "error", content = current.displayText()) else when (activity?.type) {
                     null -> MessageSegment(type = "answer", content = current.displayText(),
@@ -66,17 +62,16 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                         toolNote = activity.note.boundedActivityText(),
                         toolState = activity.state,
                         durationMs = activity.durationMs,
-                        toolImages = activity.images,
                     )
                     else -> error("Unsupported Remote activity")
                 }
-                val nativeId = current.nativeId ?: current.id
-                if (segment.type == "answer" && (segment.content.isNotBlank() || current.textContinues)) {
+                val nativeId = current.id
+                if (segment.type == "answer" && segment.content.isNotBlank()) {
                     if (answerText.isNotEmpty() && previousAnswerId != nativeId) answerText.append("\n\n")
                     answerText.append(segment.content)
                     previousAnswerId = nativeId
                 }
-                if (segment.type == "tool" || segment.content.isNotBlank() || current.textContinues) {
+                if (segment.type == "tool" || segment.content.isNotBlank()) {
                     val previous = lastOrNull()
                     if (segment.type != "tool" && previous?.type == segment.type && previousNativeId == nativeId) {
                         set(lastIndex, previous.copy(content = previous.content + segment.content,
@@ -98,11 +93,11 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         // A message carrying only attachments or files still renders a non-empty card.
         if (segments != null && segments.isEmpty() && attachments.isEmpty() && files.isEmpty()) continue
         add(ChatMessage(
-            id = first.groupId ?: first.nativeId ?: first.id, parentId = lastOrNull()?.id,
+            id = first.groupId ?: first.id, parentId = lastOrNull()?.id,
             text = if (segments == null) userText else answerText.toString(),
             participant = if (first.role == "user") Participant.USER else Participant.MODEL,
             timestamp = first.timestamp, modelName = "Fairy", runId = first.turnId,
-            segments = segments, markdownImages = inlineImages,
+            segments = segments,
             attachmentMeta = attachments.takeIf { it.isNotEmpty() }?.let { list ->
                 com.newoether.agora.model.AttachmentMeta(list.map { item ->
                     com.newoether.agora.model.AttachmentItem(
@@ -144,7 +139,7 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
     }
 }
 
-internal fun RemoteMessage.displayText(): String = if (textContinues) text else text.trimEnd('\r', '\n')
+internal fun RemoteMessage.displayText(): String = text.trimEnd('\r', '\n')
 
 internal fun remoteActivityStatus(type: String?, state: String?): MessageStatus = when (type) {
     "thought" -> MessageStatus.THINKING

@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 // provider/automation/sandbox/backup systems were dropped in S3; their stored
 // values are orphaned and may be cleaned up later.
 internal val APP_LANGUAGE = stringPreferencesKey("app_language")
-internal val CUSTOM_PROVIDERS_JSON = stringPreferencesKey("custom_providers_json")
 
 internal const val DEFAULT_COLOR_SCHEME = "FOREST"
 internal const val DEFAULT_SCHEME_STYLE = "TONAL_SPOT"
