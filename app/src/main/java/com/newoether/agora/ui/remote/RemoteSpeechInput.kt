@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -232,7 +233,7 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = REMOTE_SPEECH_STATUS_HORIZONTAL_INSET)
-            .height(REMOTE_SPEECH_STATUS_HEIGHT),
+            .then(if (error) Modifier.heightIn(min = REMOTE_SPEECH_STATUS_HEIGHT) else Modifier.height(REMOTE_SPEECH_STATUS_HEIGHT)),
         shape = REMOTE_SPEECH_STATUS_SHAPE,
         color = when {
             phase == SpeechInputPhase.CANCELLING || error -> MaterialTheme.colorScheme.errorContainer
@@ -245,14 +246,15 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 16.dp, end = 4.dp),
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp)
+                .padding(vertical = if (error) 8.dp else 0.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = displayText,
                 style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
+                maxLines = if (error) Int.MAX_VALUE else 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
