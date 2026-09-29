@@ -498,6 +498,9 @@ internal class RemoteViewModel(
     suspend fun prepareFileDownload(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? =
         fileDownloads.prepare(owner, file)
 
+    suspend fun prepareFileView(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? =
+        fileDownloads.prepareView(owner, file)
+
     suspend fun prepareAttachmentPreview(
         owner: String, attachment: com.newoether.agora.model.RemoteAttachmentRef,
     ): StagedRemoteFile? = attachmentPreviews.prepare(owner, attachment)

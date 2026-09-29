@@ -282,7 +282,7 @@ internal fun RemoteConversation(
     }
     val openRemoteFile: (com.newoether.agora.model.RemoteFile) -> Unit = { file ->
         fileScope.launch {
-            vm.prepareFileDownload(owner, file)?.let { staged ->
+            vm.prepareFileView(owner, file)?.let { staged ->
                 if (file.mime?.startsWith("image/") == true) onMediaClick(listOf(staged.file.absolutePath), 0)
                 else viewFile(staged)
             }

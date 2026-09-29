@@ -20,11 +20,15 @@ internal class RemoteFileDownloads(
     // Staged verified downloads keyed by token; each is private until the user exports it.
     private val pending = mutableMapOf<String, StagedRemoteFile>()
 
+    private val viewed = LinkedHashMap<Pair<String, com.newoether.agora.model.RemoteFile>, StagedRemoteFile>(4, 0.75f, true)
+
     /** Discards every staged download, e.g. on owner change or ViewModel clear. */
     fun clear() {
         val store = fileStore
         pending.values.forEach { staged -> store?.discard(staged) ?: staged.file.delete() }
         pending.clear()
+        viewed.values.forEach { store?.discard(it) ?: it.file.delete() }
+        viewed.clear()
     }
 
     /**
@@ -60,6 +64,22 @@ internal class RemoteFileDownloads(
         } finally {
             state.value = state.value.copy(savingFiles = state.value.savingFiles - file.fileId)
         }
+    }
+
+    /** Bounded viewer cache; repeated opens reuse the same content URI. */
+    suspend fun prepareView(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? {
+        if (state.value.owner != owner) return null
+        val key = owner to file
+        viewed[key]?.let { if (it.file.isFile) return it else viewed.remove(key) }
+        val ready = prepare(owner, file) ?: return null
+        pending.remove(ready.token)
+        viewed[key] = ready
+        while (viewed.size > 4 || viewed.values.sumOf { it.bytes } > REMOTE_FILE_LIMIT) {
+            val oldest = viewed.entries.iterator().next()
+            viewed.remove(oldest.key)
+            fileStore?.discard(oldest.value) ?: oldest.value.file.delete()
+        }
+        return ready
     }
 
     /** Final export to the user-chosen SAF document; honest false on any failure. */
