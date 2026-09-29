@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 
 internal enum class SpeechInputPhase { IDLE, AWAITING_PERMISSION, LISTENING, CANCELLING, FINALIZING, ERROR }
 
-internal enum class SpeechInputFailure { PERMISSION, UNAVAILABLE, NO_MATCH, NETWORK, FAILED }
+internal enum class SpeechInputFailure { PERMISSION, UNAVAILABLE, NO_MATCH, NETWORK, AUDIO, CLIENT, FAILED }
 
 /**
  * Exclusive speech-input mode for one composer owner. Public events mirror the
@@ -29,6 +29,8 @@ internal class SpeechSessionController(
     var phase by mutableStateOf(SpeechInputPhase.IDLE)
         private set
     var failure by mutableStateOf<SpeechInputFailure?>(null)
+        private set
+    var failureCode by mutableStateOf<Int?>(null)
         private set
 
     private var engine: SpeechRecognitionEngine? = null
@@ -68,10 +70,10 @@ internal class SpeechSessionController(
                 else -> {}
             }
         }
-        override fun onError(error: SpeechInputFailure) {
+        override fun onError(error: SpeechInputFailure, code: Int?) {
             if (phase == SpeechInputPhase.CANCELLING) discard()
             else if (phase == SpeechInputPhase.LISTENING || phase == SpeechInputPhase.FINALIZING) {
-                fail(error)
+                fail(error, code)
             }
         }
     }
@@ -79,12 +81,21 @@ internal class SpeechSessionController(
     fun pressStarted() {
         if (phase != SpeechInputPhase.IDLE && phase != SpeechInputPhase.ERROR) return
         failure = null
+        failureCode = null
         if (!hasPermission()) {
             phase = SpeechInputPhase.AWAITING_PERMISSION
             requestPermission()
             return
         }
-        val created = engineFactory()
+        val created = try {
+            engineFactory()
+        } catch (denied: SecurityException) {
+            fail(SpeechInputFailure.PERMISSION)
+            return
+        } catch (error: Exception) {
+            fail(SpeechInputFailure.CLIENT)
+            return
+        }
         if (created == null) {
             phase = SpeechInputPhase.ERROR
             failure = SpeechInputFailure.UNAVAILABLE
@@ -100,7 +111,7 @@ internal class SpeechSessionController(
         } catch (denied: SecurityException) {
             fail(SpeechInputFailure.PERMISSION)
         } catch (error: Exception) {
-            fail(SpeechInputFailure.FAILED)
+            fail(SpeechInputFailure.CLIENT)
         }
     }
 
@@ -119,7 +130,13 @@ internal class SpeechSessionController(
                 if (staged != null) commit(staged)
                 else {
                     phase = SpeechInputPhase.FINALIZING
-                    engine?.stopListening()
+                    try {
+                        engine?.stopListening()
+                    } catch (denied: SecurityException) {
+                        fail(SpeechInputFailure.PERMISSION)
+                    } catch (error: Exception) {
+                        fail(SpeechInputFailure.CLIENT)
+                    }
                 }
             }
             SpeechInputPhase.CANCELLING -> discard()
@@ -138,6 +155,7 @@ internal class SpeechSessionController(
         if (phase == SpeechInputPhase.ERROR) {
             phase = SpeechInputPhase.IDLE
             failure = null
+            failureCode = null
         }
     }
 
@@ -171,13 +189,14 @@ internal class SpeechSessionController(
         phase = SpeechInputPhase.IDLE
     }
 
-    private fun fail(kind: SpeechInputFailure) {
+    private fun fail(kind: SpeechInputFailure, code: Int? = null) {
         // A session that never reached the engine left no segment behind; only an
         // established take needs its draft restored.
         if (engine != null) writeDraft(preSpeech)
         teardown()
         phase = SpeechInputPhase.ERROR
         failure = kind
+        failureCode = code
     }
 
     private fun teardown() {

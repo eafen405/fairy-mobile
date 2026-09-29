@@ -13,12 +13,16 @@ class SpeechSessionControllerTest {
         var cancelled = 0
         var destroyed = 0
         var startFailure: Exception? = null
+        var stopFailure: Exception? = null
         override fun start(listener: SpeechRecognitionEngine.Listener) {
             startFailure?.let { throw it }
             started++
             this.listener = listener
         }
-        override fun stopListening() { stopped++ }
+        override fun stopListening() {
+            stopFailure?.let { throw it }
+            stopped++
+        }
         override fun cancel() { cancelled++ }
         override fun destroy() { destroyed++ }
     }
@@ -253,5 +257,45 @@ class SpeechSessionControllerTest {
         assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
         assertEquals(SpeechInputFailure.PERMISSION, h.controller.failure)
         assertEquals("draft", h.draft)
+    }
+
+    @Test fun factoryFailureIsReportedWithoutChangingTheDraft() {
+        var draft = "draft"
+        val controller = SpeechSessionController(
+            engineFactory = { throw IllegalStateException("provider unavailable") },
+            hasPermission = { true },
+            requestPermission = {},
+            readDraft = { draft },
+            writeDraft = { draft = it },
+            cancelThresholdPx = threshold,
+        )
+        controller.pressStarted()
+        assertEquals(SpeechInputPhase.ERROR, controller.phase)
+        assertEquals(SpeechInputFailure.CLIENT, controller.failure)
+        assertEquals("draft", draft)
+    }
+
+    @Test fun providerErrorPreservesStableCodeAndRestoresDraft() {
+        val h = Harness(draft = "draft")
+        h.controller.pressStarted()
+        h.partial("temporary")
+        h.engine?.listener?.onError(SpeechInputFailure.AUDIO, 3)
+        assertEquals(SpeechInputFailure.AUDIO, h.controller.failure)
+        assertEquals(3, h.controller.failureCode)
+        assertEquals("draft", h.draft)
+        h.controller.dismissError()
+        assertNull(h.controller.failureCode)
+    }
+
+    @Test fun stopFailureEndsExclusiveModeAndRestoresDraft() {
+        val engine = FakeEngine().apply { stopFailure = IllegalStateException("service failed") }
+        val h = Harness(engine = engine, draft = "draft")
+        h.controller.pressStarted()
+        h.partial("temporary")
+        h.controller.pressReleased()
+        assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
+        assertEquals(SpeechInputFailure.CLIENT, h.controller.failure)
+        assertEquals("draft", h.draft)
+        assertEquals(1, engine.destroyed)
     }
 }

@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.remote
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -215,11 +216,16 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
                 SpeechInputFailure.UNAVAILABLE -> R.string.remote_voice_unavailable
                 SpeechInputFailure.NO_MATCH -> R.string.remote_voice_no_match
                 SpeechInputFailure.NETWORK -> R.string.remote_voice_network
+                SpeechInputFailure.AUDIO -> R.string.remote_voice_audio
+                SpeechInputFailure.CLIENT -> R.string.remote_voice_client
                 else -> R.string.remote_voice_failed
             },
         )
         else -> null
     } ?: return
+    val displayText = controller.failureCode?.let { code ->
+        stringResource(R.string.remote_voice_error_code, code, text)
+    } ?: text
     val error = phase == SpeechInputPhase.ERROR
     Column {
     Surface(
@@ -244,20 +250,31 @@ internal fun RemoteSpeechStatus(controller: SpeechSessionController) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = text,
+                text = displayText,
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            if (error && failure == SpeechInputFailure.PERMISSION) {
+            if (error && failure in setOf(
+                    SpeechInputFailure.PERMISSION, SpeechInputFailure.UNAVAILABLE,
+                    SpeechInputFailure.CLIENT,
+                )
+            ) {
                 TextButton(onClick = {
-                    context.startActivity(
+                    val intent = if (failure == SpeechInputFailure.PERMISSION) {
                         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                             data = android.net.Uri.fromParts("package", context.packageName, null)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        },
-                    )
+                        }
+                    } else Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try {
+                        context.startActivity(intent)
+                    } catch (missing: ActivityNotFoundException) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
                 }) {
                     Text(stringResource(R.string.remote_voice_open_settings))
                 }

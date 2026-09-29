@@ -40,9 +40,12 @@
     <string name="remote_voice_processing">识别中…</string>
     <string name="remote_voice_permission_request">语音输入需要麦克风权限</string>
     <string name="remote_voice_permission_denied">麦克风权限被拒绝——请在系统设置中开启</string>
-    <string name="remote_voice_unavailable">此设备不支持语音输入</string>
+    <string name="remote_voice_unavailable">未找到可用的语音识别服务</string>
     <string name="remote_voice_no_match">没有听清——按住重试</string>
     <string name="remote_voice_network">语音识别需要可用的网络连接</string>
+    <string name="remote_voice_audio">麦克风录音失败，请检查麦克风权限</string>
+    <string name="remote_voice_client">语音识别服务失败，请检查系统语音输入设置</string>
     <string name="remote_voice_failed">语音输入失败——按住重试</string>
+    <string name="remote_voice_error_code">错误 %1$d：%2$s</string>
     <string name="remote_voice_open_settings">打开设置</string>
 </resources>
