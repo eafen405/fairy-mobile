@@ -35,7 +35,12 @@ class AgoraApplication : Application() {
     // receiver is gone (delivery is a no-op), and they do not survive reboot.
     private fun deleteLegacyState() {
         applicationContext.deleteDatabase(LEGACY_DATABASE_NAME)
-        applicationContext.deleteDatabase(LEGACY_WORK_DATABASE_NAME)
+        // WorkManager keeps its queue db under noBackupFilesDir, which
+        // deleteDatabase does not touch. Only the workdb file and its journal
+        // siblings go — remote-connections.json and diagnostics share the dir.
+        listOf("", "-wal", "-shm", "-journal").forEach { suffix ->
+            File(applicationContext.noBackupFilesDir, "$LEGACY_WORK_DATABASE_NAME$suffix").delete()
+        }
         listOf("memory_db", "skill_db").forEach { name ->
             File(applicationContext.filesDir, name).deleteRecursively()
         }
