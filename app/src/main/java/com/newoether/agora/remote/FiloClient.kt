@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -251,7 +252,8 @@ internal class FiloClient(
                             }
                         }
                         if (errorEvent) throw FiloStreamException()
-                        close(IOException("Filo stream closed"))
+                        // Drain the last complete snapshot before reporting a clean EOF.
+                        close()
                     } catch (error: Exception) { close(error) }
                 }
             }
@@ -261,6 +263,7 @@ internal class FiloClient(
         .map { decode(it) }
         .flowOn(Dispatchers.Default)
         .buffer(Channel.CONFLATED)
+        .onCompletion { cause -> if (cause == null) throw IOException("Filo stream closed") }
 
     suspend fun stop(id: String, turnId: String) {
         request("v1/sessions/${sessionId(id)}/stop", body = json.encodeToString(mapOf("turnId" to turnId)))
