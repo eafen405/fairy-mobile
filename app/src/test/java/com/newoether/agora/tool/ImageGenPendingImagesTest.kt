@@ -9,8 +9,6 @@ class ImageGenPendingImagesTest {
     @Test
     fun `generated image is returned by the owning tool result without a pending queue`() {
         val provider = source("tool/ImageGenToolProvider.kt")
-        val executor = source("viewmodel/GenerationToolExecutor.kt")
-        val batch = source("viewmodel/GenerationToolBatchEffectExecutor.kt")
         val store = source("tool/ToolImageStore.kt")
         val httpClient = source("api/HttpClient.kt")
 
@@ -30,8 +28,6 @@ class ImageGenPendingImagesTest {
         assertFalse(store.contains("?: \"image/png\""))
         assertFalse(provider.contains("PendingImagesByConversation"))
         assertFalse(provider.contains("drainImages("))
-        assertFalse(executor.contains("drainGeneratedImages("))
-        assertFalse(batch.contains("generatedImages"))
     }
 
     private fun source(relativePath: String): String {

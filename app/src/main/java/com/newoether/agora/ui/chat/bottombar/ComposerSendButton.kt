@@ -28,83 +28,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.chat.message.COMPOSER_ICON_CROSSFADE_DURATION_MS
-import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.motion.fairyPress
 import com.newoether.agora.ui.theme.LocalFairyTokens
-import com.newoether.agora.viewmodel.ConversationComposerSnapshot
-import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
-import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
 
 private enum class ComposerActionIcon {
     BUSY,
     STOP,
     SEND,
-}
-
-internal fun composerSendActionEnabled(
-    submission: ConversationComposerSubmissionSnapshot,
-    isSwitching: Boolean,
-    isStopping: Boolean,
-    showStop: Boolean,
-    canSend: Boolean,
-): Boolean = when {
-    isSwitching || isStopping || submission.isSubmitting || submission.isAcceptedPendingClear -> false
-    submission.isWaiting -> true
-    else -> showStop || canSend
-}
-
-@Composable
-internal fun ComposerSendButton(
-    textFieldState: TextFieldState,
-    ownerId: String,
-    snapshot: ConversationComposerSnapshot,
-    submissionController: ConversationComposerSubmissionController,
-    submission: ConversationComposerSubmissionSnapshot,
-    isLoading: Boolean,
-    isSwitching: Boolean,
-    isStopping: Boolean = false,
-    isModelValid: Boolean,
-    onStopGeneration: () -> Unit,
-    onCollapse: () -> Unit,
-) {
-    val haptics = LocalAgoraHaptics.current
-
-    val textIsEmpty = textFieldState.text.isBlank()
-    val attachmentsIsEmpty = snapshot.attachments.isEmpty()
-    val showStop = isLoading && !isStopping && textIsEmpty && attachmentsIsEmpty
-    val canSend = snapshot.loaded &&
-        (textFieldState.text.isNotBlank() || snapshot.attachments.isNotEmpty()) &&
-        isModelValid && !isSwitching && !isStopping && !submission.isFrozen
-    val isActionable = composerSendActionEnabled(
-        submission = submission,
-        isSwitching = isSwitching,
-        isStopping = isStopping,
-        showStop = showStop,
-        canSend = canSend,
-    )
-    ComposerSendButton(
-        isActionable = isActionable,
-        isBusy = isStopping || submission.isFrozen,
-        showStop = showStop,
-        onClick = {
-            if (!isActionable) return@ComposerSendButton
-            when {
-                submission.isWaiting -> {
-                    haptics.selection()
-                    submissionController.cancelWaiting(ownerId)
-                }
-                showStop -> onStopGeneration()
-                canSend -> submissionController.submit(
-                    ownerId = ownerId,
-                    text = textFieldState.text.toString(),
-                    attachmentIds = snapshot.attachments.map(SelectedAttachment::localId),
-                )
-            }
-        },
-    )
 }
 
 @Composable

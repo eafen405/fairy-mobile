@@ -138,42 +138,6 @@ class ChatDaoExternalImportReplaceTest {
         )
     }
 
-    @Test
-    fun claudeAndGptEntrypointsPreserveSelectedReplaceAndIncrementalMergeContracts() {
-        val manager = mainSource("viewmodel/ImportExportManager.kt").readText().replace("\r\n", "\n")
-
-        assertTrue(
-            "Claude and GPT must filter the parsed archive to the selected subset",
-            Regex("""toImportFormat\(parsed, selectedIds\)""")
-                .findAll(manager)
-                .count() == 2,
-        )
-        assertTrue(
-            "Claude and GPT Replace and Merge must use the Repository graph transaction",
-            Regex("""conversations\.importExternalConversationGraph\(""")
-                .findAll(manager)
-                .count() == 4,
-        )
-        assertTrue(
-            "Claude and GPT Replace must select replacement twice",
-            Regex("""replace = true,""").findAll(manager).count() == 2,
-        )
-        assertTrue(
-            "External Replace must not delete conversations outside the DAO transaction",
-            "conversations.deleteAllConversations()" !in manager,
-        )
-        assertTrue(
-            "Claude and GPT Merge must retain the existing-ID incremental path",
-            Regex("""val existingConvIds = conversations\.getAllConversationsList\(\)""")
-                .findAll(manager)
-                .count() == 2,
-        )
-        assertTrue(
-            "Claude and GPT Merge must select incremental import twice",
-            Regex("""replace = false,""").findAll(manager).count() == 2,
-        )
-    }
-
     private suspend fun expectFailure(block: suspend () -> Unit) {
         try {
             block()

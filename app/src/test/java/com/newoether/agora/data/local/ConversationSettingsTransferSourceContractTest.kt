@@ -31,34 +31,6 @@ class ConversationSettingsTransferSourceContractTest {
     }
 
     @Test
-    fun firstSendConsumesOnlyTheExactTapTimeNewChatWorkspace() {
-        val generation = sourceFile(
-            "app/src/main/java/com/newoether/agora/viewmodel/MessageGenerationController.kt",
-        ).replace("\r\n", "\n")
-        val capture = generation.substringAfter("internal fun captureForegroundSendTarget")
-            .substringBefore("internal suspend fun prepareForegroundSend")
-        val prepare = generation.substringAfter("internal suspend fun prepareForegroundSend")
-            .substringBefore("internal suspend fun sendMessage")
-
-        assertTrue(capture.contains("captureNewChatWorkspace()"))
-        assertTrue(prepare.contains("target.newChatWorkspace?.awaitCaptured()"))
-        assertTrue(prepare.contains("(workspace?.persisted ?: NewChatPersistEntity()).copy("))
-        assertTrue(prepare.contains("draftText = composer.text"))
-        assertTrue(prepare.contains("draftAttachments = composer.attachments"))
-
-        val newChatDao = sourceFile(
-            "app/src/main/java/com/newoether/agora/data/local/NewChatPersistDao.kt",
-        )
-        listOf(
-            "modelId IS :modelId",
-            "systemPromptId IS :systemPromptId",
-            "conversationSettingsJson IS :conversationSettingsJson",
-            "draftText = :draftText",
-            "draftAttachments IS :draftAttachments",
-        ).forEach { predicate -> assertTrue(newChatDao.contains(predicate)) }
-    }
-
-    @Test
     fun nativeImportCommitsTheBatchOutboxWithTheGraphAndReconcilesAfterCommit() {
         val graphImporter = sourceFile(
             "app/src/main/java/com/newoether/agora/data/NativeConversationGraphImporter.kt",
@@ -116,29 +88,6 @@ class ConversationSettingsTransferSourceContractTest {
         assertTrue(cancellation.contains("settingsManager.conversationSettings.first()"))
         assertTrue(cancellation.contains("conversationSettingsState::acceptPersisted"))
         assertTrue(cancellation.indexOf("acceptPersisted") < cancellation.indexOf("throw cancelled"))
-    }
-
-    @Test
-    fun processStartupReplaysOnlyThePendingOutboxAfterTheListPublishes() {
-        val container = sourceFile("app/src/main/java/com/newoether/agora/di/AppContainer.kt")
-            .replace("\r\n", "\n")
-        val startup = container.substringAfter("fun startProcessServices()")
-            .substringBefore("\n    val taskRepository")
-        val viewModel = sourceFile(
-            "app/src/main/java/com/newoether/agora/viewmodel/ChatViewModel.kt",
-        ).replace("\r\n", "\n")
-        val initJobs = viewModel.substringAfter("private fun startInitJobs()")
-            .substringBefore("// Per-conversation generation lifecycle")
-
-        assertTrue(startup.contains("conversationSettingsTransfers.replayPending()"))
-        assertTrue(startup.contains("providerRegistry.ensureStarted()"))
-        assertTrue(startup.contains("taskManager.start()"))
-        assertTrue(startup.contains("automationScheduler.start()"))
-        assertTrue(!startup.contains("ensureRunRecovery"))
-        val listPublished = initJobs.indexOf("conversations.filterNotNull().first()")
-        val processServices = initJobs.indexOf("startProcessServices()")
-        assertTrue(listPublished >= 0)
-        assertTrue(processServices > listPublished)
     }
 
     private fun sourceFile(relativePath: String): String {

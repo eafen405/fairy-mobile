@@ -1,6 +1,5 @@
 package com.newoether.agora.ui
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,14 +14,6 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
             root,
             "com/newoether/agora/ui/chat/FullScreenMediaPreviewDialog.kt",
         )
-        val composer = source(
-            root,
-            "com/newoether/agora/ui/chat/bottombar/ChatBottomBar.kt",
-        )
-        val composerState = source(
-            root,
-            "com/newoether/agora/ui/chat/bottombar/ChatComposerState.kt",
-        )
         val preview = source(
             root,
             "com/newoether/agora/ui/chat/bottombar/AttachmentPreviewRow.kt",
@@ -35,29 +26,9 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
             root,
             "com/newoether/agora/ui/chat/FullScreenMediaViewer.kt",
         )
-        val payload = source(
-            root,
-            "com/newoether/agora/viewmodel/MessagePayloadBuilder.kt",
-        )
-        val generationManager = source(
-            root,
-            "com/newoether/agora/viewmodel/GenerationManager.kt",
-        )
-        val imageProcessor = source(
-            root,
-            "com/newoether/agora/viewmodel/ImageProcessor.kt",
-        )
         val sendButton = source(
             root,
             "com/newoether/agora/ui/chat/bottombar/ComposerSendButton.kt",
-        )
-        val submission = source(
-            root,
-            "com/newoether/agora/viewmodel/ConversationComposerSubmissionController.kt",
-        )
-        val chatApp = source(
-            root,
-            "com/newoether/agora/ui/chat/ChatApp.kt",
         )
         val imageActions = source(
             root,
@@ -72,39 +43,10 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         assertTrue(dialog.contains("DialogWindowNoSystemDim()"))
         assertTrue(imageActions.contains("DialogWindowNoSystemDim()"))
         assertTrue(dialog.indexOf("FullScreenMediaViewer(") > dialog.indexOf(".background(Color.Black)"))
-        assertTrue(composer.contains(".contentReceiver(clipboardImageReceiver)"))
-        assertTrue(composer.contains("transferableContent.consume"))
-        assertTrue(composer.contains("hasMediaType(MediaType.Image)"))
-        assertTrue(composer.contains("importUris(composerOwnerId, imageUris, \"image\", emitSuccessHaptic = false)"))
-        assertTrue(composer.contains("inspectAttachmentIngress("))
-        assertTrue(composer.contains(
-            "composerController.importAttachment(ownerId, attachment) || imported",
-        ))
-        assertTrue(composer.contains("return remaining"))
-
-        listOf(
-            "selectedAttachments",
-            "processingStates",
-            "pendingSend",
-            "attachmentCopyJobs",
-            "videoExtractionJobs",
-            "fun onPickImages",
-            "fun onPickVideos",
-            "fun onPickFiles",
-            "fun confirmPendingPdfSelection",
-            "fun addSlicedVideo",
-        ).forEach { legacyOwner ->
-            assertFalse(composerState.contains(legacyOwner))
-        }
-        assertTrue(composerState.contains("controller.importAttachment(ownerId, attachment)"))
-        assertTrue(composerState.contains("localPath = file.absolutePath"))
         assertTrue(preview.contains(
             "mediaAttachments.mapIndexed { index, attachment -> attachment.localId to index }.toMap()",
         ))
         assertFalse(preview.contains("indexOf("))
-        assertTrue(sendButton.contains("submissionController.submit("))
-        assertTrue(sendButton.contains("text = textFieldState.text.toString()"))
-        assertTrue(sendButton.contains("snapshot.attachments.map(SelectedAttachment::localId)"))
         assertTrue(sendButton.contains("strokeWidth = 3.dp"))
         assertTrue(sendButton.contains("targetState = icon"))
         assertTrue(sendButton.contains("ComposerActionIcon.BUSY"))
@@ -120,48 +62,9 @@ internal class ChatMediaSourceContractTest : UiSourceContractFixture() {
         assertTrue(sendButton.contains("durationMillis = COMPOSER_ICON_CROSSFADE_DURATION_MS"))
         assertTrue(sendButton.contains("easing = LinearEasing"))
         assertFalse(sendButton.contains("LocalSoftwareKeyboardController"))
-        assertFalse(chatApp.contains("BindDirectAcceptedComposerEffects"))
-        assertFalse(
-            File(root, "com/newoether/agora/ui/chat/DirectAcceptedComposerEffect.kt").exists(),
-        )
-        assertFalse(submission.contains("DirectAcceptedComposerEffect"))
-        assertFalse(submission.contains("directAcceptedEffects"))
-        assertFalse(submission.contains("publishDirectAcceptedEffect"))
-        assertFalse(submission.contains("presentationDispatcher"))
-        assertTrue(
-            submission.contains(
-                "request.accepted = acceptance\n" +
-                    "                clearAccepted(owner, request)",
-            ),
-        )
-        assertTrue(submission.contains("directAcceptedVersion = current.directAcceptedVersion +"))
-        assertTrue(submission.contains("if (request.accepted is SendAcceptance.Direct) 1L else 0L"))
-        assertTrue(composer.contains("submissionController.observeState(composerOwnerId)"))
-        assertTrue(composer.contains("submissionController.releaseState(composerOwnerId)"))
         val textFieldBlock = source(root, "com/newoether/agora/ui/chat/bottombar/ChatComposerLayout.kt").substringAfter("TextField(")
             .substringBefore("placeholder =")
         assertFalse(textFieldBlock.contains("enabled ="))
-        assertTrue(submission.contains("composers.freezeSubmission("))
-        assertTrue(submission.contains("composers.awaitProcessing("))
-        assertTrue(submission.contains("SelectedAttachment::hasCanonicalReadyArtifact"))
-        assertTrue(submission.contains("attachment.storage.transferForSend()"))
-        assertTrue(submission.contains("submissionId = request.id"))
-        assertTrue(payload.contains("fun buildComposerPayload("))
-        assertTrue(payload.contains("AttachmentImportState.READY"))
-        assertTrue(payload.contains("val imageIndex = allImages.size"))
-        listOf(
-            "processImages(",
-            "extractVideoFrames(",
-            "PdfPageRenderer",
-            "AttachmentSourceReader",
-            "preparedOwnedPaths",
-            "localPath ?:",
-            ".uri",
-        ).forEach { sendTimeFallback ->
-            assertFalse(payload.contains(sendTimeFallback))
-        }
-        assertFalse(generationManager.contains("suspend fun processImages("))
-        assertFalse(imageProcessor.contains("processImagesAndVideos("))
         assertTrue(storedMessage.contains("projectStoredMediaOccurrences("))
         assertFalse(storedMessage.contains("allMediaUrls.indexOf("))
         assertTrue(viewer.contains("initialIndex.coerceIn(0, pdfPages.size - 1)"))

@@ -25,24 +25,6 @@ class DeveloperDiagnosticsStreamingContractTest {
         )
     }
 
-    @Test
-    fun `parsed semantic observation stays at the authorized provider consumer boundary`() {
-        val sourceRoot = locateMainSourceRoot()
-        val executorSource = File(
-            sourceRoot,
-            "com/newoether/agora/viewmodel/ProviderPassEffectExecutor.kt",
-        ).readText()
-        val consumer = executorSource
-            .substringAfter("runner.run(")
-            .substringBefore("            }\n        } catch")
-
-        assertEquals(1, Regex("""recordParsedEvent\(event\)""").findAll(consumer).count())
-        assertTrue(
-            consumer.indexOf("recordParsedEvent(event)") <
-                consumer.indexOf("callbacks.onEvent(event)"),
-        )
-    }
-
     private fun locateMainSourceRoot(): File {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {

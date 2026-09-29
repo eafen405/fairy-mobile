@@ -23,18 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.viewmodel.QueuedSend
 
 /** One fixed-height queue row. Ordering and placement motion belong to [ComposerStatusColumn]. */
-@Composable
-internal fun QueuedMessageRow(
-    queued: QueuedSend,
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    QueuedMessageRow(queued.text, queued.attachments.size, onRemove, modifier)
-}
-
 @Composable
 internal fun QueuedMessageRow(
     text: String,

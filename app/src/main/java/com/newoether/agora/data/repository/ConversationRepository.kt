@@ -35,7 +35,7 @@ import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
 import com.newoether.agora.model.SelectedAttachment
-import com.newoether.agora.service.MaintenanceDebtWorker
+
 import com.newoether.agora.util.AttachmentFiles
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -47,7 +47,7 @@ class ConversationRepository(
     private val chatDao: ChatDao,
     /** Non-null in production; null is an explicit DAO-isolated unit-test seam. */
     private val database: ChatDatabase?,
-    private val scheduleMaintenance: () -> Unit = { MaintenanceDebtWorker.schedule() },
+    private val scheduleMaintenance: () -> Unit = {},
     private val maintenanceDebtDao: MaintenanceDebtDao? = database?.maintenanceDebtDao(),
     private val semanticModelSnapshotProvider: suspend () -> SemanticModelSnapshot = {
         semanticModelSnapshot("", emptyList())

@@ -34,8 +34,8 @@ import com.newoether.agora.ui.chat.MediaPreviewTarget
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.ProvideAgoraMotionPolicy
 import com.newoether.agora.ui.theme.AgoraTheme
+import com.newoether.agora.remote.RemoteShellViewModel
 import com.newoether.agora.util.snackbarTimeoutMillis
-import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 
@@ -162,16 +162,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    // Create ViewModel via the process-scoped DI container (owned by AgoraApplication),
-                    // so the same shared singletons back both the UI and background task execution.
+                    // The shell ViewModel only carries what the remote surface consumes;
+                    // RemoteViewModel self-constructs inside the overlay.
                     val container = agoraApplication.requireContainer()
-                    val factory = remember { container.chatViewModelFactory() }
-                    val viewModel: ChatViewModel = viewModel(factory = factory)
+                    val viewModel: RemoteShellViewModel = viewModel { container.remoteShellViewModel() }
 
-                    MainNavigation(
-                        viewModel = viewModel,
-                        settingsManager = settingsManager,
-                    )
+                    MainNavigation(viewModel = viewModel)
                 }
             }
             }
@@ -194,21 +190,12 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainNavigation(
-    viewModel: ChatViewModel,
-    settingsManager: SettingsManager,
+internal fun MainNavigation(
+    viewModel: RemoteShellViewModel,
 ) {
     val activity = LocalActivity.current
     val motionPolicy = LocalAgoraMotionPolicy.current
     var mediaPreviewTarget by remember { mutableStateOf<MediaPreviewTarget?>(null) }
-    var pdfViewerSelection by remember { mutableStateOf(setOf<Int>()) }
-    val onTogglePdfSelection: (Int) -> Unit = { page ->
-        pdfViewerSelection = if (page in pdfViewerSelection) pdfViewerSelection - page else pdfViewerSelection + page
-    }
-    val onInitPdfSelection: (Set<Int>) -> Unit = { selection ->
-        pdfViewerSelection = selection
-    }
-    var pdfPreviewFromDialog by remember { mutableStateOf(false) }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
     val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -232,32 +219,12 @@ fun MainNavigation(
     )
     val focusManager = LocalFocusManager.current
     val topLevelPresentation = remember {
-        TopLevelPresentationState(initialOwner = TopLevelPresentation.REMOTE)
+        TopLevelPresentationState(baseOwner = TopLevelPresentation.REMOTE)
     }
     val openMediaPreview: (List<String>, Int) -> Unit = { urls, index ->
         focusManager.clearFocus()
         mediaPreviewTarget = MediaPreviewTarget(urls, index)
         topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-    }
-    MainApplicationDialogs(
-        viewModel = viewModel,
-        settingsManager = settingsManager,
-        snackbarHostState = snackbarHostState,
-        snackbarVersionState = snackbarVersionState,
-    )
-
-    // Sandbox outcomes are buffered by their manager and displayed in production order.
-    LaunchedEffect(Unit) {
-        viewModel.sandboxManager?.snackbarMessage?.collect { msg ->
-            snackbarHostState.currentSnackbarData?.dismiss()
-            try {
-                snackbarHostState.showSnackbar(
-                    viewModel.displayText(msg),
-                )
-            } finally {
-                snackbarVersion++
-            }
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -301,9 +268,9 @@ fun MainNavigation(
             FullScreenMediaPreviewDialog(
                 currentTarget = mediaPreviewTarget,
                 currentPdfPages = pdfPages,
-                currentPdfSelectedPages = pdfViewerSelection,
-                currentPdfSelectionEnabled = pdfPreviewFromDialog,
-                currentPdfTogglePage = onTogglePdfSelection,
+                currentPdfSelectedPages = emptySet(),
+                currentPdfSelectionEnabled = false,
+                currentPdfTogglePage = null,
                 enter = fullScreenPreviewEnterTransition(motionPolicy.allowSpatialTransitions),
                 exit = fullScreenPreviewExitTransition(motionPolicy.allowSpatialTransitions),
                 onHidden = {
@@ -313,7 +280,6 @@ fun MainNavigation(
                     if (mediaPreviewTarget?.requestId != target.requestId) return@FullScreenMediaPreviewDialog
                     viewModel.mediaPreview.clear()
                     mediaPreviewTarget = null
-                    pdfPreviewFromDialog = false
                 },
                 onNavigate = { target, idx ->
                     if (mediaPreviewTarget?.requestId == target.requestId) {
@@ -323,35 +289,6 @@ fun MainNavigation(
                 onMessage = { viewModel.emitSnackbar(it) },
                 hapticsEnabled = hapticsEnabled,
             )
-
-            // Text file viewer
-            val fileContent by viewModel.mediaPreview.fileContent.collectAsState()
-            val fileName by viewModel.mediaPreview.fileName.collectAsState()
-            var savedContent by remember { mutableStateOf(fileContent) }
-            var savedName by remember { mutableStateOf(fileName) }
-            if (fileContent != null) { savedContent = fileContent; savedName = fileName }
-            val textPreviewTransition = updateTransition(
-                targetState = fileContent != null,
-                label = "textPreview",
-            )
-            LaunchedEffect(textPreviewTransition) {
-                snapshotFlow {
-                    textPreviewTransition.currentState to textPreviewTransition.isRunning
-                }.collect { (currentState, isRunning) ->
-                    if (!currentState && !isRunning) {
-                        topLevelPresentation.release(TopLevelPresentation.TEXT_PREVIEW)
-                    }
-                }
-            }
-            textPreviewTransition.AnimatedVisibility(
-                visible = { it },
-                enter = fullScreenPreviewEnterTransition(motionPolicy.allowSpatialTransitions),
-                exit = fullScreenPreviewExitTransition(motionPolicy.allowSpatialTransitions)
-            ) {
-                if (savedContent != null && savedName != null) {
-                    com.newoether.agora.ui.chat.TextFileViewer(content = savedContent!!, fileName = savedName!!, onClose = { viewModel.mediaPreview.clear() })
-                }
-            }
 
             val current = snackbarHostState.currentSnackbarData
             var showing by remember { mutableStateOf(false) }
@@ -419,8 +356,3 @@ fun MainNavigation(
         }
     }
 }
-
-internal fun consumeNotificationTarget(
-    target: kotlinx.coroutines.flow.MutableStateFlow<String?>,
-    expectedId: String,
-): Boolean = target.compareAndSet(expectedId, null)

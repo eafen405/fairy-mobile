@@ -10,10 +10,8 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,14 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.MessageStatus
-import com.newoether.agora.model.Participant
-import com.newoether.agora.model.isContextCompact
-import com.newoether.agora.ui.chat.message.hasActiveAnswerSegment
-import com.newoether.agora.ui.common.AgoraHaptics
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.util.DebugLog
-import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -227,38 +219,6 @@ internal suspend fun launchConversationShare(
 }
 
 @Composable
-internal fun ConversationShareEffect(
-    viewModel: ChatViewModel,
-    context: Context,
-) {
-    val shareChooserTitle = stringResource(R.string.conversation_share)
-    val shareFailureTemplate = stringResource(
-        R.string.conversation_share_failed,
-        SHARE_ERROR_DETAIL_TOKEN,
-    )
-    LaunchedEffect(viewModel, context, shareChooserTitle, shareFailureTemplate) {
-        viewModel.conversationShareText.collect { text ->
-            try {
-                launchConversationShare(
-                    context = context,
-                    text = text,
-                    chooserTitle = shareChooserTitle,
-                )
-            } catch (e: Exception) {
-                DebugLog.e("ChatShare", "Unable to launch conversation share", e)
-                viewModel.emitSnackbar(
-                    shareFailureTemplate.replace(
-                        SHARE_ERROR_DETAIL_TOKEN,
-                        e.localizedMessage?.let(viewModel::displayText)
-                            ?: e.javaClass.simpleName,
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
 internal fun ChatLaunchInteractionEffects(
     initialComposerFocusReady: Boolean,
     inputFocusRequester: FocusRequester,
@@ -319,21 +279,6 @@ internal fun ChatNavigationEffects(
     }
 }
 
-@Composable
-internal fun SendAcceptedHapticBindingEffect(
-    viewModel: ChatViewModel,
-    haptics: AgoraHaptics,
-    chatHapticActive: Boolean,
-) {
-    val latestChatHapticActive by rememberUpdatedState(chatHapticActive)
-    DisposableEffect(viewModel, haptics) {
-        viewModel.onSendAccepted = { _, _ ->
-            if (latestChatHapticActive) haptics.confirm()
-        }
-        onDispose { viewModel.onSendAccepted = null }
-    }
-}
-
 internal data class ComposerSpacerAnimation(
     val outerHeightPx: Float,
     val isRunning: Boolean,
@@ -388,38 +333,3 @@ internal fun SnackbarOffsetEffect(
     LaunchedEffect(targetSnackbarOffset) { onOffsetChanged(targetSnackbarOffset) }
 }
 
-internal fun answeringHapticEligible(
-    snapshot: com.newoether.agora.viewmodel.ConversationGenerationSnapshot,
-    presentation: com.newoether.agora.TopLevelPresentation,
-): Boolean = presentation == com.newoether.agora.TopLevelPresentation.CHAT &&
-    snapshot.isLoading && snapshot.isGenerating &&
-    snapshot.streamingMessage?.let { message ->
-        !message.isContextCompact() &&
-            message.participant == Participant.MODEL &&
-            message.status == MessageStatus.SENDING && message.hasActiveAnswerSegment()
-    } == true
-
-@Composable
-internal fun AnsweringHapticEffect(
-    generationSnapshot: com.newoether.agora.viewmodel.ConversationGenerationSnapshot,
-    topLevelPresentation: com.newoether.agora.TopLevelPresentation,
-    hapticsEnabled: Boolean,
-    haptics: com.newoether.agora.ui.common.AgoraHaptics,
-) {
-    val answeringHapticActive = answeringHapticEligible(
-        generationSnapshot,
-        topLevelPresentation,
-    )
-    val appInForeground by com.newoether.agora.service.AppForegroundTracker.foreground.collectAsState()
-    DisposableEffect(answeringHapticActive, hapticsEnabled, appInForeground, haptics) {
-        if (answeringHapticActive && hapticsEnabled && appInForeground) {
-            haptics.startAnsweringTexture()
-        }
-        onDispose {
-            haptics.stopAnsweringTexture()
-        }
-    }
-}
-
-// isVisibleAnswerSegment() / hasActiveAnswerSegment() are shared (internal) from
-// MessageItemSegments.kt.

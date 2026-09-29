@@ -1,10 +1,10 @@
 package com.newoether.agora
 
 import android.app.Application
+import com.newoether.agora.data.local.DatabaseCompatibility
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.di.AppContainer
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
-import com.newoether.agora.util.CrashReporter
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -15,28 +15,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Application entry point. Installs the crash reporter before any other component runs so
- * that crashes occurring during startup are captured as well.
+ * Application entry point. Owns the process-scoped AppContainer.
  *
- * Owns the process-scoped AppContainer, but publishes it only after the durable database has
- * passed compatibility checks, supported migrations, and Room schema validation.
+ * The startup gate is kept (so the Blocked dialog plumbing in MainActivity still
+ * compiles) but no longer inspects or opens Room: the remote-only shell has no
+ * database dependency, so the gate always passes straight to Ready. The legacy
+ * `agora_db` teardown is S3's one-time cleanup.
  */
 class AgoraApplication : Application() {
     private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val startupGate = DatabaseStartupGate(
-        inspectDatabase = {
-            withContext(Dispatchers.IO) {
-                ChatDatabase.inspectCompatibility(this@AgoraApplication)
-            }
-        },
+        inspectDatabase = { DatabaseCompatibility.Missing },
         openResource = {
             withContext(Dispatchers.IO) {
-                val database = ChatDatabase.build(this@AgoraApplication)
-                AppContainer(this@AgoraApplication, database)
+                AppContainer(this@AgoraApplication)
             }
         },
-        closeResource = { container -> container.database.close() },
+        closeResource = { },
         deleteDatabase = {
             withContext(Dispatchers.IO) {
                 val databasePath = getDatabasePath(ChatDatabase.DB_NAME)
@@ -58,7 +54,6 @@ class AgoraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.install(this)
         startupScope.launch {
             try {
                 DeveloperDiagnostics.initialize(noBackupFilesDir, startupScope)

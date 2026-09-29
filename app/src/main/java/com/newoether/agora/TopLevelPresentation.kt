@@ -6,24 +6,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 enum class TopLevelPresentation {
-    CHAT,
-    SETTINGS,
-    TASKS,
     REMOTE,
     MEDIA_PREVIEW,
-    TEXT_PREVIEW,
 }
 
-/** Single main-thread owner for the top-level surface currently covering Chat. */
+/** Single main-thread owner for the top-level surface currently covering the remote shell. */
 @Stable
 internal class TopLevelPresentationState(
-    initialOwner: TopLevelPresentation = TopLevelPresentation.CHAT,
+    private val baseOwner: TopLevelPresentation = TopLevelPresentation.REMOTE,
     private val onOwnerChanged: (TopLevelPresentation) -> Unit = {},
 ) {
-    private val presentations = mutableListOf(initialOwner).apply {
-        remove(TopLevelPresentation.CHAT)
-    }
-    var owner by mutableStateOf(initialOwner)
+    private val presentations = mutableListOf(baseOwner)
+    var owner by mutableStateOf(baseOwner)
         private set
 
     init {
@@ -31,7 +25,7 @@ internal class TopLevelPresentationState(
     }
 
     fun present(presentation: TopLevelPresentation) {
-        require(presentation != TopLevelPresentation.CHAT)
+        require(presentation != baseOwner)
         presentations.remove(presentation)
         presentations.add(presentation)
         owner = presentation
@@ -43,7 +37,7 @@ internal class TopLevelPresentationState(
         // An underlying surface may finish exiting while a preview still covers it.
         presentations.remove(presentation)
         if (owner != presentation) return false
-        owner = presentations.lastOrNull() ?: TopLevelPresentation.CHAT
+        owner = presentations.lastOrNull() ?: baseOwner
         onOwnerChanged(owner)
         return true
     }

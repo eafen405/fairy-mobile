@@ -126,32 +126,7 @@ class DataExporterSnapshotSourceContractTest {
         assertFalse(spool.contains("readLines()"))
         assertTrue(spool.contains("writer.write('\\n'.code)"))
     }
-    @Test
-    fun manualAndAutomaticExportsDoNotReceiveTheProcessDatabase() {
-        val exporter = sourceFile(
-            "app/src/main/java/com/newoether/agora/data/DataExporter.kt",
-        )
-        val manager = sourceFile(
-            "app/src/main/java/com/newoether/agora/viewmodel/ImportExportManager.kt",
-        )
-        val backup = sourceFile(
-            "app/src/main/java/com/newoether/agora/data/AutoBackupManager.kt",
-        )
-        val container = sourceFile(
-            "app/src/main/java/com/newoether/agora/di/AppContainer.kt",
-        )
-        assertFalse(exporter.contains("private val database: ChatDatabase"))
-        assertFalse(exporter.contains("private val chatDao: ChatDao"))
-        assertTrue(Regex("DataExporter\\(\\s*app,\\s*settingsManager,").containsMatchIn(manager))
-        assertFalse(backup.contains("private val database: ChatDatabase"))
-        assertFalse(backup.contains("private val chatDao: ChatDao"))
-        assertTrue(Regex("DataExporter\\(\\s*context,\\s*settingsManager,").containsMatchIn(backup))
-        assertTrue(
-            container.contains(
-                "AutoBackupManager(appContext, settingsManager, memoryManager, skillManager)",
-            ),
-        )
-    }
+
     @Test
     fun contractDefinesTheSnapshotAndTransactionIoBoundary() {
         val contract = sourceFile("development/import-export.md")
