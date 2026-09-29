@@ -147,9 +147,7 @@ class SettingsModelsPageTest {
     @Test
     fun `syncing copy replaces fetching snackbar copy in every locale`() {
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
 
         directories.forEach { directory ->

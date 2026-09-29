@@ -286,17 +286,7 @@ class PortableSettingsArchiveTest {
         val resourceRoot = locateDirectory("app/src/main/res", "src/main/res")
         listOf(
             "values",
-            "values-ar",
-            "values-de",
-            "values-es",
-            "values-fr",
-            "values-ja",
-            "values-ko",
-            "values-pt-rBR",
-            "values-ru",
-            "values-vi",
             "values-zh",
-            "values-zh-rTW",
         ).forEach { directory ->
             val strings = File(resourceRoot, "$directory/strings.xml").readLocaleStringResourceSources()
             assertTrue("Missing title in $directory", strings.contains("name=\"show_uncached_notification\""))

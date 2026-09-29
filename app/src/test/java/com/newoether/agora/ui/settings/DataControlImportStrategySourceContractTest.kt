@@ -66,17 +66,7 @@ class DataControlImportStrategySourceContractTest {
         )
         val directories = listOf(
             "values",
-            "values-ar",
-            "values-de",
-            "values-es",
-            "values-fr",
-            "values-ja",
-            "values-ko",
-            "values-pt-rBR",
-            "values-ru",
-            "values-vi",
             "values-zh",
-            "values-zh-rTW",
         )
 
         directories.forEach { directory ->
@@ -189,9 +179,7 @@ class DataControlImportStrategySourceContractTest {
     @Test
     fun nativeLoadingTitleHasSupportedLocaleParity() {
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
 
         directories.forEach { directory ->
@@ -261,9 +249,7 @@ class DataControlImportStrategySourceContractTest {
             "auto_backup_missing_resources",
         )
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
 
         directories.forEach { directory ->

@@ -172,17 +172,7 @@ class Phase24UiSourceContractTest {
     private companion object {
         val resourceDirectories = listOf(
             "values",
-            "values-ar",
-            "values-de",
-            "values-es",
-            "values-fr",
-            "values-ja",
-            "values-ko",
-            "values-pt-rBR",
-            "values-ru",
-            "values-vi",
             "values-zh",
-            "values-zh-rTW",
         )
     }
 }

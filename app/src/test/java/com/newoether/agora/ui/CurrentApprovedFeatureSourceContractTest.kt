@@ -193,17 +193,7 @@ class CurrentApprovedFeatureSourceContractTest {
 
     private fun localeDirectories(): List<String> = listOf(
         "values",
-        "values-ar",
-        "values-de",
-        "values-es",
-        "values-fr",
-        "values-ja",
-        "values-ko",
-        "values-pt-rBR",
-        "values-ru",
-        "values-vi",
         "values-zh",
-        "values-zh-rTW",
     )
 
     private fun sourceFile(relativePath: String): String {

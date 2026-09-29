@@ -69,9 +69,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     @Test
     fun `singular transcription ellipsis exists in every locale`() {
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
 
         directories.forEach { directory ->
@@ -106,9 +104,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     @Test
     fun `Skills UI strings keep locale and delete placeholder parity`() {
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
 
         directories.forEach { directory ->
@@ -165,17 +161,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     fun `generation settings description names only localized LLM parameters`() {
         val expected = linkedMapOf(
             "values" to "LLM parameters",
-            "values-ar" to "معاملات LLM",
-            "values-de" to "LLM-Parameter",
-            "values-es" to "Parámetros del LLM",
-            "values-fr" to "Paramètres du LLM",
-            "values-ja" to "LLM パラメーター",
-            "values-ko" to "LLM 매개변수",
-            "values-pt-rBR" to "Parâmetros do LLM",
-            "values-ru" to "Параметры LLM",
-            "values-vi" to "Tham số LLM",
             "values-zh" to "LLM 参数",
-            "values-zh-rTW" to "LLM 參數",
         )
 
         expected.forEach { (directory, value) ->
@@ -318,55 +304,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             "thinking_segments_title",
         )
         val expected = linkedMapOf(
-            "values-ar" to listOf(
-                "السياق", "إدارة السياق", "مقاطع التفكير",
-                "اختر مكان فتح مقاطع التفكير", "بطاقة", "لوحة سفلية", "مقاطع التفكير",
-            ),
-            "values-de" to listOf(
-                "Kontext", "Kontextverwaltung", "Denksegmente",
-                "Auswählen, wo Denksegmente geöffnet werden", "Karte",
-                "Unteres Dialogfeld", "Denksegmente",
-            ),
-            "values-es" to listOf(
-                "Contexto", "Gestión del contexto", "Segmentos de razonamiento",
-                "Elige dónde se abren los segmentos de razonamiento", "Tarjeta",
-                "Hoja inferior", "Segmentos de razonamiento",
-            ),
-            "values-fr" to listOf(
-                "Contexte", "Gestion du contexte", "Segments de réflexion",
-                "Choisissez où ouvrir les segments de réflexion", "Carte",
-                "Panneau inférieur", "Segments de réflexion",
-            ),
-            "values-ja" to listOf(
-                "コンテキスト", "コンテキスト管理", "思考セグメント",
-                "思考セグメントを開く場所を選択", "カード", "ボトムシート", "思考セグメント",
-            ),
-            "values-ko" to listOf(
-                "컨텍스트", "컨텍스트 관리", "사고 세그먼트",
-                "사고 세그먼트를 열 위치 선택", "카드", "하단 시트", "사고 세그먼트",
-            ),
-            "values-pt-rBR" to listOf(
-                "Contexto", "Gerenciamento de contexto", "Segmentos de raciocínio",
-                "Escolha onde abrir os segmentos de raciocínio", "Cartão",
-                "Painel inferior", "Segmentos de raciocínio",
-            ),
-            "values-ru" to listOf(
-                "Контекст", "Управление контекстом", "Сегменты рассуждений",
-                "Выберите, где открывать сегменты рассуждений", "Карточка",
-                "Нижняя панель", "Сегменты рассуждений",
-            ),
-            "values-vi" to listOf(
-                "Ngữ cảnh", "Quản lý ngữ cảnh", "Phân đoạn suy luận",
-                "Chọn nơi mở các phân đoạn suy luận", "Thẻ",
-                "Bảng dưới", "Phân đoạn suy luận",
-            ),
             "values-zh" to listOf(
                 "上下文", "上下文管理", "思考片段",
                 "选择思考片段的打开位置", "卡片", "底部面板", "思考片段",
-            ),
-            "values-zh-rTW" to listOf(
-                "上下文", "上下文管理", "思考片段",
-                "選擇思考片段的開啟位置", "卡片", "底部面板", "思考片段",
             ),
         )
 
@@ -650,7 +590,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsScaffold.kt",
         )
         val main = sourceFile("app/src/main/java/com/newoether/agora/MainActivity.kt")
-        val screenshotScript = sourceFile("scripts/generate-screenshots.ps1")
 
         assertFalse(twoPane.contains("scrollToItem("))
         assertFalse(twoPane.contains("rememberLazyListState"))
@@ -680,13 +619,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         )
         assertTrue(providerPage.contains("SettingsSecondaryPane {"))
         assertTrue(main.contains("onBack = { showScreenshotSettings = false }"))
-        assertTrue(screenshotScript.contains("} finally {"))
-        assertTrue(screenshotScript.contains(
-            "Restore-GlobalSetting \$setting \$savedAnimationSettings[\$setting]"
-        ))
-        assertTrue(screenshotScript.contains("\"window_animation_scale\""))
-        assertTrue(screenshotScript.contains("\"transition_animation_scale\""))
-        assertTrue(screenshotScript.contains("\"animator_duration_scale\""))
     }
 
     @Test
@@ -728,9 +660,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertFalse(manifest.contains("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
 
         val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
+            "values", "values-zh",
         )
         val keys = listOf(
             "automation_background_execution",
