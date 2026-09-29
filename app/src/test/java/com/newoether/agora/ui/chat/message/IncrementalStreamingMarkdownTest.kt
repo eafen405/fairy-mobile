@@ -382,6 +382,40 @@ class IncrementalStreamingMarkdownTest {
     }
 
     @Test
+    fun cumulativeRemoteDeltaSurvivesConflationWithoutReplayingOldGlyphs() {
+        val tracker = StreamingTailFadeTracker()
+        tracker.update("old", nowMs = 1_000L, textDeltas = emptyList())
+        val first = tracker.update("oldab", nowMs = 1_100L,
+            textDeltas = listOf(StreamingTextDelta(100L, 2, cumulative = true)))
+        assertArrayEquals(longArrayOf(1_100L, 1_100L), first.birthTimesMs)
+
+        // Sequence 101 was conflated before rendering. Its count is included in 102.
+        val next = tracker.update("oldabcdef", nowMs = 1_200L,
+            textDeltas = listOf(StreamingTextDelta(102L, 6, cumulative = true)))
+        assertArrayEquals(longArrayOf(1_100L, 1_100L, 1_200L, 1_200L, 1_200L, 1_200L),
+            next.birthTimesMs)
+        assertArrayEquals(next.birthTimesMs, tracker.update("oldabcdef", nowMs = 1_210L,
+            textDeltas = listOf(StreamingTextDelta(101L, 4, cumulative = true))).birthTimesMs)
+
+        // Reconnect may restart the remote cumulative count after record eviction.
+        val resumed = tracker.update("oldabcdefg", nowMs = 1_220L,
+            textDeltas = listOf(StreamingTextDelta(103L, 1, cumulative = true)))
+        assertEquals(1_220L, resumed.birthTimesMs.last())
+    }
+
+    @Test
+    fun cumulativeCountsFromSeparateNativeFragmentsDoNotSubtractEachOther() {
+        val tracker = StreamingTailFadeTracker()
+        val first = tracker.update("abc", 1_000L,
+            listOf(StreamingTextDelta(200L, 3, cumulative = true, sourceId = "first")))
+        assertEquals(3, first.birthTimesMs.size)
+        val second = tracker.update("abcdefgh", 1_100L,
+            listOf(StreamingTextDelta(200L, 3, cumulative = true, sourceId = "first"),
+                StreamingTextDelta(201L, 5, cumulative = true, sourceId = "second")))
+        assertArrayEquals(LongArray(5) { 1_100L }, second.birthTimesMs.takeLast(5).toLongArray())
+    }
+
+    @Test
     fun interactionCommitGate_holdsOnlyTheLatestSnapshotUntilGestureEnds() {
         val gate = StreamingInteractionCommitGate<String>()
         val codeBlock = Any()

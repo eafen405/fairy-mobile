@@ -32,7 +32,8 @@ class RemoteStreamDeltasTest {
         val source = RemoteStreamDeltas()
         val first = source.apply(listOf(message), listOf(message.copy(text = "Hello world")), active, active)
         val terminal = source.apply(first, listOf(message.copy(text = "Hello world!")), active, RemoteRuntime("idle"))
-        assertEquals(listOf(6, 1), deltas(terminal).map { it.codePointCount })
+        assertEquals(listOf(7), deltas(terminal).map { it.codePointCount })
+        assertTrue(deltas(terminal).single().cumulative)
         val rewritten = source.apply(terminal, listOf(message.copy(text = "Edited history")), RemoteRuntime("idle"), RemoteRuntime("idle"))
         assertTrue(deltas(rewritten).isEmpty())
     }
@@ -47,5 +48,35 @@ class RemoteStreamDeltasTest {
         assertEquals(8, fade.update(projected.content, 100, projected.streamingTextDeltas).birthTimesMs.size)
         val history = source.apply(emptyList(), listOf(message.copy(turnId = "old")), active, active)
         assertTrue(history.single().streamingTextDeltas.isEmpty())
+    }
+
+    @Test fun longStreamRetainsOneDeltaAndConflatedFadeCountsOnlyUnseenText() {
+        val source = RemoteStreamDeltas()
+        val fade = StreamingTailFadeTracker()
+        var previous = message
+        fade.update(previous.text, 0, emptyList())
+        repeat(1_000) { step ->
+            val fresh = message.copy(text = "Hello" + "x".repeat(step + 1))
+            val updated = source.apply(listOf(previous), listOf(fresh), active, active).single()
+            assertEquals(1, updated.streamingTextDeltas.size)
+            if (step % 10 == 9) {
+                val sample = fade.update(updated.text, 100L + step,
+                    updated.streamingTextDeltas)
+                assertArrayEquals(LongArray(10) { 100L + step }, sample.birthTimesMs.takeLast(10).toLongArray())
+            }
+            previous = updated
+        }
+    }
+
+    @Test fun lookupPathTouchesOnlyIncomingIds() {
+        val source = RemoteStreamDeltas()
+        val requested = mutableListOf<String>()
+        val fresh = message.copy(text = "Hello again")
+        val result = source.apply(listOf(fresh), active, active) { id ->
+            requested += id
+            message
+        }
+        assertEquals(listOf("answer"), requested)
+        assertEquals(6, result.single().streamingTextDeltas.single().codePointCount)
     }
 }

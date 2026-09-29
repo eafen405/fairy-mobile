@@ -73,8 +73,9 @@ internal class RemoteMessageHydration(
 
     private fun rememberRecords(owner: String, page: RemoteConversationPage, live: Boolean) = synchronized(cacheLock) {
         checkOwner(owner)
-        val messages = if (live) deltas.apply(if (previousRuntime == null) emptyList() else records.values.map { it.second },
-            page.messages, previousRuntime, page.runtime)
+        val messages = if (live) deltas.apply(page.messages, previousRuntime, page.runtime) { id ->
+            if (previousRuntime == null) null else records[id]?.second
+        }
             else page.messages
         if (live) {
             page.runtime?.activeTurnId?.let { turnId ->

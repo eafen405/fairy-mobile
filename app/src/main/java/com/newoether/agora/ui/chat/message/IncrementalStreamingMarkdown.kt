@@ -190,7 +190,8 @@ private data class StreamingFadingGlyph(
 internal class StreamingTailFadeTracker {
     private var previousText = ""
     private val fadingGlyphs = java.util.ArrayDeque<StreamingFadingGlyph>()
-    private val publishedDeltaSequences = mutableSetOf<Long>()
+    private var lastPublishedDeltaSequence = Long.MIN_VALUE
+    private val publishedCumulativeCodePoints = mutableMapOf<String, Int>()
 
     @Synchronized
     fun update(
@@ -201,14 +202,13 @@ internal class StreamingTailFadeTracker {
         require(nowMs >= 0L)
         pruneSolidPrefix(nowMs)
         val textCodePoints = text.codePointCount(0, text.length)
-        val newDeltas = textDeltas.orEmpty().filter { delta ->
-            delta.sequence !in publishedDeltaSequences
-        }
+        val newDeltas = textDeltas.orEmpty().filter { it.sequence > lastPublishedDeltaSequence }
         val newDeltaCodePoints = newDeltas.fold(0) { total, delta ->
-            total + min(
-                textCodePoints - total,
-                delta.codePointCount.coerceAtLeast(0),
-            )
+            val count = if (delta.cumulative) {
+                val previous = publishedCumulativeCodePoints[delta.sourceId.orEmpty()] ?: 0
+                delta.codePointCount - (previous.takeIf { it <= delta.codePointCount } ?: 0)
+            } else delta.codePointCount
+            total + min(textCodePoints - total, count.coerceAtLeast(0))
         }
 
         when {
@@ -243,7 +243,10 @@ internal class StreamingTailFadeTracker {
             }
         }
         if (text != previousText) {
-            publishedDeltaSequences += newDeltas.map(StreamingTextDelta::sequence)
+            newDeltas.maxOfOrNull { it.sequence }?.let { lastPublishedDeltaSequence = it }
+            newDeltas.filter { it.cumulative }.forEach { delta ->
+                publishedCumulativeCodePoints[delta.sourceId.orEmpty()] = delta.codePointCount
+            }
         }
         previousText = text
         return StreamingTailFadeSample(

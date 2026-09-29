@@ -22,7 +22,7 @@ import java.util.UUID
 /** Remote owns saved connections and presentation; native Codex owns durable execution. */
 internal class RemoteViewModel(
     connections: RemoteConnectionStore,
-    projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
+    private val projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
     private val attachmentStore: RemoteAttachmentStore? = null,
     private val fileStore: RemoteFileStore? = null,
     createClient: (String, String) -> FiloClient = { address, token -> FiloClient(address, token) },
@@ -345,13 +345,16 @@ internal class RemoteViewModel(
         if (generation != epoch) return
         historyMutation.withLock {
             if (generation != epoch) return
-            // A first turn may have no persisted overlap anchor before its final snapshot.
-            var nodes = state.value.nodes.filterNot { node ->
-                node.id.startsWith("live-") && node.turnId == page.runtime?.completedTurnId
+            val previousNodes = state.value.nodes
+            val (nodes, groups) = kotlinx.coroutines.withContext(projectionDispatcher) {
+                // A first turn may have no persisted overlap anchor before its final snapshot.
+                var admitted = previousNodes.filterNot { node ->
+                    node.id.startsWith("live-") && node.turnId == page.runtime?.completedTurnId
+                }
+                for (chunk in incoming.asReversed()) admitted = admitRemoteNodes(admitted, chunk.nodes)
+                admitted to projectRemoteTopology(admitted, page.runtime)
             }
-            for (chunk in incoming.asReversed()) nodes = admitRemoteNodes(nodes, chunk.nodes)
-            val runtime = page.runtime
-            val groups = projectRemoteTopology(nodes, runtime)
+            if (generation != epoch) return
             for (chunk in incoming.asReversed()) hydration.accept(owner, chunk, groups, live = false)
             if (generation != epoch) return
             mutableState.value = state.value.copy(

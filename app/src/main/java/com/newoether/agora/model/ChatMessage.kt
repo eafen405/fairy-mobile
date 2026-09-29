@@ -9,6 +9,10 @@ import java.util.UUID
 data class StreamingTextDelta(
     val sequence: Long,
     val codePointCount: Int,
+    /** A cumulative count allows remote snapshots to retain one delta after conflation. */
+    val cumulative: Boolean = false,
+    /** Each native text record has its own cumulative count. */
+    val sourceId: String? = null,
 )
 
 /**
