@@ -121,7 +121,6 @@
     <string name="generation_error_connection_reset">连接已重置。</string>
     <string name="generation_error_unknown_host">找不到主机。</string>
     <string name="generation_error_tls_failure">安全连接失败。</string>
-    <string name="tool_read_file_truncated">已显示部分内容 · 从字节 %1$d 继续</string>
     <string name="thought_for_a_while">思考了一会儿</string>
     <string name="thought_for_a_while_called_tools">思考了一会儿，调用 %1$d 个工具</string>
     <string name="mcp_status_idle">空闲</string>
