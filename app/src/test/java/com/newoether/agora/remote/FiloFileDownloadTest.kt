@@ -122,7 +122,7 @@ class FiloFileDownloadTest {
         }
         try {
             val client = applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
-            val pending = async {
+            val pending = async(kotlinx.coroutines.Dispatchers.IO) {
                 client.downloadAttachment("12345678-1234-1234-1234-123456789abc", "m1", 0) { _, _, _ ->
                     persisted.incrementAndGet()
                 }

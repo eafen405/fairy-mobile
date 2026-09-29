@@ -48,4 +48,5 @@
     <string name="remote_voice_failed">语音输入失败——按住重试</string>
     <string name="remote_voice_error_code">错误 %1$d：%2$s</string>
     <string name="remote_voice_open_settings">打开设置</string>
+    <string name="remote_file_no_viewer">未找到能打开此文件的应用</string>
 </resources>

@@ -50,6 +50,22 @@ class RemoteFileCardTest {
         assertEquals("file-1", saved?.fileId)
     }
 
+    @Test fun tappingFilenameOpensTheFileWithoutStartingSave() {
+        var opened: RemoteFile? = null
+        var saved = false
+        compose.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(
+                    com.newoether.agora.ui.chat.message.LocalRemoteFileOpen provides { f: RemoteFile -> opened = f },
+                    LocalRemoteFileAction provides { _: RemoteFile -> saved = true },
+                ) { RemoteFileCardList(listOf(file())) }
+            }
+        }
+        compose.onNodeWithText("report.pdf").performClick()
+        assertEquals("file-1", opened?.fileId)
+        org.junit.Assert.assertFalse(saved)
+    }
+
     @Test fun internalIdentifiersNeverReachTheSurface() {
         compose.setContent {
             MaterialTheme {

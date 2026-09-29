@@ -100,35 +100,13 @@ internal fun UserMessageBubble(
                         message.attachmentMeta?.items.orEmpty()
                     }
                     if (metaItems.isNotEmpty()) {
-                        // Remote attachments carry display metadata only; they render as
-                        // file cards — bytes never live on this device until saved.
+                        // Original bytes load through the authenticated attachment reader.
                         LazyRow(
                             modifier = Modifier.padding(bottom = if (message.text.isNotEmpty()) 8.dp else 0.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(metaItems) { item ->
-                                val fileName = item.fileName.orEmpty()
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.width(72.dp),
-                                ) {
-                                    FileThumbnail(
-                                        fileName = fileName,
-                                        isPdf = item.type == "pdf",
-                                        modifier = Modifier.size(64.dp),
-                                        fallbackLabel = item.type.uppercase().take(4).ifEmpty { "FILE" },
-                                    )
-                                    if (fileName.isNotBlank()) {
-                                        Text(
-                                            text = fileName,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(top = 2.dp),
-                                        )
-                                    }
-                                }
+                                RemoteAttachmentContent(item)
                             }
                         }
                     }

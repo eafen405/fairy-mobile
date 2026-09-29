@@ -56,6 +56,7 @@ internal fun RemoteConversation(
     onMediaClick: (List<String>, Int) -> Unit,
     onMessage: (String, String?, (() -> Unit)?) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val owner = state.owner ?: return
     val session = state.session ?: return
     val connectionStatus = when (state.devices.firstOrNull { it.id == state.deviceId }?.status) {
@@ -270,6 +271,29 @@ internal fun RemoteConversation(
             Unit
         }
     }
+    fun viewFile(staged: StagedRemoteFile) {
+        try {
+            context.startActivity(remoteFileViewIntent(context, staged))
+        } catch (_: android.content.ActivityNotFoundException) {
+            onMessage(context.getString(R.string.remote_file_no_viewer), null, null)
+        } catch (_: SecurityException) {
+            onMessage(fileSaveFailedText, null, null)
+        }
+    }
+    val openRemoteFile: (com.newoether.agora.model.RemoteFile) -> Unit = { file ->
+        fileScope.launch {
+            vm.prepareFileDownload(owner, file)?.let { staged ->
+                if (file.mime?.startsWith("image/") == true) onMediaClick(listOf(staged.file.absolutePath), 0)
+                else viewFile(staged)
+            }
+        }
+    }
+    val attachmentActions = com.newoether.agora.ui.chat.message.RemoteAttachmentActions(
+        owner = owner,
+        load = { ref -> vm.prepareAttachmentPreview(owner, ref) },
+        open = { staged -> viewFile(staged) },
+        image = { staged -> onMediaClick(listOf(staged.file.absolutePath), 0) },
+    )
     val windowExpanded = messages.isEmpty() && initiallyPositioned && !state.loading
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).clearFocusOnTap()
@@ -317,6 +341,8 @@ internal fun RemoteConversation(
             Box(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(
                     LocalRemoteFileAction provides saveRemoteFile,
+                    com.newoether.agora.ui.chat.message.LocalRemoteFileOpen provides openRemoteFile,
+                    com.newoether.agora.ui.chat.message.LocalRemoteAttachmentActions provides attachmentActions,
                     LocalRemoteFileSaving provides state.savingFiles,
                 ) {
                 MessageList(messages = StableMessageList(renderMessages.value),

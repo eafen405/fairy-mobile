@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +36,8 @@ import com.newoether.agora.ui.common.LocalAgoraHaptics
 internal val LocalRemoteFileAction = compositionLocalOf<((RemoteFile) -> Unit)?> { null }
 
 /** fileIds with an in-flight download/export, for the card progress affordance. */
+internal val LocalRemoteFileOpen = compositionLocalOf<((RemoteFile) -> Unit)?> { null }
+
 internal val LocalRemoteFileSaving = compositionLocalOf<Set<String>> { emptySet() }
 
 /**
@@ -46,15 +49,16 @@ internal val LocalRemoteFileSaving = compositionLocalOf<Set<String>> { emptySet(
 internal fun RemoteFileCardList(files: List<RemoteFile>, modifier: Modifier = Modifier) {
     val save = LocalRemoteFileAction.current
     val saving = LocalRemoteFileSaving.current
+    val open = LocalRemoteFileOpen.current
     Column(modifier = modifier.widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         files.forEach { file ->
-            RemoteFileCard(file, saving = file.fileId in saving, onSave = save)
+            RemoteFileCard(file, saving = file.fileId in saving, onSave = save, onOpen = open)
         }
     }
 }
 
 @Composable
-private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFile) -> Unit)?) {
+private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFile) -> Unit)?, onOpen: ((RemoteFile) -> Unit)?) {
     val haptics = LocalAgoraHaptics.current
     val tokens = LocalFairyTokens.current
     // Pill-toned fairyPanel capsule: type icon, name, size, save action.
@@ -62,6 +66,7 @@ private fun RemoteFileCard(file: RemoteFile, saving: Boolean, onSave: ((RemoteFi
         color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(enabled = !saving && file.fileId.isNotBlank() && onOpen != null) { onOpen?.invoke(file) }
             .fairyPanel(shape = RoundedCornerShape(50), color = tokens.pill),
     ) {
         Row(
