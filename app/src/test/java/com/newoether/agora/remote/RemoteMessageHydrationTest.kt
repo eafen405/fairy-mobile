@@ -64,6 +64,48 @@ class RemoteMessageHydrationTest {
         assertEquals(0L, streaming.preparedMarkdownBytes)
     }
 
+    @Test fun streamedTurnsPublishTerminalBodyWithoutWaitingForFullMarkdownPreparation() = runTest {
+        val state = MutableStateFlow(snapshot())
+        val hydration = RemoteMessageHydration(state, { _, _ -> error("Unexpected network") }, { throw it })
+        val owner = state.value.owner!!
+        val active = RemoteRuntime("active", "turn", activeTurnHasUserMessage = true)
+        val liveNode = node.copy(revision = "b".repeat(64))
+        val liveGroups = projectRemoteTopology(listOf(liveNode), active)
+        hydration.accept(owner, page(listOf(native.copy(text = "Streaming")), listOf(liveNode)).copy(runtime = active),
+            liveGroups, live = true)
+        state.value = state.value.copy(messageGroups = liveGroups, runtime = active)
+
+        val terminalNode = liveNode.copy(revision = "c".repeat(64))
+        val terminalBody = "# Complete\n\n" + "Long answer. ".repeat(1_000)
+        val terminalPage = page(listOf(native.copy(text = terminalBody)), listOf(terminalNode))
+            .copy(runtime = RemoteRuntime("idle", completedTurnId = "turn"))
+        val terminalGroups = projectRemoteTopology(listOf(terminalNode), terminalPage.runtime)
+        hydration.accept(owner, terminalPage, emptyList(), live = true)
+        hydration.accept(owner, terminalPage, terminalGroups, live = false)
+        val completed = hydration.cachedMessage(owner, terminalGroups.single())!!
+        assertEquals(terminalBody, completed.text)
+        assertTrue(completed.preparedMarkdown.isEmpty())
+        assertEquals(0L, completed.preparedMarkdownBytes)
+
+        // One turn can span several display groups. The fast path applies to each group.
+        val secondNode = terminalNode.copy(id = "answer-part-2", displayGroupId = "part-2",
+            revision = "d".repeat(64))
+        val splitPage = page(listOf(native.copy(text = terminalBody),
+            native.copy(id = secondNode.id, text = "Final appendix")),
+            listOf(terminalNode, secondNode)).copy(runtime = terminalPage.runtime)
+        val splitGroups = projectRemoteTopology(listOf(terminalNode, secondNode), terminalPage.runtime)
+        hydration.accept(owner, splitPage, emptyList(), live = true)
+        hydration.accept(owner, splitPage, splitGroups, live = false)
+        assertEquals(2, splitGroups.size)
+        splitGroups.forEach { group ->
+            assertTrue(hydration.cachedMessage(owner, group)!!.preparedMarkdown.isEmpty())
+        }
+
+        val reopened = RemoteMessageHydration(state, { _, _ -> error("Unexpected network") }, { throw it })
+        reopened.accept(owner, terminalPage, terminalGroups, live = false)
+        assertTrue(reopened.cachedMessage(owner, terminalGroups.single())!!.preparedMarkdown.isNotEmpty())
+    }
+
     @Test fun creatingOrUpdatingTopologyDoesNotReadBodiesAndHydrationKeepsAllStubPositions() = runTest {
         val state = MutableStateFlow(snapshot())
         var reads = 0

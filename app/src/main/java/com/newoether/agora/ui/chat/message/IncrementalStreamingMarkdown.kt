@@ -25,6 +25,7 @@ import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.model.ReferenceLinkHandlerImpl
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.markdownAnimations
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -36,11 +37,12 @@ import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 import kotlin.math.min
 
 private const val LONG_DOCUMENT_THRESHOLD_CHARS = 8_000
-private const val LONG_DOCUMENT_RENDER_INTERVAL_MS = 120L
+private const val LONG_DOCUMENT_RENDER_INTERVAL_MS = 16L
 
 /**
  * A parsed block whose source range is closed and can therefore keep the same identity for the
@@ -81,6 +83,7 @@ internal data class StreamingMarkdownSnapshot(
 
 private data class StreamingMarkdownInput(
     val revision: Long,
+    val generation: Long,
     val content: String,
     val isStreaming: Boolean,
     val textDeltas: List<StreamingTextDelta>?,
@@ -444,16 +447,19 @@ internal class IncrementalMarkdownDocument(
  * before their first rendered frame.
  */
 @Stable
-private class StreamingMarkdownRenderState(
+internal class StreamingMarkdownRenderState(
     flavour: MarkdownFlavourDescriptor,
     private val parseInlineDollarMath: Boolean,
     initialContent: String,
     initialIsStreaming: Boolean,
     private val fadeTracker: StreamingTailFadeTracker,
+    private val parseDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val nowMs: () -> Long = SystemClock::uptimeMillis,
 ) : StreamingMarkdownInteractionController {
     private val document = IncrementalMarkdownDocument(flavour)
     private val inputs = Channel<StreamingMarkdownInput>(Channel.CONFLATED)
     private val offeredRevision = AtomicLong(0L)
+    private val latestInput = AtomicReference<StreamingMarkdownInput?>(null)
     private val interactionCommitGate =
         StreamingInteractionCommitGate<StreamingMarkdownSnapshot>()
     private val _snapshot = MutableStateFlow(
@@ -473,12 +479,17 @@ private class StreamingMarkdownRenderState(
         textDeltas: List<StreamingTextDelta>?,
     ) {
         val revision = offeredRevision.incrementAndGet()
-        inputs.trySend(StreamingMarkdownInput(revision, content, isStreaming, textDeltas))
+        val previous = latestInput.get()
+        val generation = (previous?.generation ?: 0L) + if (previous != null &&
+            (!content.startsWith(previous.content) || isStreaming != previous.isStreaming)) 1L else 0L
+        val input = StreamingMarkdownInput(revision, generation, content, isStreaming, textDeltas)
+        latestInput.set(input)
+        inputs.trySend(input)
     }
 
     override fun setCodeBlockScrolling(owner: Any, active: Boolean) {
         interactionCommitGate.setActive(owner, active)?.let { pending ->
-            val nowMs = SystemClock.uptimeMillis()
+            val nowMs = nowMs()
             val preparedSource =
                 pending.inputContent.toRenderableMarkdownText(parseInlineDollarMath)
             _snapshot.value = pending.copy(
@@ -498,7 +509,7 @@ private class StreamingMarkdownRenderState(
             while (true) {
                 // Inputs are conflated while a long tail waits/parses. Consume the newest value
                 // before every cadence decision. Polling at most once per display frame lets a
-                // terminal/stop snapshot bypass the long-document 120 ms cadence immediately.
+                // terminal/stop snapshot bypass the long-document display-frame cadence immediately.
                 while (true) {
                     val newer = inputs.tryReceive().getOrNull() ?: break
                     input = newer
@@ -513,12 +524,12 @@ private class StreamingMarkdownRenderState(
                         0L
                     }
                 val remainingDelay =
-                    (lastRenderedAtMs + minimumIntervalMs - SystemClock.uptimeMillis())
+                    (lastRenderedAtMs + minimumIntervalMs - nowMs())
                         .coerceAtLeast(0L)
                 if (remainingDelay <= 0L) break
                 delay(minOf(remainingDelay, 16L))
             }
-            val (next, preparedSource) = withContext(Dispatchers.Default) {
+            val (next, preparedSource) = withContext(parseDispatcher) {
                 val preparedSource =
                     input.content.toRenderableMarkdownText(parseInlineDollarMath)
                 val next = document.update(
@@ -528,12 +539,15 @@ private class StreamingMarkdownRenderState(
                 ).copy(textDeltas = input.textDeltas)
                 next to preparedSource
             }
-            // Parsing is not cooperatively cancellable. A revision gate provides mapLatest
-            // semantics anyway: if tokens arrived during parsing, keep the previous measured tree
-            // until the newest parse succeeds instead of flashing this stale snapshot.
-            if (offeredRevision.get() == input.revision) {
+            // A completed prefix is useful progress while more text is arriving. Requiring the
+            // latest revision here would starve the display whenever parsing takes longer than
+            // the interval between tokens. Replacement and lifecycle changes invalidate earlier
+            // work even if a later input happens to grow back to the same prefix.
+            val latest = latestInput.get()
+            if (latest?.revision == input.revision ||
+                (latest != null && latest.generation == input.generation && input.isStreaming && latest.isStreaming)) {
                 interactionCommitGate.offer(next)?.let { published ->
-                    val nowMs = SystemClock.uptimeMillis()
+                    val nowMs = nowMs()
                     _snapshot.value = published.copy(
                         fadeSample = fadeTracker.update(
                             text = preparedSource,
@@ -542,7 +556,7 @@ private class StreamingMarkdownRenderState(
                         ),
                     )
                 }
-                lastRenderedAtMs = SystemClock.uptimeMillis()
+                lastRenderedAtMs = nowMs()
             }
         }
     }
