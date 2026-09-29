@@ -33,7 +33,7 @@ internal interface SpeechRecognitionEngine {
 }
 
 private const val VOICE_RECOGNITION_SERVICE_SETTING = "voice_recognition_service"
-private const val BIND_SPEECH_RECOGNITION_SERVICE = "android.permission.BIND_SPEECH_RECOGNITION_SERVICE"
+private const val BIND_RECOGNITION_SERVICE = "android.permission.BIND_RECOGNITION_SERVICE"
 
 internal fun selectRecognitionService(
     context: Context,
@@ -42,7 +42,7 @@ internal fun selectRecognitionService(
     val available = services.mapNotNull { service ->
         val info = service.serviceInfo ?: return@mapNotNull null
         if (!info.enabled || !info.exported || info.applicationInfo?.enabled == false ||
-            info.permission != BIND_SPEECH_RECOGNITION_SERVICE
+            info.permission != BIND_RECOGNITION_SERVICE
         ) return@mapNotNull null
         ComponentName(info.packageName, info.name)
     }

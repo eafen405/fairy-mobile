@@ -29,7 +29,7 @@ class SpeechRecognitionEngineTest {
         name: String,
         enabled: Boolean = true,
         exported: Boolean = true,
-        permission: String? = "android.permission.BIND_SPEECH_RECOGNITION_SERVICE",
+        permission: String? = "android.permission.BIND_RECOGNITION_SERVICE",
     ) = ResolveInfo().apply {
         serviceInfo = ServiceInfo().apply {
             packageName = "test.provider"
