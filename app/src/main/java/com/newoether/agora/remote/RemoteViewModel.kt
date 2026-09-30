@@ -82,6 +82,8 @@ internal class RemoteViewModel(
         report = { stage, error -> trace(stage, error) },
     )
     private val clients get() = deviceDirectory.clients
+    fun speechClient(owner: String): FiloClient? =
+        state.value.takeIf { it.owner == owner }?.deviceId?.let { clients[it] }
     private val sendController = RemoteSendController(
         state = mutableState,
         scope = viewModelScope,
@@ -98,6 +100,10 @@ internal class RemoteViewModel(
         fileStore = fileStore,
         client = { snapshot -> clients[snapshot.deviceId] },
         trace = { stage, error -> trace(stage, error) },
+    )
+    private val attachmentPreviews = RemoteAttachmentPreviews(
+        state, fileStore, { snapshot -> clients[snapshot.deviceId] }, viewModelScope,
+        { stage, error -> trace(stage, error) },
     )
 
     init { trace("owner_created"); restoreConnections() }
@@ -137,7 +143,10 @@ internal class RemoteViewModel(
         super.onCleared()
     }
 
-    private fun clearPendingFileExports() = fileDownloads.clear()
+    private fun clearPendingFileExports() {
+        fileDownloads.clear()
+        attachmentPreviews.clear()
+    }
 
     fun restoreConnections() = deviceDirectory.restoreConnections()
 
@@ -490,6 +499,13 @@ internal class RemoteViewModel(
      */
     suspend fun prepareFileDownload(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? =
         fileDownloads.prepare(owner, file)
+
+    suspend fun prepareFileView(owner: String, file: com.newoether.agora.model.RemoteFile): StagedRemoteFile? =
+        fileDownloads.prepareView(owner, file)
+
+    suspend fun prepareAttachmentPreview(
+        owner: String, attachment: com.newoether.agora.model.RemoteAttachmentRef,
+    ): StagedRemoteFile? = attachmentPreviews.prepare(owner, attachment)
 
     /** Final export to the user-chosen SAF document; honest false on any failure. */
     suspend fun exportPreparedFile(owner: String, token: String, target: android.net.Uri): Boolean =

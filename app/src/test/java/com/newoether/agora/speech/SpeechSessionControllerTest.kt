@@ -13,12 +13,18 @@ class SpeechSessionControllerTest {
         var cancelled = 0
         var destroyed = 0
         var startFailure: Exception? = null
+        var stopFailure: Exception? = null
+        var signalStarted = true
         override fun start(listener: SpeechRecognitionEngine.Listener) {
             startFailure?.let { throw it }
             started++
             this.listener = listener
+            if (signalStarted) listener.onCaptureStarted()
         }
-        override fun stopListening() { stopped++ }
+        override fun stopListening() {
+            stopFailure?.let { throw it }
+            stopped++
+        }
         override fun cancel() { cancelled++ }
         override fun destroy() { destroyed++ }
     }
@@ -184,6 +190,42 @@ class SpeechSessionControllerTest {
         assertEquals(1, h.engine?.destroyed)
     }
 
+    @Test fun lateTranscriptionAfterOwnerDisposalCannotChangeTheDraft() {
+        val h = Harness(draft = "typed")
+        h.controller.pressStarted()
+        h.controller.pressReleased()
+        h.controller.dispose()
+        h.final("late cloud result")
+        assertEquals("typed", h.draft)
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+    }
+
+    @Test fun releaseWhilePreparingCancelsBeforeCapture() {
+        val engine = FakeEngine().apply { signalStarted = false }
+        val h = Harness(engine = engine, draft = "typed")
+        h.controller.pressStarted()
+        assertEquals(SpeechInputPhase.PREPARING, h.controller.phase)
+        h.controller.pressReleased()
+        engine.listener?.onCaptureStarted()
+        assertEquals(SpeechInputPhase.IDLE, h.controller.phase)
+        assertEquals(0, engine.stopped)
+        assertEquals(1, engine.cancelled)
+        assertEquals("typed", h.draft)
+    }
+
+    @Test fun durationLimitStillAllowsSlideCancel() {
+        val engine = FakeEngine()
+        val h = Harness(engine = engine, draft = "typed")
+        h.controller.pressStarted()
+        engine.listener?.onCaptureLimitReached()
+        assertEquals(SpeechInputPhase.CAPTURED, h.controller.phase)
+        h.controller.pressMoved(threshold)
+        h.controller.pressReleased()
+        assertEquals(0, engine.stopped)
+        assertEquals(1, engine.cancelled)
+        assertEquals("typed", h.draft)
+    }
+
     @Test fun aProviderFinalDuringTheHoldCommitsOnRelease() {
         val h = Harness()
         h.controller.pressStarted()
@@ -253,5 +295,45 @@ class SpeechSessionControllerTest {
         assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
         assertEquals(SpeechInputFailure.PERMISSION, h.controller.failure)
         assertEquals("draft", h.draft)
+    }
+
+    @Test fun factoryFailureIsReportedWithoutChangingTheDraft() {
+        var draft = "draft"
+        val controller = SpeechSessionController(
+            engineFactory = { throw IllegalStateException("provider unavailable") },
+            hasPermission = { true },
+            requestPermission = {},
+            readDraft = { draft },
+            writeDraft = { draft = it },
+            cancelThresholdPx = threshold,
+        )
+        controller.pressStarted()
+        assertEquals(SpeechInputPhase.ERROR, controller.phase)
+        assertEquals(SpeechInputFailure.CLIENT, controller.failure)
+        assertEquals("draft", draft)
+    }
+
+    @Test fun providerErrorPreservesStableCodeAndRestoresDraft() {
+        val h = Harness(draft = "draft")
+        h.controller.pressStarted()
+        h.partial("temporary")
+        h.engine?.listener?.onError(SpeechInputFailure.AUDIO, 3)
+        assertEquals(SpeechInputFailure.AUDIO, h.controller.failure)
+        assertEquals(3, h.controller.failureCode)
+        assertEquals("draft", h.draft)
+        h.controller.dismissError()
+        assertNull(h.controller.failureCode)
+    }
+
+    @Test fun stopFailureEndsExclusiveModeAndRestoresDraft() {
+        val engine = FakeEngine().apply { stopFailure = IllegalStateException("service failed") }
+        val h = Harness(engine = engine, draft = "draft")
+        h.controller.pressStarted()
+        h.partial("temporary")
+        h.controller.pressReleased()
+        assertEquals(SpeechInputPhase.ERROR, h.controller.phase)
+        assertEquals(SpeechInputFailure.CLIENT, h.controller.failure)
+        assertEquals("draft", h.draft)
+        assertEquals(1, engine.destroyed)
     }
 }

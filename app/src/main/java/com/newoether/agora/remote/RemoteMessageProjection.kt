@@ -4,6 +4,7 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.MessageStatus
+import com.newoether.agora.model.RemoteAttachmentRef
 
 internal fun RemoteSession.displayTitle(untitled: String): String = title.takeUnless { it.isBlank() || it == id } ?: untitled
 
@@ -23,12 +24,16 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
         val answerText = StringBuilder()
         var previousAnswerId: String? = null
         var userText = first.displayText()
-        val attachments = mutableListOf<RemoteMessageAttachment>()
+        val attachments = mutableListOf<Pair<RemoteMessageAttachment, RemoteAttachmentRef?>>()
         // File source attribution is per record, never inherited across the group:
         // an outbound delivery card must not wear the label of an inbound one.
         val files = mutableListOf<Pair<RemoteFileRef, String?>>()
         fun accumulate(message: RemoteMessage) {
-            attachments += message.attachments
+            message.attachments.forEachIndexed { attachmentIndex, item ->
+                attachments += item to message.messageId?.takeIf { it.isNotBlank() }?.let { id ->
+                    RemoteAttachmentRef(id, attachmentIndex, item.name, item.mime, item.bytes, item.type)
+                }
+            }
             message.files.forEach { files += it to message.relayFrom }
         }
         accumulate(first)
@@ -99,13 +104,13 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
             timestamp = first.timestamp, modelName = "Fairy", runId = first.turnId,
             segments = segments,
             attachmentMeta = attachments.takeIf { it.isNotEmpty() }?.let { list ->
-                com.newoether.agora.model.AttachmentMeta(list.map { item ->
+                com.newoether.agora.model.AttachmentMeta(list.map { (item, ref) ->
                     com.newoether.agora.model.AttachmentItem(
                         type = item.type.ifBlank {
                             if (item.mime?.startsWith("image/") == true) "image" else "file"
                         },
                         fileName = item.name.takeIf { it.isNotBlank() },
-                        mimeType = item.mime, fileSize = item.bytes,
+                        mimeType = item.mime, fileSize = item.bytes, remote = ref,
                     )
                 })
             },

@@ -46,6 +46,10 @@ internal data class RemoteSendReceipt(val turnId: String, val clientId: String, 
 private data class FiloError(val code: String? = null, val error: String? = null)
 @Serializable
 private data class FairyAccount(val username: String, val role: String? = null)
+@Serializable
+internal data class RemoteSpeechAvailability(val available: Boolean, val maxDurationMs: Int)
+@Serializable
+private data class RemoteSpeechResult(val text: String)
 
 internal class FiloHttpException(val status: Int, val code: String? = null, val detail: String? = null) : IOException("Filo HTTP $status")
 internal class FiloStreamException(val detail: String? = null, val code: String? = null) : IOException("Filo could not read the native session")
@@ -177,6 +181,17 @@ internal class FiloClient(
     suspend fun me(): String =
         json.decodeFromString<FairyAccount>(request("api/me", base = base)).username
 
+    suspend fun speechAvailability(): RemoteSpeechAvailability =
+        json.decodeFromString<RemoteSpeechAvailability>(request("v1/speech"))
+
+    suspend fun transcribeSpeech(wav: ByteArray): String {
+        require(wav.size in 45..1_920_044) { "Invalid speech recording" }
+        return json.decodeFromString<RemoteSpeechResult>(request(
+            "v1/speech/transcriptions",
+            uploadBody = wav.toRequestBody("audio/wav".toMediaType()),
+        )).text
+    }
+
     suspend fun sessions(cursor: String? = null): RemoteSessionPage = withContext(Dispatchers.Default) {
         val page = json.decodeFromString<RemoteSessionPage>(request("v1/sessions", cursor))
         page.copy(sessions = page.sessions.map { it.copy(listCursor = cursor) })
@@ -268,10 +283,30 @@ internal class FiloClient(
     suspend fun downloadFile(
         fileId: String,
         persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
-    ): Unit = suspendCancellableCoroutine { continuation ->
+    ) {
         require(fileId.isNotBlank() && fileId != "." && fileId != "..") { "Invalid Filo file id" }
         val url = endpoint.newBuilder()
             .addPathSegments("v1/files").addPathSegment(fileId).build()
+        downloadVerified(url, persist)
+    }
+
+    suspend fun downloadAttachment(
+        sessionId: String, messageId: String, index: Int,
+        persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
+    ) {
+        require(messageId.isNotBlank() && messageId != "." && messageId != "..") { "Invalid Filo message id" }
+        require(index in 0 until REMOTE_ATTACHMENT_COUNT) { "Invalid Filo attachment index" }
+        val url = endpoint.newBuilder().addPathSegments("v1/sessions")
+            .addPathSegment(sessionId(sessionId)).addPathSegment("messages")
+            .addPathSegment(messageId).addPathSegment("attachments")
+            .addPathSegment(index.toString()).build()
+        downloadVerified(url, persist)
+    }
+
+    private suspend fun downloadVerified(
+        url: HttpUrl,
+        persist: suspend (input: java.io.InputStream, declaredLength: Long, mime: String?) -> Unit,
+    ): Unit = suspendCancellableCoroutine { continuation ->
         val call = fileCalls.newCall(Request.Builder().url(url).authorize().build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -281,6 +316,7 @@ internal class FiloClient(
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
+                        if (continuation.isCancelled) return
                         captureCookies(it)
                         if (!it.isSuccessful) throw httpError(it)
                         val declared = it.body.contentLength()

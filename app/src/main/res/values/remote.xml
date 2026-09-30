@@ -36,13 +36,20 @@
     <string name="remote_voice_input">Voice Input</string>
     <string name="remote_voice_hold_hint">Hold to talk</string>
     <string name="remote_voice_listening">Listening… slide up to cancel</string>
+    <string name="remote_voice_preparing">Connecting voice input…</string>
+    <string name="remote_voice_capture_limit">60 seconds reached. Release or slide up.</string>
     <string name="remote_voice_release_cancel">Release to cancel</string>
     <string name="remote_voice_processing">Recognizing…</string>
     <string name="remote_voice_permission_request">Microphone access is needed for voice input</string>
     <string name="remote_voice_permission_denied">Microphone permission denied — enable it in Settings</string>
-    <string name="remote_voice_unavailable">Voice input is unavailable on this device</string>
+    <string name="remote_voice_unavailable">Fairy voice input is unavailable. Use your keyboard’s voice input.</string>
+    <string name="remote_voice_busy">Voice input is busy. Try again shortly.</string>
     <string name="remote_voice_no_match">Didn\'t catch that — hold to try again</string>
     <string name="remote_voice_network">Speech recognition needs a network connection</string>
+    <string name="remote_voice_audio">Microphone recording failed; check microphone access</string>
+    <string name="remote_voice_client">Speech service failed; check voice input settings</string>
     <string name="remote_voice_failed">Voice input failed — hold to try again</string>
+    <string name="remote_voice_error_code">Error %1$d: %2$s</string>
     <string name="remote_voice_open_settings">Open Settings</string>
+    <string name="remote_file_no_viewer">No app can open this file</string>
 </resources>
