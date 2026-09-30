@@ -29,8 +29,8 @@ class FiloClientTest {
             try {
                 repeat(400) { index ->
                     val page = RemoteConversationPage(listOf(RemoteMessage("a", "turn", null,
-                        "assistant", "字".repeat(index + 1), 1)), null, emptyList(),
-                        RemoteRuntime(if (index == 399) "idle" else "active", model = "fairy"))
+                        "assistant", "字".repeat(index + 1), 1)), null,
+                        runtime = RemoteRuntime(if (index == 399) "idle" else "active", model = "fairy"))
                     exchange.responseBody.write("data: ${Json.encodeToString(page)}\n\n".toByteArray())
                 }
                 exchange.responseBody.flush()
