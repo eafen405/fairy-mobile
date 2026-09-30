@@ -1,9 +1,11 @@
 package com.newoether.agora.speech
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.content.pm.ResolveInfo
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognitionService
 import android.speech.RecognizerIntent
@@ -17,9 +19,11 @@ import java.util.Locale
  */
 internal interface SpeechRecognitionEngine {
     interface Listener {
+        fun onCaptureStarted() {}
+        fun onCaptureLimitReached() {}
         fun onPartialResult(text: String)
         fun onFinalResult(text: String)
-        fun onError(error: SpeechInputFailure)
+        fun onError(error: SpeechInputFailure, code: Int? = null)
     }
 
     fun start(listener: Listener)
@@ -30,24 +34,44 @@ internal interface SpeechRecognitionEngine {
     fun destroy()
 }
 
-internal fun isSpeechRecognitionAvailable(context: Context): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        SpeechRecognizer.isRecognitionAvailable(context)
-    } else {
-        @Suppress("DEPRECATION")
-        context.packageManager.queryIntentServices(
-            Intent(RecognitionService.SERVICE_INTERFACE), 0,
-        ).isNotEmpty()
+private const val VOICE_RECOGNITION_SERVICE_SETTING = "voice_recognition_service"
+private const val BIND_RECOGNITION_SERVICE = "android.permission.BIND_RECOGNITION_SERVICE"
+
+internal fun selectRecognitionService(
+    context: Context,
+    services: List<ResolveInfo>,
+): ComponentName? {
+    val available = services.mapNotNull { service ->
+        val info = service.serviceInfo ?: return@mapNotNull null
+        if (!info.enabled || !info.exported || info.applicationInfo?.enabled == false ||
+            info.permission != BIND_RECOGNITION_SERVICE
+        ) return@mapNotNull null
+        ComponentName(info.packageName, info.name)
     }
+    val selected = Settings.Secure.getString(
+        context.contentResolver, VOICE_RECOGNITION_SERVICE_SETTING,
+    )?.let(ComponentName::unflattenFromString)
+    return available.firstOrNull { it == selected } ?: available.firstOrNull()
+}
+
+private fun recognitionService(context: Context): ComponentName? {
+    @Suppress("DEPRECATION")
+    val services = context.packageManager.queryIntentServices(
+        Intent(RecognitionService.SERVICE_INTERFACE), 0,
+    )
+    return selectRecognitionService(context, services)
+}
 
 internal fun createSpeechRecognitionEngine(
     context: Context,
     locale: () -> Locale,
 ): SpeechRecognitionEngine? =
-    if (isSpeechRecognitionAvailable(context)) AndroidSpeechRecognitionEngine(context, locale) else null
+    recognitionService(context)?.let { AndroidSpeechRecognitionEngine(context, locale, it) }
 
-private fun Int.toSpeechError(): SpeechInputFailure = when (this) {
+internal fun Int.toSpeechError(): SpeechInputFailure = when (this) {
     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> SpeechInputFailure.PERMISSION
+    SpeechRecognizer.ERROR_AUDIO -> SpeechInputFailure.AUDIO
+    SpeechRecognizer.ERROR_CLIENT -> SpeechInputFailure.CLIENT
     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> SpeechInputFailure.NO_MATCH
     SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_NETWORK,
     SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> SpeechInputFailure.NETWORK
@@ -61,6 +85,7 @@ private fun Int.toSpeechError(): SpeechInputFailure = when (this) {
 private class AndroidSpeechRecognitionEngine(
     private val context: Context,
     private val locale: () -> Locale,
+    private val service: ComponentName,
 ) : SpeechRecognitionEngine {
     private var recognizer: SpeechRecognizer? = null
     private var listener: SpeechRecognitionEngine.Listener? = null
@@ -72,7 +97,7 @@ private class AndroidSpeechRecognitionEngine(
         override fun onBufferReceived(buffer: ByteArray?) {}
         override fun onEndOfSpeech() {}
         override fun onError(error: Int) {
-            listener?.onError(error.toSpeechError())
+            listener?.onError(error.toSpeechError(), error)
         }
         override fun onResults(results: Bundle?) {
             listener?.onFinalResult(results.firstRecognizedText())
@@ -88,13 +113,14 @@ private class AndroidSpeechRecognitionEngine(
 
     override fun start(listener: SpeechRecognitionEngine.Listener) {
         this.listener = listener
+        listener.onCaptureStarted()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale().toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
-        val active = recognizer ?: SpeechRecognizer.createSpeechRecognizer(context).also {
+        val active = recognizer ?: SpeechRecognizer.createSpeechRecognizer(context, service).also {
             it.setRecognitionListener(bridge)
             recognizer = it
         }

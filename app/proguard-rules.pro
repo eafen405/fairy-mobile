@@ -7,20 +7,12 @@
 -keepclassmembers class com.newoether.agora.** { *** Companion; }
 -keepclasseswithmembers class com.newoether.agora.** { kotlinx.serialization.KSerializer serializer(...); }
 
-# Room
--keep class * extends androidx.room.RoomDatabase
--dontwarn androidx.room.paging.**
-
 # OkHttp & Okio
 -dontwarn okhttp3.**
 -dontwarn okio.**
 
 # DataStore
 -keepclassmembers class * extends androidx.datastore.preferences.protobuf.GeneratedMessageLite { <fields>; }
-
-# JSch (SSH/SFTP)
--keep class com.jcraft.jsch.** { *; }
--dontwarn com.jcraft.jsch.**
 
 # Compose
 -dontwarn androidx.compose.**

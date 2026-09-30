@@ -1,65 +1,57 @@
 package com.newoether.agora
 
 import android.app.Application
-import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.di.AppContainer
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
-import com.newoether.agora.util.CrashReporter
 import com.newoether.agora.util.DebugLog
+import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val LEGACY_DATABASE_NAME = "agora_db"
+private const val LEGACY_WORK_DATABASE_NAME = "androidx.work.workdb"
+
 /**
- * Application entry point. Installs the crash reporter before any other component runs so
- * that crashes occurring during startup are captured as well.
+ * Application entry point. Owns the process-scoped AppContainer.
  *
- * Owns the process-scoped AppContainer, but publishes it only after the durable database has
- * passed compatibility checks, supported migrations, and Room schema validation.
+ * The remote-only shell keeps no local database. Legacy state from the
+ * upstream Agora build is deleted once at startup; there is no migration
+ * and no recovery UI.
  */
 class AgoraApplication : Application() {
     private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val containerDeferred = CompletableDeferred<AppContainer>()
 
-    private val startupGate = DatabaseStartupGate(
-        inspectDatabase = {
-            withContext(Dispatchers.IO) {
-                ChatDatabase.inspectCompatibility(this@AgoraApplication)
-            }
-        },
-        openResource = {
-            withContext(Dispatchers.IO) {
-                val database = ChatDatabase.build(this@AgoraApplication)
-                AppContainer(this@AgoraApplication, database)
-            }
-        },
-        closeResource = { container -> container.database.close() },
-        deleteDatabase = {
-            withContext(Dispatchers.IO) {
-                val databasePath = getDatabasePath(ChatDatabase.DB_NAME)
-                !databasePath.exists() ||
-                    this@AgoraApplication.deleteDatabase(ChatDatabase.DB_NAME)
-            }
-        },
-        reportFailure = { error ->
-            DebugLog.e(
-                "AgoraApplication",
-                "Database startup gate failed closed",
-                error,
-            )
-        },
-    )
-
-    val databaseStartupState: StateFlow<DatabaseStartupState>
-        get() = startupGate.state
+    // One-time cleanup for installs upgraded from the upstream Agora lineage:
+    // the Room agora_db, the WorkManager store (any queued task/loop/backup
+    // work can no longer run without the library), and the on-disk
+    // memory/skill stores. Armed automation alarms are not cancelled — they
+    // are keyed by per-item data URIs we can no longer enumerate, their
+    // receiver is gone (delivery is a no-op), and they do not survive reboot.
+    private fun deleteLegacyState() {
+        applicationContext.deleteDatabase(LEGACY_DATABASE_NAME)
+        // WorkManager keeps its queue db under noBackupFilesDir, which
+        // deleteDatabase does not touch. Only the workdb file and its journal
+        // siblings go — remote-connections.json and diagnostics share the dir.
+        listOf("", "-wal", "-shm", "-journal").forEach { suffix ->
+            File(applicationContext.noBackupFilesDir, "$LEGACY_WORK_DATABASE_NAME$suffix").delete()
+        }
+        listOf("memory_db", "skill_db").forEach { name ->
+            File(applicationContext.filesDir, name).deleteRecursively()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.install(this)
         startupScope.launch {
+            withContext(Dispatchers.IO) {
+                deleteLegacyState()
+            }
             try {
                 DeveloperDiagnostics.initialize(noBackupFilesDir, startupScope)
             } catch (cancelled: CancellationException) {
@@ -71,19 +63,12 @@ class AgoraApplication : Application() {
                     error,
                 )
             }
-            startupGate.initialize()
+            val container = withContext(Dispatchers.IO) {
+                AppContainer(this@AgoraApplication)
+            }
+            containerDeferred.complete(container)
         }
     }
 
-    suspend fun awaitDatabaseStartup(): DatabaseStartupState =
-        startupGate.awaitState()
-
-    suspend fun awaitContainer(): AppContainer? =
-        startupGate.awaitReadyResource()
-
-    fun requireContainer(): AppContainer =
-        startupGate.requireReadyResource()
-
-    suspend fun clearIncompatibleDatabase(): Boolean =
-        startupGate.clearBlockedDatabase()
+    suspend fun awaitContainer(): AppContainer = containerDeferred.await()
 }

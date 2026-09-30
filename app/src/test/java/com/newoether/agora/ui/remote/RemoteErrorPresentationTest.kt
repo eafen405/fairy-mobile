@@ -27,10 +27,11 @@ class RemoteErrorPresentationTest {
             "Original desktop owner is unavailable", "desktop_unavailable")
         val english = remoteNoticeMessage(context("en"), notice)
         val chinese = remoteNoticeMessage(context("zh-CN"), notice)
-        assertTrue(english.contains("Open Codex"))
+        assertTrue(english.contains("Open Fairy"))
         assertTrue(chinese.contains("目标电脑"))
         assertFalse(chinese.contains("Original desktop owner"))
-        assertTrue(remoteNoticeMessage(context("zh-TW"), notice).contains("目標電腦"))
+        // No Traditional Chinese resources ship; zh-TW falls back to the default file.
+        assertEquals(english, remoteNoticeMessage(context("zh-TW"), notice))
         assertTrue(notice.canRetryRead)
     }
 
@@ -39,7 +40,7 @@ class RemoteErrorPresentationTest {
             val notice = RemoteNotice("send_failed", RemoteFailure.SERVICE, 1, "Provider limit: 429", code)
             val text = remoteNoticeMessage(context("zh-CN"), notice)
             assertTrue(text.contains("Provider limit: 429"))
-            assertTrue(text.contains("Codex 未能"))
+            assertTrue(text.contains("Fairy 未能"))
             assertFalse(notice.canRetryRead)
         }
     }

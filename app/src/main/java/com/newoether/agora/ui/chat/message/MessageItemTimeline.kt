@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,7 +64,6 @@ private enum class CompactSegmentIcon {
     LOADING,
     THINKING,
     TOOL,
-    IMAGE,
 }
 
 internal fun compactSegmentShowsLoading(
@@ -89,7 +87,6 @@ internal fun CompactSegmentBlock(
     autoExpansionController: GroupedSegmentAutoExpansionController? = null,
     autoExpansionEnabled: Boolean = false,
     autoExpansionActive: Boolean = false,
-    collapseForImageBoundary: Boolean = false,
     modifier: Modifier = Modifier,
     topPaddingExtra: Dp = 0.dp,
     bottomPaddingExtra: Dp = 6.dp,
@@ -114,11 +111,6 @@ internal fun CompactSegmentBlock(
         durationMillis = SEGMENT_ENTER_DURATION_MS,
         initialScale = SEGMENT_ENTER_INITIAL_SCALE,
     )
-    val collapseImageBoundaryOnAppearance =
-        autoExpansionController?.shouldCollapseForImageBoundary(
-            key = expansionKey,
-            hasImageBoundary = collapseForImageBoundary,
-        ) == true
     val initiallyAutoExpanded =
         autoExpansionController?.shouldPresentInitiallyExpanded(
             key = expansionKey,
@@ -128,7 +120,6 @@ internal fun CompactSegmentBlock(
     val isExpanded = groupedSegmentExpandedState(
         persistedExpanded = expandedStates[expansionKey],
         initiallyAutoExpanded = initiallyAutoExpanded,
-        collapseForImageBoundary = collapseImageBoundaryOnAppearance,
     )
     val currentOnExpansionStarted by rememberUpdatedState(onExpansionStarted)
     val currentOnExpansionSettled by rememberUpdatedState(onExpansionSettled)
@@ -137,19 +128,7 @@ internal fun CompactSegmentBlock(
         expansionKey,
         autoExpansionEnabled,
         autoExpansionActive,
-        collapseImageBoundaryOnAppearance,
-        collapseForImageBoundary,
     ) {
-        if (collapseImageBoundaryOnAppearance) {
-            val claimed = autoExpansionController.claimImageBoundaryCollapse(
-                key = expansionKey,
-                hasImageBoundary = collapseForImageBoundary,
-            ) == true
-            if (claimed && expandedStates[expansionKey] != false) {
-                expandedStates[expansionKey] = false
-            }
-            return@LaunchedEffect
-        }
         val targetExpanded = when (
             autoExpansionController?.update(
                 key = expansionKey,
@@ -177,7 +156,6 @@ internal fun CompactSegmentBlock(
     val isThinking = cardUsesLiveStatus &&
         message.status == MessageStatus.THINKING &&
         segs.any { it.type == "thought" }
-    val isTranscribing = cardUsesLiveStatus && message.status == MessageStatus.TRANSCRIBING
     val toolCount = segs.count { it.type == "tool" }
     val thoughtMs = thoughtDurationMs(segs, fallbackMs = message.thoughtTimeMs)
     val hasThought = thoughtMs != null && thoughtMs > 0
@@ -190,28 +168,17 @@ internal fun CompactSegmentBlock(
     val collapsedIcon = when {
         showLoading -> CompactSegmentIcon.LOADING
         !isThinking && !hasThought && toolCount > 0 -> CompactSegmentIcon.TOOL
-        isTranscribing || collapsedTitle == "Image Transcription" -> CompactSegmentIcon.IMAGE
         else -> CompactSegmentIcon.THINKING
     }
     val expansionTransition = updateTransition(
         targetState = isExpanded,
         label = "compactSegmentExpansion",
     )
-    val mergedBottomPadding = if (collapseImageBoundaryOnAppearance) {
-        GENERATED_IMAGE_BOUNDARY_GAP_DP.dp
-    } else if (allowSpatialTransitions) {
+    val mergedBottomPadding = if (allowSpatialTransitions) {
         val animatedPadding by expansionTransition.animateDp(
             transitionSpec = { tween(400) },
             label = "compactSegmentPad",
-        ) { expanded ->
-            if (expanded) {
-                12.dp
-            } else if (collapseForImageBoundary) {
-                GENERATED_IMAGE_BOUNDARY_GAP_DP.dp
-            } else {
-                4.dp
-            }
-        }
+        ) { expanded -> if (expanded) 12.dp else 4.dp }
         animatedPadding
     } else if (
         retainExpandedLayoutDuringFade(
@@ -220,8 +187,6 @@ internal fun CompactSegmentBlock(
         )
     ) {
         12.dp
-    } else if (collapseForImageBoundary) {
-        GENERATED_IMAGE_BOUNDARY_GAP_DP.dp
     } else {
         4.dp
     }
@@ -253,8 +218,7 @@ internal fun CompactSegmentBlock(
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val useExpandedHeaderLayout =
-        !collapseImageBoundaryOnAppearance &&
-            retainExpandedLayoutDuringFade(
+        retainExpandedLayoutDuringFade(
                 currentExpanded = expansionTransition.currentState,
                 targetExpanded = expansionTransition.targetState,
             )
@@ -281,7 +245,7 @@ internal fun CompactSegmentBlock(
         val collapsedCardWidth = minOf(collapsedHeaderWidth, availableWidth)
         val cardWidth by expansionTransition.animateDp(
             transitionSpec = {
-                if (collapseImageBoundaryOnAppearance || !allowSpatialTransitions) {
+                if (!allowSpatialTransitions) {
                     snap()
                 } else {
                     tween(
@@ -303,9 +267,7 @@ internal fun CompactSegmentBlock(
         }
         val disclosureRotation by animateFloatAsState(
             targetValue = targetDisclosureRotation,
-            animationSpec = if (
-                allowSpatialTransitions && !collapseImageBoundaryOnAppearance
-            ) {
+            animationSpec = if (allowSpatialTransitions) {
                 tween(durationMillis = 400, easing = LinearOutSlowInEasing)
             } else {
                 snap()
@@ -376,12 +338,6 @@ internal fun CompactSegmentBlock(
                             modifier = Modifier.size(16.dp),
                             tint = iconTint,
                         )
-                        CompactSegmentIcon.IMAGE -> Icon(
-                            Icons.Filled.Image,
-                            null,
-                            modifier = Modifier.size(16.dp),
-                            tint = iconTint,
-                        )
                         CompactSegmentIcon.THINKING -> Icon(
                             androidx.compose.ui.res.painterResource(
                                 id = com.newoether.agora.R.drawable.neurology_24,
@@ -417,14 +373,12 @@ internal fun CompactSegmentBlock(
             expansionTransition.AnimatedVisibility(
                 visible = { it },
                 enter = when {
-                    collapseImageBoundaryOnAppearance -> EnterTransition.None
                     containsToolSummary && allowSpatialTransitions -> expandVertically(tween(400))
                     containsToolSummary -> EnterTransition.None
                     allowSpatialTransitions -> fadeIn(tween(400)) + expandVertically(tween(400))
                     else -> fadeIn(tween(400))
                 },
                 exit = when {
-                    collapseImageBoundaryOnAppearance -> ExitTransition.None
                     containsToolSummary && allowSpatialTransitions -> shrinkVertically(tween(400))
                     containsToolSummary -> ExitTransition.None
                     allowSpatialTransitions -> fadeOut(tween(400)) + shrinkVertically(tween(400))
@@ -446,7 +400,7 @@ internal fun CompactSegmentBlock(
                         forceOpaque = seg.type == "tool",
                       ) {
                        Column {
-                        if ((seg.type == "thought" && seg.content.isNotBlank()) || seg.type == "transcription") {
+                        if (seg.type == "thought" && seg.content.isNotBlank()) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -457,34 +411,18 @@ internal fun CompactSegmentBlock(
                                     .padding(horizontal = 10.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    if (seg.type == "transcription") transcriptionLabel(segs, idx) else stringResource(R.string.tool_thinking),
+                                    stringResource(R.string.tool_thinking),
                                     style = ChatType.meta,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 if (seg.content.isNotBlank()) {
-                                    if (seg.type == "thought") {
-                                        StreamingThoughtPreviewText(
-                                            content = seg.content,
-                                            streaming =
-                                                isStreaming &&
-                                                    useLiveStatus &&
-                                                    idx == segs.lastIndex,
-                                        )
-                                    } else {
-                                        StreamingMutedText(
-                                            text = seg.content.replace('\n', ' '),
-                                            streaming =
-                                                isStreaming &&
-                                                    useLiveStatus &&
-                                                    idx == segs.lastIndex,
-                                        )
-                                    }
-                                } else {
-                                    Text(
-                                        text = "Image transcription is empty.",
-                                        style = ChatType.metaNormal,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    StreamingThoughtPreviewText(
+                                        content = seg.content,
+                                        streaming =
+                                            isStreaming &&
+                                                useLiveStatus &&
+                                                idx == segs.lastIndex,
                                     )
                                 }
                             }
@@ -559,7 +497,6 @@ internal fun timelineInfoTopPaddingExtra(hasVisibleMessageAbove: Boolean): Dp =
     if (hasVisibleMessageAbove) 8.dp else 0.dp
 
 internal const val SEGMENT_GROUP_GAP_DP = 2
-private const val GENERATED_IMAGE_BOUNDARY_GAP_DP = 8
 
 private fun segmentGroupTopPadding(
     position: SegmentGroupPosition,
@@ -585,7 +522,6 @@ internal fun TimelineInfoSegmentCard(
     animateAppearance: Boolean,
     topPaddingExtra: Dp = 0.dp,
     groupPosition: SegmentGroupPosition = SegmentGroupPosition.SINGLE,
-    endsAtGeneratedImageBoundary: Boolean = false,
     neutralPalette: Boolean = false,
     extendIntoMessageInsets: Boolean = false,
     cardAnimationKey: String,
@@ -630,9 +566,7 @@ internal fun TimelineInfoSegmentCard(
                     .width(requestedCardWidth)
             .padding(
                 top = segmentGroupTopPadding(groupPosition, topPaddingExtra),
-                bottom = if (endsAtGeneratedImageBoundary) {
-                    GENERATED_IMAGE_BOUNDARY_GAP_DP.dp
-                } else segmentGroupBottomPadding(groupPosition),
+                bottom = segmentGroupBottomPadding(groupPosition),
             )
             .then(cardAppearanceModifier)
             .clip(groupShape)
@@ -646,11 +580,8 @@ internal fun TimelineInfoSegmentCard(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
         ) {
             val isTool = seg.type == "tool"
-            val isTranscription = seg.type == "transcription"
             if (isTool) {
                 Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp), tint = iconTint)
-            } else if (isTranscription) {
-                Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp), tint = iconTint)
             } else {
                 Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = Modifier.size(16.dp), tint = iconTint)
             }
@@ -659,7 +590,6 @@ internal fun TimelineInfoSegmentCard(
                 Text(
                     text = when (seg.type) {
                         "tool" -> toolDisplayName(seg)
-                        "transcription" -> transcriptionLabel(detailSegments, detailIndex)
                         else -> stringResource(R.string.tool_thinking)
                     },
                     style = ChatType.meta,
@@ -676,8 +606,6 @@ internal fun TimelineInfoSegmentCard(
                 } else {
                     val summary = when (seg.type) {
                         "tool" -> toolSummary(seg)
-                        "transcription" -> seg.content.takeIf { it.isNotBlank() }
-                            ?: "Image transcription is empty."
                         else -> ""
                     }
                     if (summary.isNotBlank()) {

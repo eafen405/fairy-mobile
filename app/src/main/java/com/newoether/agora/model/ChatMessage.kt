@@ -3,47 +3,7 @@ package com.newoether.agora.model
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.json.JsonObject
 import java.util.UUID
-
-@Serializable
-data class ToolCallData(
-    val toolName: String,
-    val arguments: String,
-    val result: String,
-    val signature: String? = null,
-    val toolCallId: String? = null,
-    val resultImages: List<ToolImageAttachment> = emptyList(),
-    /** Stable provider-supplied title. Internal protocol names remain in [toolName]. */
-    val displayName: String? = null,
-    /** Human-readable result content kept separate from the protocol-facing [result]. */
-    val resultText: String? = null,
-    /** Provider-declared structured result JSON, never inferred from arbitrary text. */
-    val structuredResult: String? = null,
-    /** Raw provider protocol items needed to reconstruct a stateless tool continuation. */
-    val responseOutputItems: List<JsonObject> = emptyList(),
-    /** Provider identity that owns [responseOutputItems]; foreign transports must ignore them. */
-    val responseOutputItemProvider: String? = null,
-    /** Transcription description of a tool-result image; travels with the result row. */
-    val transcription: String? = null,
-)
-
-@Serializable
-data class ToolImageAttachment(
-    val path: String,
-    val mimeType: String,
-    val sizeBytes: Long,
-    val width: Int? = null,
-    val height: Int? = null,
-    val sha256: String,
-)
-
-/** Disposable image presentation; an absent attachment is pending unless the read failed. */
-@Immutable
-data class MarkdownImage(
-    val attachment: ToolImageAttachment? = null,
-    val failed: Boolean = false,
-)
 
 @Immutable
 data class StreamingTextDelta(
@@ -51,58 +11,26 @@ data class StreamingTextDelta(
     val codePointCount: Int,
 )
 
+/**
+ * One projected Remote message record. Server activities resolve to "answer",
+ * "thought", "tool", or a terminal "error" segment.
+ */
 @Serializable
 data class MessageSegment(
-    val type: String, // "answer", "thought", "tool", "citation", "transcription", or terminal "error"
+    val type: String,
     val content: String = "",
-    val toolName: String? = null,
-    val toolArgs: String? = null,
-    val toolResult: String? = null,
     val toolCallId: String? = null,
-    val signature: String? = null,
-    /**
-     * Provider that issued [signature]. Signatures are opaque provider protocol state and must
-     * never be replayed to a different wire protocol. This lives in the existing JSON segment
-     * payload, so old rows remain readable without a Room schema migration.
-     */
-    val signatureProvider: String? = null,
     val durationMs: Long? = null,
-    /** Durable UI lifecycle for tool segments. Null keeps old rows backward-compatible. */
+    /** Durable UI lifecycle for tool segments. */
     val toolState: String? = null,
-    /** Bounded, display-only live output. The final model-facing result remains [toolResult]. */
-    val toolProgress: String? = null,
-    /** Resolved execution target for tool UI. Kept separate from lifecycle and output text. */
-    val toolTarget: String? = null,
-    /** Stable provider-supplied title. Internal protocol names remain in [toolName]. */
+    /** Stable server-curated title for a bounded remote activity. */
     val toolDisplayName: String? = null,
-    /** Human-readable result content kept separate from the protocol-facing [toolResult]. */
-    val toolResultText: String? = null,
-    /** Provider-declared structured result JSON, never inferred from arbitrary text. */
-    val toolStructuredResult: String? = null,
     /**
      * Short server-curated outcome note for a bounded remote activity, shown only on
      * failure or stop. Never a raw error, tool output, or internal detail.
      */
     val toolNote: String? = null,
-    /** Private-file metadata for image content returned by a tool. */
-    val toolImages: List<ToolImageAttachment> = emptyList(),
-    /** Opaque revision for a demand-loaded preview; never persisted or sent to a Provider. */
-    @Transient
-    val toolImageRequestKey: String? = null,
-    /**
-     * Transcription description of a tool-result image (view_image). Persisted WITH the result
-     * row so the API projection can inject it into the model context — the round-boundary path
-     * rebuild does not include the model message, so a segment living there is unreachable.
-     * Displayed only in the Image Transcription thinking block, never in the tool card.
-     */
-    val toolTranscription: String? = null,
-    /** Raw provider protocol items needed to reconstruct a stateless tool continuation. */
-    val responseOutputItems: List<JsonObject> = emptyList(),
-    /** Provider identity that owns [responseOutputItems]; foreign transports must ignore them. */
-    val responseOutputItemProvider: String? = null,
-    /** Stable semantic cause for terminal error segments. Null keeps old rows backward-compatible. */
-    val errorCode: String? = null,
-    /** In-memory Provider delta boundaries for the active answer; never persisted to Room JSON. */
+    /** In-memory provider delta boundaries for the active answer; never persisted. */
     @Transient
     val streamingTextDeltas: List<StreamingTextDelta> = emptyList(),
 )
@@ -185,68 +113,33 @@ data class RemoteFile(
 )
 
 enum class MessageStatus {
-    TRANSCRIBING, SENDING, THINKING, TOOL_CALLING, SUCCESS, STOPPED, ERROR
+    SENDING, THINKING, TOOL_CALLING, SUCCESS, STOPPED, ERROR
 }
 
 @Immutable
 data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
-    val parentId: String? = null,
     val text: String,
-    val images: List<String> = emptyList(),
     val thoughts: String? = null,
     val thoughtTitle: String? = null,
-    val tokenCount: Int = 0,
-    val tokenUsage: TokenUsage? = null,
-    val status: MessageStatus = MessageStatus.SUCCESS, // Default to SUCCESS for old messages
+    val status: MessageStatus = MessageStatus.SUCCESS,
     val participant: Participant,
     val timestamp: Long = System.currentTimeMillis(),
     val thoughtTimeMs: Long? = null,
     val modelName: String? = null,
-    val toolCall: ToolCallData? = null,
     val segments: List<MessageSegment>? = null,
     val attachmentMeta: AttachmentMeta? = null,
-    val retryText: String? = null,
+    /** Remote message topology: the previous group's tail owns the next group's parent edge. */
+    val parentId: String? = null,
     val runId: String? = null,
-    val runSequence: Long? = null,
-    val consumedAtPass: Int? = null,
     /** Optional in-memory page boundary; older pages cannot reparent a rendered list item. */
     val displayPageId: String? = null,
-    /** Authenticated private files for inline Markdown images; never part of native history. */
-    val markdownImages: Map<String, MarkdownImage> = emptyMap(),
     /** Files published by the Remote service on this message; display metadata only. */
     val remoteFiles: List<RemoteFile> = emptyList(),
-    /** Disposable off-main Markdown preparation; never persisted in Room or native history. */
+    /** Disposable off-main Markdown preparation; never persisted or sent to the service. */
     val preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     val preparedMarkdownBytes: Long = 0,
-
 )
-
-@Immutable
-data class ChatConversation(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val systemPromptId: String? = null,
-    val modelId: String? = null,
-    /** Set when this conversation is a task execution; drives the "from task" banner. */
-    val taskId: String? = null,
-    val origin: String = "user",
-    val graduated: Boolean = false,
-    val hasUnreadGeneration: Boolean = false,
-    val selectedBranchesJson: String? = null,
-)
-
-fun ChatMessage.isContextCompact(): Boolean =
-    id.startsWith(com.newoether.agora.util.Constants.COMPACT_MSG_PREFIX)
-
-fun ChatMessage.isSuccessfulContextCompact(): Boolean =
-    isContextCompact() && status == MessageStatus.SUCCESS
 
 @Immutable
 data class StableMessageList(val list: List<ChatMessage> = emptyList())
-
-@Immutable
-data class StableModelAliases(
-    val map: Map<String, String> = emptyMap(),
-    val providerNames: Map<String, Boolean> = emptyMap(),
-)

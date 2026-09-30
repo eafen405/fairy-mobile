@@ -1,6 +1,6 @@
 package com.newoether.agora.ui.components
 
-import com.newoether.agora.mcp.McpConnectionStatus
+import com.newoether.agora.model.McpConnectionStatus
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import org.junit.Assert.assertEquals

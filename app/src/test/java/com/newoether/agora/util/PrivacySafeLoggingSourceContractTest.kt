@@ -65,52 +65,6 @@ class PrivacySafeLoggingSourceContractTest {
             }
     }
 
-    @Test
-    fun `generation diagnostics do not log request content private endpoints or raw responses`() {
-        val sourceRoot = locateMainSourceRoot()
-        val protectedSources = listOf(
-            "com/newoether/agora/api/HttpClient.kt",
-            "com/newoether/agora/api/LlamaChatEngine.kt",
-            "com/newoether/agora/api/LlamaEngine.kt",
-            "com/newoether/agora/api/anthropic/AnthropicProvider.kt",
-            "com/newoether/agora/api/gemini/GeminiProvider.kt",
-            "com/newoether/agora/api/local/LocalProvider.kt",
-            "com/newoether/agora/api/ollama/OllamaProvider.kt",
-            "com/newoether/agora/api/openai/BaseOpenAiProvider.kt",
-            "com/newoether/agora/api/util/MessageConverter.kt",
-            "com/newoether/agora/automation/TaskManager.kt",
-            "com/newoether/agora/data/AutoBackupManager.kt",
-        ).associateWith { relativePath ->
-            extractDebugLogCalls(File(sourceRoot, relativePath).readText())
-        }
-
-        val forbiddenFragments = listOf(
-            "BODY:",
-            "prompt.take(",
-            "POST \$url",
-            "host=\$domainName",
-            "endpoint=\$endpoint",
-            "at \$endpointUrl",
-            "from \$endpointUrl",
-            "\${endpointUrls.first()}",
-            ": \$errorRaw",
-            "\$baseUrl/",
-            "image: \$imagePath",
-            "\${model.mmprojPath}",
-            ": \$modelPath",
-            "cursor '\$cursor'",
-            "\${e.message}",
-            "\${task.name}",
-            "\${result.reason}",
-        )
-
-        protectedSources.forEach { (path, source) ->
-            forbiddenFragments.forEach { fragment ->
-                assertFalse("$path contains unsafe logging fragment: $fragment", source.contains(fragment))
-            }
-        }
-    }
-
     private fun extractDebugLogCalls(source: String): String = buildString {
         var searchFrom = 0
         while (true) {

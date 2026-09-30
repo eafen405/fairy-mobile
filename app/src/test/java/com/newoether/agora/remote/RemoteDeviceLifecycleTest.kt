@@ -103,7 +103,7 @@ internal class RemoteDeviceLifecycleTest : RemoteViewModelFixture() {
         coEvery { client.send(any(), any(), any(), any()) } coAnswers { RemoteSendReceipt("turn", arg(2)) }
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.selectSession(session); runCurrent()
-        events.emit(bodyPage(emptyList(), null, emptyList(), RemoteRuntime("active", "turn"))); runCurrent()
+        events.emit(bodyPage(emptyList(), null, RemoteRuntime("active", "turn"))); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "follow-up"); vm.send(); runCurrent()
         coVerify { client.send("session", "follow-up", any(), emptyList()) }
@@ -118,12 +118,12 @@ internal class RemoteDeviceLifecycleTest : RemoteViewModelFixture() {
         val vm = RemoteViewModel(connections, projectionDispatcher = dispatcher) { _, _ -> client }; runCurrent()
         loginAndSelect(vm); vm.selectSession(session); runCurrent()
         val running = RemoteRuntime("active", "turn")
-        events.emit(bodyPage(emptyList(), null, emptyList(), running)); runCurrent()
+        events.emit(bodyPage(emptyList(), null, running)); runCurrent()
         val owner = vm.state.value.owner!!
         vm.editDraft(owner, "hello"); vm.send(); runCurrent()
         // Fairy 页面里的用户消息不回显 clientId —— 按正文长度匹配确认送达。
         events.emit(bodyPage(listOf(RemoteMessage("e1", "turn", null, "user", "hello", 1)),
-            null, emptyList(), running)); runCurrent()
+            null, running)); runCurrent()
         assertEquals(RemoteDelivery.DELIVERED, vm.state.value.attempts[owner]?.delivery)
         vm.setVisible(false)
     }

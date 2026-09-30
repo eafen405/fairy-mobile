@@ -45,9 +45,7 @@ internal class RemoteDeviceDirectory(
                 configurations.clear()
                 restored.forEach { (client, _) -> mutableClients[client.address] = client }
                 restored.forEach { (client, connection) -> configurations[client.address] = connection }
-                mutableState.value = state.value.copy(viewedTurns = restored.flatMap { (client, connection) ->
-                    connection.viewedTurns.map { (session, turn) -> "${client.address}/$session" to turn }
-                }.toMap(), devices = restored.map { (client, connection) ->
+                mutableState.value = state.value.copy(devices = restored.map { (client, connection) ->
                     RemoteDevice(client.address, remoteDeviceName(connection.name), client.address)
                 })
                 report("restore_completed", null)
@@ -87,7 +85,6 @@ internal class RemoteDeviceDirectory(
                 mutableState.value = state.value.copy(
                     devices = listOf(RemoteDevice(id, name, id)),
                     drafts = emptyMap(), attempts = emptyMap(),
-                    sessionOwners = emptyMap(), sessionStatuses = emptyMap(),
                 )
                 // Saving an explicitly submitted connection must not undo a later Back/navigation.
                 if (generation == selectionEpoch()) selectDevice(id)
@@ -113,39 +110,10 @@ internal class RemoteDeviceDirectory(
         mutableState.value = state.value.copy(
             drafts = state.value.drafts.filterKeys { !it.startsWith("$id/") },
             attempts = state.value.attempts.filterKeys { !it.startsWith("$id/") },
-            sessionOwners = state.value.sessionOwners.filterKeys { !it.startsWith("$id/") },
-            sessionStatuses = state.value.sessionStatuses.filterKeys { !it.startsWith("$id/") },
         )
         selectDevice(null)
         // The record stays in `configurations` so the login form can prefill origin/username.
         mutableState.value = state.value.copy(addingDevice = true, editedDeviceId = id)
-    }
-
-    fun removeDevice(id: String) {
-        if (state.value.saving || state.value.restoring || id !in mutableClients) return
-        mutableState.value = state.value.copy(saving = true, storageError = false)
-        storing = scope.launch {
-            try {
-                connections.remove(id)
-                checks.remove(id)?.cancel()
-                mutableClients.remove(id)
-                configurations.remove(id)
-                mutableState.value = state.value.copy(
-                    devices = state.value.devices.filterNot { it.id == id },
-                    drafts = state.value.drafts.filterKeys { !it.startsWith("$id/") },
-                    attempts = state.value.attempts.filterKeys { !it.startsWith("$id/") },
-                    sessionOwners = state.value.sessionOwners.filterKeys { !it.startsWith("$id/") },
-                    sessionStatuses = state.value.sessionStatuses.filterKeys { !it.startsWith("$id/") },
-                )
-                if (state.value.deviceId == id) selectDevice(null)
-                report("device_removed", null)
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) {
-                report("remove_failed", error)
-                mutableState.value = state.value.copy(storageError = true)
-            }
-            finally { mutableState.value = state.value.copy(saving = false) }
-        }
     }
 
     fun checkDevice(id: String) {

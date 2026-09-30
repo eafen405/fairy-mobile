@@ -8,21 +8,10 @@ class CompactScrollLifecycleSourceContractTest {
     @Test
     fun compactScrollPreservesAttachmentBeforeWaitingForThePlaceholder() {
         val root = locateMainSourceRoot()
-        val generationController = File(
-            root,
-            "com/newoether/agora/viewmodel/MessageGenerationController.kt",
-        ).readText()
         val scrollCoordinator = File(
             root,
             "com/newoether/agora/ui/chat/ChatScrollCoordinator.kt",
         ).readText()
-
-        assertTrue(
-            "Compact startup must retain attached-only scroll semantics",
-            generationController.contains(
-                "onCompactStarted = onScrollToAttachedBottomAfter",
-            ),
-        )
 
         val effectStart = scrollCoordinator.indexOf(
             "LaunchedEffect(animatedScrollRequest?.id, currentConversationId)",

@@ -4,8 +4,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageGenerationBoundaryResolver
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.isContextCompact
-import com.newoether.agora.util.Constants
 import kotlin.math.roundToInt
 
 /** Page fragments keep their content origin fixed when an older page is prepended.
@@ -188,12 +186,6 @@ internal fun shouldAnimateMessageLifecycleEntrance(
     requestedTargetMessageId: String?,
 ): Boolean {
     if (isKnown) return false
-    if (
-        message.id.startsWith(Constants.TOOL_MSG_PREFIX) ||
-        message.id.startsWith(Constants.RESULT_MSG_PREFIX)
-    ) {
-        return false
-    }
     return when (message.participant) {
         Participant.USER ->
             message.id == requestedTargetMessageId ||
@@ -227,10 +219,7 @@ internal fun buildMessageListTurns(messages: List<ChatMessage>): List<MessageLis
         if (activeTurn.isNotEmpty() && message.displayPageId != activeTurn.first().displayPageId) {
             flushActiveTurn()
         }
-        if (message.isContextCompact()) {
-            flushActiveTurn()
-            turns += MessageListTurn(message.id, listOf(message))
-        } else if (MessageGenerationBoundaryResolver.isRealUser(message)) {
+        if (MessageGenerationBoundaryResolver.isRealUser(message)) {
             flushActiveTurn()
             activeTurn += message
         } else if (
@@ -253,7 +242,7 @@ internal fun messageListTailAnchorKey(turns: List<MessageListTurn>): String? = t
         turn.messages.firstOrNull()?.let { message ->
             (turns.lastOrNull()?.messages?.lastOrNull()?.displayPageId == null ||
                 message.displayPageId == turns.last().messages.last().displayPageId) &&
-                (MessageGenerationBoundaryResolver.isRealUser(message) || message.isContextCompact())
+                MessageGenerationBoundaryResolver.isRealUser(message)
         } == true
     }
     ?.key

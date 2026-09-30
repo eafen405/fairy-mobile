@@ -94,7 +94,6 @@ class SendAnchorScrollTest {
                     isSwitching = false,
                     conversationSearchActive = false,
                     shareSelectionActive = false,
-                    regenerationTransition = null,
                     animatedScrollRequest = request,
                     messages = messagesState,
                     density = density,
@@ -245,65 +244,6 @@ class SendAnchorScrollTest {
         h.scroll.listState.layoutInfo.visibleItemsInfo
             .firstOrNull { it.key == AbsoluteBottomSentinelKey }
             ?.size
-
-    @Test
-    fun streamingGrowthKeepsTheFirstVisibleItemStill() {
-        val h = Harness()
-        mount(h)
-        compose.runOnIdle {
-            h.messages = listOf(msg("m1", Participant.MODEL, "seed"))
-        }
-        compose.waitForIdle()
-        compose.runOnIdle { h.requestAnchor("m1") }
-        pumpFrames(h)
-        var beforeIndex = -1
-        var beforeOffset = -1
-        var sentinelBefore = -1
-        compose.runOnIdle {
-            beforeIndex = h.scroll.listState.firstVisibleItemIndex
-            beforeOffset = h.scroll.listState.firstVisibleItemScrollOffset
-            sentinelBefore = sentinelSizePx(h) ?: -1
-        }
-        // Appending to the anchored turn grows the rendered extent for real — the height map
-        // gains the new message and the sentinel reserve shrinks by that amount.
-        compose.runOnIdle {
-            h.isLoading = true
-            h.messages = h.messages + msg("m2", Participant.MODEL, "growth")
-        }
-        compose.mainClock.advanceTimeBy(500)
-        compose.waitForIdle()
-        compose.runOnIdle {
-            val grownHeight = h.scroll.messageHeights["m2"] ?: 0
-            assertTrue("appended message measured $grownHeight", grownHeight > 0)
-            val sentinelAfter = sentinelSizePx(h) ?: -1
-            assertTrue(
-                "reserve $sentinelBefore -> $sentinelAfter",
-                sentinelBefore > 1 && sentinelAfter < sentinelBefore,
-            )
-        }
-        compose.runOnIdle {
-            h.isLoading = false
-        }
-        compose.mainClock.advanceTimeBy(500)
-        compose.waitForIdle()
-        compose.runOnIdle {
-            assertEquals(beforeIndex, h.scroll.listState.firstVisibleItemIndex)
-            assertEquals(beforeOffset, h.scroll.listState.firstVisibleItemScrollOffset)
-            assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
-        }
-    }
-
-    private fun bottomButtonVisible(h: Harness): Boolean = shouldShowAbsoluteBottomButton(
-        isNewChatMode = false,
-        isSwitching = false,
-        conversationContentReady = true,
-        shareSelectionActive = false,
-        hasItems = h.scroll.listState.layoutInfo.totalItemsCount > 1,
-        canScrollForward = h.scroll.listState.canScrollForward,
-        isNearBottom = h.scroll.isNearAbsoluteBottom,
-        isStreamingAutoFollowing = h.scroll.streamingTailController.isAutoFollowing,
-        scrollPhase = h.scroll.absoluteBottomScrollPhase,
-    )
 
     @Test
     fun overlongReplyExposesTheBottomButtonAndReachesTheBottomOnClick() {
@@ -633,4 +573,63 @@ class SendAnchorScrollTest {
         participant = participant,
         runId = runId,
     )
+    @Test
+    fun streamingGrowthKeepsTheFirstVisibleItemStill() {
+        val h = Harness()
+        mount(h)
+        compose.runOnIdle {
+            h.messages = listOf(msg("m1", Participant.MODEL, "seed"))
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { h.requestAnchor("m1") }
+        pumpFrames(h)
+        var beforeIndex = -1
+        var beforeOffset = -1
+        var sentinelBefore = -1
+        compose.runOnIdle {
+            beforeIndex = h.scroll.listState.firstVisibleItemIndex
+            beforeOffset = h.scroll.listState.firstVisibleItemScrollOffset
+            sentinelBefore = sentinelSizePx(h) ?: -1
+        }
+        // Appending to the anchored turn grows the rendered extent for real — the height map
+        // gains the new message and the sentinel reserve shrinks by that amount.
+        compose.runOnIdle {
+            h.isLoading = true
+            h.messages = h.messages + msg("m2", Participant.MODEL, "growth")
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.runOnIdle {
+            val grownHeight = h.scroll.messageHeights["m2"] ?: 0
+            assertTrue("appended message measured $grownHeight", grownHeight > 0)
+            val sentinelAfter = sentinelSizePx(h) ?: -1
+            assertTrue(
+                "reserve $sentinelBefore -> $sentinelAfter",
+                sentinelBefore > 1 && sentinelAfter < sentinelBefore,
+            )
+        }
+        compose.runOnIdle {
+            h.isLoading = false
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(beforeIndex, h.scroll.listState.firstVisibleItemIndex)
+            assertEquals(beforeOffset, h.scroll.listState.firstVisibleItemScrollOffset)
+            assertTrue(abs(anchoredMessageTopGapPx(h)) <= 2f)
+        }
+    }
+
+    private fun bottomButtonVisible(h: Harness): Boolean = shouldShowAbsoluteBottomButton(
+        isNewChatMode = false,
+        isSwitching = false,
+        conversationContentReady = true,
+        shareSelectionActive = false,
+        hasItems = h.scroll.listState.layoutInfo.totalItemsCount > 1,
+        canScrollForward = h.scroll.listState.canScrollForward,
+        isNearBottom = h.scroll.isNearAbsoluteBottom,
+        isStreamingAutoFollowing = h.scroll.streamingTailController.isAutoFollowing,
+        scrollPhase = h.scroll.absoluteBottomScrollPhase,
+    )
+
 }

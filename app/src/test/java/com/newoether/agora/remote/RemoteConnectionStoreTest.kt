@@ -39,18 +39,6 @@ class RemoteConnectionStoreTest {
         assertTrue(store(file).load().isEmpty())
     }
 
-    @Test fun configuredNameEditSurvivesRestartWithoutLosingViewedHistory() = runBlocking {
-        val file = File(temporary.root, "connections.json")
-        store(file).save(RemoteConnection("My computer", "http://computer/", token))
-        store(file).markViewed("http://computer/", "session", "turn")
-        store(file).save(RemoteConnection("Work computer", "http://computer/", token), "http://computer/")
-        val restored = store(file).load().single()
-        assertEquals("Work computer", restored.name)
-        assertEquals(token, restored.token)
-        assertEquals("turn", restored.viewedTurns["session"])
-        assertFalse(file.readText().contains(token))
-    }
-
     @Test fun failedEncryptionCannotReplacePreviouslySavedConnections() = runBlocking {
         val file = File(temporary.root, "connections.json")
         store(file).save(RemoteConnection("Saved", "http://saved/", token))
@@ -109,18 +97,4 @@ class RemoteConnectionStoreTest {
         assertEquals(before, file.readText())
     }
 
-    @Test fun viewedCompletionsSurviveRestartAndCredentialEditWithoutRestoringDeletedDevices() = runBlocking {
-        val file = File(temporary.root, "connections.json")
-        store(file).save(RemoteConnection("Computer", "http://computer/", token))
-        store(file).markViewed("http://computer/", "session", "first")
-        assertEquals("first", store(file).load().single().viewedTurns["session"])
-        store(file).save(RemoteConnection("Renamed", "http://computer/", token), "http://computer/")
-        assertEquals("first", store(file).load().single().viewedTurns["session"])
-        store(file).markViewed("http://computer/", "session", "second")
-        assertEquals("second", store(file).load().single().viewedTurns["session"])
-        assertFalse(file.readText().contains(token))
-        store(file).remove("http://computer/")
-        store(file).markViewed("http://computer/", "session", "late")
-        assertTrue(store(file).load().isEmpty())
-    }
 }

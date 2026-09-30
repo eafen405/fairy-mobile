@@ -24,8 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,33 +58,24 @@ private const val ATTACHMENT_STATUS_CROSSFADE_MS = 200
 
 internal enum class AttachmentPreviewPresentation {
     INITIAL,
-    UNAVAILABLE,
     IMPORT_LOADING,
     IMPORT_FAILED,
     READY_FILE,
-    READY_PDF,
-    READY_VIDEO_PLACEHOLDER,
     MEDIA_LOADING,
     MEDIA_SUCCESS,
     MEDIA_ERROR,
 }
 
 internal fun attachmentPreviewPresentation(
-    unavailable: Boolean,
     importState: AttachmentImportState,
     type: String,
-    hasVideoFrame: Boolean,
     mediaLoadState: MediaLoadPresentation,
 ): AttachmentPreviewPresentation = when {
-    unavailable -> AttachmentPreviewPresentation.UNAVAILABLE
     importState == AttachmentImportState.PROCESSING ->
         AttachmentPreviewPresentation.IMPORT_LOADING
     importState == AttachmentImportState.FAILED ->
         AttachmentPreviewPresentation.IMPORT_FAILED
-    type == "file" -> AttachmentPreviewPresentation.READY_FILE
-    type == "pdf" -> AttachmentPreviewPresentation.READY_PDF
-    type == "video" && !hasVideoFrame ->
-        AttachmentPreviewPresentation.READY_VIDEO_PLACEHOLDER
+    type != "image" -> AttachmentPreviewPresentation.READY_FILE
     mediaLoadState == MediaLoadPresentation.LOADED ->
         AttachmentPreviewPresentation.MEDIA_SUCCESS
     mediaLoadState == MediaLoadPresentation.FAILED ->
@@ -103,14 +92,11 @@ internal fun AttachmentPreviewRow(
     onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onAllMediaClick: ((urls: List<String>, index: Int) -> Unit)?,
-    onFileContentClick: ((fileName: String, content: String) -> Unit)?,
-    onPdfPagesClick: ((pages: List<String>, startIndex: Int) -> Unit)?,
 ) {
     val haptics = LocalAgoraHaptics.current
     val mediaAttachments = remember(attachments) {
         attachments.filter {
-            !it.unavailable && it.importState == AttachmentImportState.READY &&
-                (it.type == "image" || it.type == "video")
+            it.importState == AttachmentImportState.READY && it.type == "image"
         }
     }
     val allMediaUrls = remember(mediaAttachments) {
@@ -127,24 +113,18 @@ internal fun AttachmentPreviewRow(
     ) {
         items(attachments, key = SelectedAttachment::localId) { attachment ->
             val uriString = attachment.uri
-            val isVideo = attachment.type == "video"
-            val isPdf = attachment.type == "pdf"
-            val isFile = attachment.type == "file"
+            val isFile = attachment.type != "image"
             val isReady = attachment.importState == AttachmentImportState.READY
             val mediaIndex = mediaIndexById[attachment.localId]
             val mediaModel = when {
-                attachment.unavailable || !isReady -> null
-                isVideo -> attachment.processedFrames?.firstOrNull()
-                isFile || isPdf -> null
+                !isReady || isFile -> null
                 else -> attachment.localPath ?: uriString
             }
             val mediaPainter = rememberAsyncImagePainter(model = mediaModel)
             val mediaLoadState = mediaPainter.state.toMediaLoadPresentation()
             val targetPresentation = attachmentPreviewPresentation(
-                unavailable = attachment.unavailable,
                 importState = attachment.importState,
                 type = attachment.type,
-                hasVideoFrame = attachment.processedFrames?.isNotEmpty() == true,
                 mediaLoadState = mediaLoadState,
             )
             val isLoading = targetPresentation == AttachmentPreviewPresentation.IMPORT_LOADING ||
@@ -169,30 +149,7 @@ internal fun AttachmentPreviewRow(
             ) {
                 Box {
                     val clickableModifier = when {
-                        attachment.unavailable || !isReady -> Modifier
-                        isFile -> {
-                            if (!attachment.storage.canPreview || attachment.preparedText == null) {
-                                Modifier
-                            } else if (onFileContentClick != null) {
-                                Modifier.clickable {
-                                    onFileContentClick(
-                                        attachment.fileName ?: uriString,
-                                        attachment.preparedText,
-                                    )
-                                }
-                            } else {
-                                Modifier
-                            }
-                        }
-                        isPdf -> {
-                            if (onPdfPagesClick != null) {
-                                Modifier.clickable {
-                                    onPdfPagesClick(attachment.preRenderedPaths.orEmpty(), 0)
-                                }
-                            } else {
-                                Modifier
-                            }
-                        }
+                        !isReady || isFile -> Modifier
                         mediaIndex != null -> Modifier.combinedClickable(
                             onClick = {
                                 onAllMediaClick?.invoke(allMediaUrls, mediaIndex)
@@ -250,11 +207,7 @@ internal fun AttachmentPreviewRow(
                     label = "attachmentCaption",
                 ) { presentation ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (
-                            presentation == AttachmentPreviewPresentation.UNAVAILABLE ||
-                            isFile ||
-                            isPdf
-                        ) {
+                        if (isFile) {
                             attachment.fileName?.let { fileName ->
                                 Text(
                                     text = fileName,
@@ -265,14 +218,6 @@ internal fun AttachmentPreviewRow(
                                     modifier = Modifier.padding(top = 2.dp),
                                 )
                             }
-                        }
-                        if (presentation == AttachmentPreviewPresentation.UNAVAILABLE) {
-                            Text(
-                                text = stringResource(R.string.attachment_unavailable),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
-                                maxLines = 1,
-                            )
                         }
                     }
                 }
@@ -299,22 +244,19 @@ private fun AttachmentPresentationContent(
     ) {
         when (presentation) {
             AttachmentPreviewPresentation.INITIAL -> Unit
-            AttachmentPreviewPresentation.UNAVAILABLE,
-            AttachmentPreviewPresentation.READY_FILE,
-            AttachmentPreviewPresentation.READY_PDF -> FileThumbnail(
+            AttachmentPreviewPresentation.READY_FILE -> FileThumbnail(
                 fileName = attachment.fileName ?: attachment.uri,
                 isPdf = attachment.type == "pdf",
                 modifier = Modifier.fillMaxSize(),
                 fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
             )
-            AttachmentPreviewPresentation.READY_VIDEO_PLACEHOLDER -> Icon(
-                Icons.Default.Videocam,
-                stringResource(R.string.video),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(28.dp),
-            )
             AttachmentPreviewPresentation.IMPORT_LOADING -> {
-                AttachmentTypePlaceholder(attachment)
+                FileThumbnail(
+                    fileName = attachment.fileName ?: attachment.uri,
+                    isPdf = attachment.type == "pdf",
+                    modifier = Modifier.fillMaxSize(),
+                    fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -331,7 +273,12 @@ private fun AttachmentPresentationContent(
             }
             AttachmentPreviewPresentation.IMPORT_FAILED,
             AttachmentPreviewPresentation.MEDIA_ERROR -> {
-                AttachmentTypePlaceholder(attachment)
+                FileThumbnail(
+                    fileName = attachment.fileName ?: attachment.uri,
+                    isPdf = attachment.type == "pdf",
+                    modifier = Modifier.fillMaxSize(),
+                    fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -369,45 +316,11 @@ private fun AttachmentPresentationContent(
             AttachmentPreviewPresentation.MEDIA_SUCCESS -> {
                 Image(
                     painter = mediaPainter,
-                    contentDescription = if (attachment.type == "video") {
-                        stringResource(R.string.video_thumbnail)
-                    } else {
-                        null
-                    },
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
-                if (attachment.type == "video") {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = stringResource(R.string.play),
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                            .padding(4.dp),
-                    )
-                }
             }
         }
-    }
-}
-
-@Composable
-private fun AttachmentTypePlaceholder(attachment: SelectedAttachment) {
-    if (attachment.type == "video") {
-        Icon(
-            Icons.Default.Videocam,
-            stringResource(R.string.video),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(28.dp),
-        )
-    } else {
-        FileThumbnail(
-            fileName = attachment.fileName ?: attachment.uri,
-            isPdf = attachment.type == "pdf",
-            modifier = Modifier.fillMaxSize(),
-            fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
-        )
     }
 }

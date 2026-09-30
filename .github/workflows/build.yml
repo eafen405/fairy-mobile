@@ -21,8 +21,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:
@@ -39,7 +37,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew -p build-logic test --stacktrace
-          ./gradlew :app:testFdroidDebugUnitTest :app:testPlayDebugUnitTest verifyKotlinFileSize --no-daemon --max-workers=1 --stacktrace
+          ./gradlew :app:testDebugUnitTest verifyKotlinFileSize --no-daemon --max-workers=1 --stacktrace
 
       - name: Upload test reports
         if: failure()
@@ -60,8 +58,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:
@@ -70,7 +66,7 @@ jobs:
 
       - uses: android-actions/setup-android@v4
         with:
-          packages: "platform-tools ndk;28.2.13676358"
+          packages: "platform-tools"
 
       - name: Restore signing key
         if: ${{ env.KEYSTORE_BASE64 != '' }}
@@ -90,33 +86,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build PRoot runtime
-        run: |
-          chmod +x ./build-proot.sh
-          ./build-proot.sh
-
-      - name: Build F-Droid Release APK
+      - name: Build Release APK
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleFdroidRelease
-
-      - name: Verify PRoot runtime packaging
-        run: |
-          apk_path=$(find app/build/outputs/apk/fdroid/release -name '*.apk' -print -quit)
-          test -n "$apk_path"
-          apk_entries=$(mktemp)
-          trap 'rm -f "$apk_entries"' EXIT
-          unzip -Z1 "$apk_path" > "$apk_entries"
-          for library in libproot_exec.so libproot_loader.so libtalloc.so; do
-            entry="lib/arm64-v8a/$library"
-            grep -Fxq "$entry" "$apk_entries" || {
-              echo "Missing PRoot runtime library: $library" >&2
-              exit 1
-            }
-          done
+          ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: agora-fdroid-release
-          path: app/build/outputs/apk/fdroid/release/*.apk
+          name: fairy-release
+          path: app/build/outputs/apk/release/*.apk

@@ -52,10 +52,6 @@ private const val MEDIA_PREVIEW_BACKDROP_EXIT_DURATION_MS = 180
 @Composable
 internal fun FullScreenMediaPreviewDialog(
     currentTarget: MediaPreviewTarget?,
-    currentPdfPages: List<String>,
-    currentPdfSelectedPages: Set<Int>,
-    currentPdfSelectionEnabled: Boolean,
-    currentPdfTogglePage: ((Int) -> Unit)?,
     enter: EnterTransition,
     exit: ExitTransition,
     onHidden: () -> Unit,
@@ -92,17 +88,6 @@ internal fun FullScreenMediaPreviewDialog(
     }
 
     val target = rememberMediaPreviewTargetForExit(currentTarget)
-    var retainedPdfPages by remember { mutableStateOf<List<String>>(emptyList()) }
-    var retainedPdfSelectionEnabled by remember { mutableStateOf(false) }
-    var retainedPdfTogglePage by remember { mutableStateOf<((Int) -> Unit)?>(null) }
-    SideEffect {
-        if (currentTarget != null) {
-            retainedPdfPages = currentPdfPages
-            retainedPdfSelectionEnabled = currentPdfSelectionEnabled
-            retainedPdfTogglePage =
-                if (currentPdfSelectionEnabled) currentPdfTogglePage else null
-        }
-    }
 
     if (target == null) return
     if (
@@ -112,11 +97,6 @@ internal fun FullScreenMediaPreviewDialog(
     ) {
         return
     }
-    val pdfPages = if (currentTarget != null) currentPdfPages else retainedPdfPages
-    val pdfSelectionEnabled = if (currentTarget != null) currentPdfSelectionEnabled else retainedPdfSelectionEnabled
-    val togglePdfPage = if (currentTarget != null) {
-        currentPdfTogglePage.takeIf { currentPdfSelectionEnabled }
-    } else retainedPdfTogglePage
     Dialog(
         onDismissRequest = { onClose(target) },
         properties = DialogProperties(
@@ -145,11 +125,6 @@ internal fun FullScreenMediaPreviewDialog(
                     FullScreenMediaViewer(
                         urls = target.urls,
                         initialIndex = target.index,
-                        pdfPages = pdfPages,
-                        pdfSelectedPages = currentPdfSelectedPages.takeIf {
-                            pdfPages.isNotEmpty() && pdfSelectionEnabled
-                        },
-                        onTogglePdfPage = togglePdfPage,
                         onClose = { onClose(target) },
                         onNavigate = { onNavigate(target, it) },
                         onMessage = onMessage,

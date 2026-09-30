@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.drawToBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.R
-import com.newoether.agora.mcp.McpConnectionStatus
+import com.newoether.agora.model.McpConnectionStatus
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
@@ -41,7 +41,6 @@ import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RemoteFile
 import com.newoether.agora.remote.RemoteConnectionStore
 import com.newoether.agora.remote.RemoteFailure
-import com.newoether.agora.remote.RemoteImageCache
 import com.newoether.agora.remote.RemoteState
 import com.newoether.agora.remote.RemoteViewModel
 import com.newoether.agora.ui.chat.ChatBottomScrollButton
@@ -96,12 +95,9 @@ class FairyScreenshotTest {
     @Composable
     private fun fakeRemote(): RemoteViewModel {
         val context = LocalContext.current.applicationContext
-        val imageDirectory = File(context.cacheDir, "remote-images")
         return viewModel {
             RemoteViewModel(
                 RemoteConnectionStore(File(context.noBackupFilesDir, "remote-connections.json")),
-                com.newoether.agora.tool.ToolImageStore(context, imageDirectory),
-                RemoteImageCache(imageDirectory),
                 attachmentStore = com.newoether.agora.remote.RemoteAttachmentStore(context),
                 fileStore = com.newoether.agora.remote.RemoteFileStore(context),
             )
@@ -115,11 +111,6 @@ class FairyScreenshotTest {
         search: Boolean = false,
     ) {
         ChatTopBar(
-            isNewChatMode = false,
-            conversations = emptyList(),
-            currentConversationId = "s1",
-            totalTokens = 0,
-            contextTokenBudget = 0,
             subtitle = stringResource(
                 when (presence) {
                     FairyPresence.OFFLINE -> R.string.remote_offline
@@ -141,9 +132,6 @@ class FairyScreenshotTest {
             searchMatchIndex = if (search) 0 else -1,
             searchMatchCount = if (search) 2 else 0,
             onNavigateBack = {},
-            onOpenDrawer = {},
-            onSystemPromptClick = {},
-            forceBrandTitle = true,
             fairyWindow = FairyWindowState(presence = presence, expanded = expanded),
             moreMenuContent = {},
         )
@@ -155,7 +143,7 @@ class FairyScreenshotTest {
         participant: Participant,
         status: MessageStatus = MessageStatus.SUCCESS,
         segments: List<MessageSegment>? = null,
-        images: List<String> = emptyList(),
+        attachmentMeta: com.newoether.agora.model.AttachmentMeta? = null,
         remoteFiles: List<RemoteFile> = emptyList(),
         working: Boolean = false,
         gapBelow: Int = 12,
@@ -167,17 +155,14 @@ class FairyScreenshotTest {
                 participant = participant,
                 status = status,
                 segments = segments,
-                images = images,
+                attachmentMeta = attachmentMeta,
                 remoteFiles = remoteFiles,
             ),
-            onEdit = { _, _ -> },
             segmentAppearanceRegistry = remember { SegmentAppearanceRegistry() },
             outerPadding = androidx.compose.foundation.layout.PaddingValues(bottom = gapBelow.dp),
             includeAssistantOuterSpacing = false,
             emblemAnimating = working,
-            isLoading = working,
             isStreaming = working,
-            readOnlyActions = true,
         )
     }
 
@@ -345,19 +330,6 @@ class FairyScreenshotTest {
     }
 
     @Test
-    fun `user message with attachment`() {
-        shot("fairy-user-attachment") {
-            Page {
-                Item(
-                    "主人要我处理这张截图。",
-                    Participant.USER,
-                    images = listOf("/tmp/nonexistent.png"),
-                )
-            }
-        }
-    }
-
-    @Test
     fun `single-line composer empty, typed and stop`() {
         shot("fairy-composer") {
             Box(Modifier.fillMaxSize()) {
@@ -484,4 +456,22 @@ class FairyScreenshotTest {
             }
         }
     }
+    @Test
+    fun `user message with attachment`() {
+        shot("fairy-user-attachment") {
+            Page {
+                Item(
+                    "主人要我处理这张截图。",
+                    Participant.USER,
+                    attachmentMeta = com.newoether.agora.model.AttachmentMeta(listOf(
+                        com.newoether.agora.model.AttachmentItem(
+                            type = "image", fileName = "screenshot.png",
+                            mimeType = "image/png",
+                        ),
+                    )),
+                )
+            }
+        }
+    }
+
 }

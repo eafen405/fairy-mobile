@@ -14,28 +14,12 @@ class RemoteTurnErrorTest {
     private val tool = RemoteMessage("tool", "t", null, "assistant", "", 1,
         RemoteActivity("tool", state = "succeeded", label = "执行命令"))
 
-    @Test fun nativeFailureUsesOriginalErrorPresentationAndPreservesExistingAnswerAndTools() {
-        for (records in listOf(listOf(user, error), listOf(user, tool, error), listOf(user, answer, tool, error))) {
-            val messages = projectRemoteMessages(records, RemoteRuntime("active", "t"))
-            val failed = messages.last()
-            assertEquals(Participant.MODEL, failed.participant)
-            assertEquals(MessageStatus.ERROR, failed.status)
-            val original = assistantErrorContent(failed, failed.segments.orEmpty(), "Fallback")!!
-            assertEquals(error.text, original.errorText)
-            assertEquals(answer.text.takeIf { answer in records }, original.answerText)
-            assertFalse(original.showLocalContextHelp)
-            assertEquals(records.count { it.activity?.type == "tool" }, failed.segments!!.count { it.type == "tool" })
-            assertEquals("error", failed.segments.last().type)
-            assertFalse(messages.any { it.status in setOf(MessageStatus.THINKING, MessageStatus.TOOL_CALLING, MessageStatus.SENDING) })
-        }
-    }
-
     @Test fun errorStatusSurvivesTopologyPrependAndOriginalHydrationStatusCopy() {
-        val page = bodyPage(listOf(user, answer, tool, error), "older", emptyList(), RemoteRuntime("active", "t"))
+        val page = bodyPage(listOf(user, answer, tool, error), "older", RemoteRuntime("active", "t"))
         val nodes = admitRemotePage(emptyList(), page)
         val groups = projectRemoteTopology(nodes, page.runtime)
         assertEquals(MessageStatus.ERROR, groups.last().stub.status)
-        val prior = bodyPage(listOf(answer.copy(id = "prior", turnId = "old")), null, emptyList())
+        val prior = bodyPage(listOf(answer.copy(id = "prior", turnId = "old")), null)
         val prepended = projectRemoteTopology(admitRemotePage(nodes, prior, older = true), page.runtime)
         assertEquals(groups, prepended.takeLast(groups.size))
         val body = projectRemoteMessages(page.messages).last().copy(status = groups.last().stub.status)
@@ -50,4 +34,19 @@ class RemoteTurnErrorTest {
         assertEquals(MessageStatus.SENDING, messages.last().status)
         assertEquals("next", messages.last().runId)
     }
+    @Test fun nativeFailureUsesOriginalErrorPresentationAndPreservesExistingAnswerAndTools() {
+        for (records in listOf(listOf(user, error), listOf(user, tool, error), listOf(user, answer, tool, error))) {
+            val messages = projectRemoteMessages(records, RemoteRuntime("active", "t"))
+            val failed = messages.last()
+            assertEquals(Participant.MODEL, failed.participant)
+            assertEquals(MessageStatus.ERROR, failed.status)
+            val original = assistantErrorContent(failed, failed.segments.orEmpty(), "Fallback")!!
+            assertEquals(error.text, original.errorText)
+            assertEquals(answer.text.takeIf { answer in records }, original.answerText)
+            assertEquals(records.count { it.activity?.type == "tool" }, failed.segments!!.count { it.type == "tool" })
+            assertEquals("error", failed.segments.last().type)
+            assertFalse(messages.any { it.status in setOf(MessageStatus.THINKING, MessageStatus.TOOL_CALLING, MessageStatus.SENDING) })
+        }
+    }
+
 }

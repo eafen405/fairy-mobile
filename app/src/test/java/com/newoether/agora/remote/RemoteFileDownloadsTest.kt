@@ -84,6 +84,19 @@ internal class RemoteFileDownloadsTest {
         assertTrue(harness.stagedFiles().isEmpty())
     }
 
+    @Test fun repeatedViewsReuseBytesAndBoundTheCache() = runTest {
+        val harness = Harness(temporary.newFolder())
+        serve(byteArrayOf(1))
+        val first = harness.downloads.prepareView(harness.owner, card(1))!!
+        repeat(8) { assertEquals(first, harness.downloads.prepareView(harness.owner, card(1))) }
+        coVerify(exactly = 1) { client.downloadFile(any(), any()) }
+        repeat(5) { harness.downloads.prepareView(harness.owner, card(1, "other-$it")) }
+        assertEquals(4, harness.stagedFiles().size)
+        assertFalse(first.file.exists())
+        harness.downloads.clear()
+        assertTrue(harness.stagedFiles().isEmpty())
+    }
+
     @Test fun rejectedDownloadReportsFailureAndStagesNothing() = runTest {
         val harness = Harness(temporary.newFolder())
         coEvery { client.downloadFile(any(), any()) } throws FiloHttpException(403)

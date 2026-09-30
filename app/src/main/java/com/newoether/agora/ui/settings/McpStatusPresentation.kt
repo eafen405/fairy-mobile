@@ -6,8 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
@@ -15,6 +19,7 @@ import androidx.compose.material.icons.filled.Error
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,16 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.mcp.McpConnectionStatus
-import com.newoether.agora.mcp.McpServerSnapshot
-
-private data class McpStatusUiState(
-    val status: McpConnectionStatus,
-    val enabledToolCount: Int,
-    val error: String?,
-)
+import com.newoether.agora.model.McpConnectionStatus
+import com.newoether.agora.util.noOpBringIntoView
 
 @Composable
 internal fun McpStatusDot(status: McpConnectionStatus) {
@@ -61,87 +64,49 @@ internal fun McpStatusDot(status: McpConnectionStatus) {
     )
 }
 
+// ── Extracted from the removed MCP settings page ─────────────────────────────
 @Composable
-internal fun McpStatusText(
-    snapshot: McpServerSnapshot?,
-    includeError: Boolean = false,
+internal fun McpLabeledField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    password: Boolean = false,
+    trailingContent: (@Composable () -> Unit)? = null,
+    placeholder: String? = null,
 ) {
-    val tools = snapshot?.tools
-    val enabledToolCount = remember(tools) {
-        tools?.count { it.enabled } ?: 0
-    }
-    val state = McpStatusUiState(
-        status = snapshot?.status ?: McpConnectionStatus.IDLE,
-        enabledToolCount = enabledToolCount,
-        error = snapshot?.error?.takeIf(String::isNotBlank),
-    )
-    Crossfade(
-        targetState = state,
-        animationSpec = tween(durationMillis = 250),
-        label = "mcpStatusText",
-    ) { current ->
-        val color = when (current.status) {
-            McpConnectionStatus.CONNECTED -> MaterialTheme.colorScheme.primary
-            McpConnectionStatus.ERROR -> MaterialTheme.colorScheme.error
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                text = when (current.status) {
-                    McpConnectionStatus.IDLE -> stringResource(R.string.mcp_status_idle)
-                    McpConnectionStatus.CONNECTING -> stringResource(R.string.mcp_status_connecting)
-                    McpConnectionStatus.CONNECTED -> stringResource(R.string.mcp_status_connected)
-                    McpConnectionStatus.ERROR -> stringResource(R.string.mcp_status_error)
+    Column(modifier) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Box(modifier = Modifier.noOpBringIntoView().padding(top = 8.dp)) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = isError,
+                supportingText = supportingText?.let { text -> { Text(text) } },
+                placeholder = placeholder?.let { text -> {
+                    Text(text)
+                } },
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                visualTransformation = if (password) {
+                    PasswordVisualTransformation()
+                } else {
+                    VisualTransformation.None
                 },
-                color = color,
-            )
-            when {
-                current.status == McpConnectionStatus.CONNECTED -> Text(
-                    text = stringResource(
-                        R.string.mcp_tools_enabled,
-                        current.enabledToolCount,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
+                trailingIcon = trailingContent,
+                shape = RoundedCornerShape(16.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                includeError && current.error != null -> Text(
-                    text = current.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun McpStatusIcon(status: McpConnectionStatus) {
-    Crossfade(
-        targetState = status,
-        animationSpec = tween(durationMillis = 250),
-        label = "mcpStatusIcon",
-    ) { current ->
-        Box(
-            modifier = Modifier.size(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            when (current) {
-                McpConnectionStatus.IDLE -> Icon(Icons.Default.CloudOff, null)
-                McpConnectionStatus.CONNECTING -> CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                )
-                McpConnectionStatus.CONNECTED -> Icon(
-                    Icons.Default.CheckCircle,
-                    null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                McpConnectionStatus.ERROR -> Icon(
-                    Icons.Default.Error,
-                    null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
+                ),
+            )
         }
     }
 }

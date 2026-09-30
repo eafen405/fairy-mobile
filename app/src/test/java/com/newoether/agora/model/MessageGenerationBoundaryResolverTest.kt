@@ -1,6 +1,5 @@
 package com.newoether.agora.model
 
-import com.newoether.agora.util.Constants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -30,73 +29,6 @@ class MessageGenerationBoundaryResolverTest {
         assertEquals("m3", boundaries[2].lastAssistant?.id)
     }
 
-    @Test
-    fun everyMessageTypeParticipatesInTheSameRunGroup() {
-        val messages = listOf(
-            message("u0", Participant.USER, runId = "run-a"),
-            message("m0", Participant.MODEL, "u0", runId = "run-a"),
-            message("${Constants.TOOL_MSG_PREFIX}0", Participant.MODEL, "m0", runId = "run-a"),
-            message(
-                "${Constants.RESULT_MSG_PREFIX}0",
-                Participant.USER,
-                "${Constants.TOOL_MSG_PREFIX}0",
-                runId = "run-a",
-            ),
-            message(
-                "${Constants.COMPACT_MSG_PREFIX}0",
-                Participant.MODEL,
-                "${Constants.RESULT_MSG_PREFIX}0",
-                runId = "run-a",
-            ),
-        )
-
-        val boundary = MessageGenerationBoundaryResolver.resolve(messages).single()
-
-        assertEquals(messages.map { it.id }, boundary.messages.map { it.id })
-        assertEquals("u0", boundary.input?.id)
-        assertEquals("m0", boundary.lastAssistant?.id)
-    }
-
-    @Test
-    fun everyFreshRunCreatesAnIndependentGroupIncludingCompact() {
-        val messages = listOf(
-            message("u0", Participant.USER, runId = "run-a"),
-            message("m0", Participant.MODEL, "u0", runId = "run-a"),
-            message("${Constants.COMPACT_MSG_PREFIX}0", Participant.MODEL, "m0", runId = "run-b"),
-            message("m1", Participant.MODEL, "${Constants.COMPACT_MSG_PREFIX}0", runId = "run-c"),
-        )
-
-        val boundaries = MessageGenerationBoundaryResolver.resolve(messages)
-
-        assertEquals(
-            listOf(listOf("u0", "m0"), listOf("${Constants.COMPACT_MSG_PREFIX}0"), listOf("m1")),
-            boundaries.map { boundary -> boundary.messages.map { it.id } },
-        )
-        assertEquals(
-            "${Constants.COMPACT_MSG_PREFIX}0",
-            MessageGenerationBoundaryResolver.containing(
-                messages,
-                "${Constants.COMPACT_MSG_PREFIX}0",
-            )?.messages?.single()?.id,
-        )
-    }
-
-    @Test
-    fun protocolAndCompactRowsDoNotCreateOrReplaceBoundaries() {
-        val messages = listOf(
-            message("u0", Participant.USER),
-            message("m0", Participant.MODEL, "u0"),
-            message("${Constants.TOOL_MSG_PREFIX}0", Participant.MODEL, "m0"),
-            message("${Constants.RESULT_MSG_PREFIX}0", Participant.USER, "${Constants.TOOL_MSG_PREFIX}0"),
-            message("${Constants.COMPACT_MSG_PREFIX}0", Participant.MODEL, "${Constants.RESULT_MSG_PREFIX}0"),
-        )
-
-        val boundary = MessageGenerationBoundaryResolver.resolve(messages).single()
-
-        assertEquals("u0", boundary.input?.id)
-        assertEquals("m0", boundary.firstAssistant?.id)
-        assertEquals("m0", boundary.lastAssistant?.id)
-    }
 
     private fun message(
         id: String,

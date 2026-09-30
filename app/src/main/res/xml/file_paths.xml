@@ -2,5 +2,6 @@
 <paths>
     <files-path name="images" path="images/" />
     <files-path name="sandbox-home" path="sandbox-home/" />
+    <cache-path name="remote-files" path="remote-files/" />
     <cache-path name="shared" path="shared/" />
 </paths>

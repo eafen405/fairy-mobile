@@ -11,7 +11,6 @@ class Phase25UiSourceContractTest {
     fun `direct dot exit retains draw state without clipping or overlay physics`() {
         val list = chatSource("MessageList.kt")
         val assistant = source("AssistantMessageContent.kt")
-        val retry = source("RetryActivityIndicator.kt")
         val tail = chatSource("StreamingTailIndicator.kt")
         val follower = File(
             mainSourceRoot(),
@@ -47,11 +46,9 @@ class Phase25UiSourceContractTest {
         ))
         assertFalse(assistantActivity.contains("terminalText?.let"))
         assertTrue(assistant.contains(
-            "targetState = inlineActivityMode != AssistantInlineActivityMode.NONE ||"
+            "targetState = inlineActivityMode != AssistantInlineActivityMode.NONE,"
         ))
         assertTrue(assistant.contains("inlineActivityPresentation.retainLayout,"))
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("clip = false"))
         val tailIndicator = tail
             .substringAfter("internal fun StreamingTailIndicator(")
             .substringBefore("/** One breathing-scale sample")

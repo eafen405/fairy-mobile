@@ -1,7 +1,7 @@
 package com.newoether.agora.ui.chat
 
 import androidx.compose.runtime.Composable
-import com.newoether.agora.mcp.McpConnectionStatus
+import com.newoether.agora.model.McpConnectionStatus
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.ui.components.FairyWindowState
 import com.newoether.agora.ui.components.fairyPresence

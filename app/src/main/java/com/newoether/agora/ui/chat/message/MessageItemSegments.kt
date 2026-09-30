@@ -18,17 +18,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.api.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
-
-internal fun MessageSegment.isHiddenFromMessagePresentation(): Boolean =
-    type == "tool" && toolName == "google_search"
 
 internal fun mergeAdjacentSegments(segs: List<MessageSegment>): List<MessageSegment> {
     val merged = mutableListOf<MessageSegment>()
     for (seg in segs) {
-        if (seg.type == "citation" || seg.isHiddenFromMessagePresentation()) continue
         val last = merged.lastOrNull()
         // Only continuous answer/reasoning text is merged into one flowing block.
         // Transcriptions stay separate: each describes a distinct image, so a
@@ -74,10 +69,7 @@ internal fun MessageSegment.isVisibleAnswerSegment(): Boolean =
     type == "answer" && content.isNotBlank()
 
 internal fun MessageSegment.isInfoSegment(): Boolean =
-    (type == "thought" && content.isNotBlank()) || type == "tool" || type == "transcription"
-
-internal fun MessageSegment.isImageGenerationSegment(): Boolean =
-    type == "tool" && toolName == "generate_image"
+    (type == "thought" && content.isNotBlank()) || type == "tool"
 
 internal fun groupedInfoBlockEndExclusive(
     segments: List<MessageSegment>,
@@ -86,17 +78,10 @@ internal fun groupedInfoBlockEndExclusive(
     if (startIndex !in segments.indices) return startIndex
     var endIndex = startIndex
     while (endIndex < segments.size && !segments[endIndex].isVisibleAnswerSegment()) {
-        val segment = segments[endIndex]
         endIndex++
-        if (segment.isImageGenerationSegment()) break
     }
     return endIndex
 }
-
-internal fun generatedImageAppearanceKey(
-    messageId: String,
-    detailIndex: Int,
-): String = "$messageId:generated-image:$detailIndex"
 
 internal enum class SegmentGroupPosition {
     SINGLE,
@@ -180,14 +165,12 @@ private fun List<MessageSegment>.hasTimelineInfoNeighbor(
     index: Int,
     direction: Int,
 ): Boolean {
-    if (direction > 0 && this[index].isImageGenerationSegment()) return false
     var cursor = index + direction
     while (cursor in indices) {
         val candidate = this[cursor]
         when {
             candidate.isVisibleAnswerSegment() -> return false
-            candidate.isInfoSegment() ->
-                return direction > 0 || !candidate.isImageGenerationSegment()
+            candidate.isInfoSegment() -> return true
         }
         cursor += direction
     }
@@ -208,10 +191,8 @@ internal fun timelineSegmentGroupPosition(
 }
 
 internal fun ChatMessage.hasActiveAnswerSegment(): Boolean {
-    // Citations annotate prior output; tools and thoughts still delimit the active phase.
-    val lastVisibleSegment = segments?.lastOrNull {
-        it.type != "citation" && !it.isBlankAnswerSegment()
-    }
+    // Tools and thoughts delimit the active phase; the answer itself decides visibility.
+    val lastVisibleSegment = segments?.lastOrNull { !it.isBlankAnswerSegment() }
     return if (lastVisibleSegment != null) {
         lastVisibleSegment.isVisibleAnswerSegment()
     } else {
@@ -222,14 +203,7 @@ internal fun ChatMessage.hasActiveAnswerSegment(): Boolean {
 internal data class AssistantErrorContent(
     val answerText: String?,
     val errorText: String,
-    val showLocalContextHelp: Boolean,
 )
-
-internal fun shouldShowLocalContextHelp(
-    errorCode: String?,
-    modelName: String?,
-): Boolean = errorCode == LOCAL_CONTEXT_CAPACITY_ERROR_CODE &&
-    modelName?.startsWith("Local:") == true
 
 /**
  * Keeps already-generated assistant content separate from the terminal failure detail. Rows
@@ -257,10 +231,6 @@ internal fun assistantErrorContent(
         errorText = persistedError
             ?: message.text.takeIf { it.isNotBlank() && !hasPersistedAnswer }
             ?: fallbackErrorText,
-        showLocalContextHelp = shouldShowLocalContextHelp(
-            errorCode = persistedErrorSegment?.errorCode,
-            modelName = message.modelName,
-        ),
     )
 }
 
@@ -323,7 +293,6 @@ internal fun buildTimelineBlockKeys(
                             detailIndex++
                         }
                         blockEnd++
-                        if (blockSeg.isImageGenerationSegment()) break
                     }
                     keys += "$messageId:group:${firstDetailIndex ?: index}"
                     index = blockEnd
@@ -376,9 +345,7 @@ internal enum class GroupedSegmentAutoExpansionAction {
 internal fun groupedSegmentExpandedState(
     persistedExpanded: Boolean?,
     initiallyAutoExpanded: Boolean,
-    collapseForImageBoundary: Boolean = false,
-): Boolean = !collapseForImageBoundary &&
-    (initiallyAutoExpanded || persistedExpanded == true)
+): Boolean = initiallyAutoExpanded || persistedExpanded == true
 
 /**
  * Session-scoped lifecycle memory for Grouped cards.
@@ -395,21 +362,6 @@ internal class GroupedSegmentAutoExpansionController {
     }
 
     private val states = HashMap<String, State>()
-    private val collapsedImageBoundaryKeys = HashSet<String>()
-
-    fun shouldCollapseForImageBoundary(
-        key: String,
-        hasImageBoundary: Boolean,
-    ): Boolean = hasImageBoundary && key !in collapsedImageBoundaryKeys
-
-    fun claimImageBoundaryCollapse(
-        key: String,
-        hasImageBoundary: Boolean,
-    ): Boolean {
-        if (!hasImageBoundary || !collapsedImageBoundaryKeys.add(key)) return false
-        states[key] = State.INACTIVE
-        return true
-    }
 
     fun shouldPresentInitiallyExpanded(
         key: String,
@@ -422,7 +374,6 @@ internal class GroupedSegmentAutoExpansionController {
         isActive: Boolean,
         enabled: Boolean,
     ): GroupedSegmentAutoExpansionAction {
-        if (key in collapsedImageBoundaryKeys) return GroupedSegmentAutoExpansionAction.NONE
         if (!enabled) {
             if (isActive) {
                 states.remove(key)
@@ -502,12 +453,3 @@ internal fun rememberSegmentAppearance(
     return play
 }
 
-// Label a transcription segment; numbers them ("Image Transcription 1/2/…") only
-// when more than one is present, so a single image keeps the clean unnumbered name.
-@Composable
-internal fun transcriptionLabel(segs: List<MessageSegment>, index: Int): String {
-    val total = segs.count { it.type == "transcription" }
-    if (total <= 1) return stringResource(R.string.transcription_label)
-    val ordinal = segs.take(index + 1).count { it.type == "transcription" }
-    return stringResource(R.string.transcription_label_numbered, ordinal)
-}

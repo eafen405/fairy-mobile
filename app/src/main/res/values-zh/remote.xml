@@ -1,32 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="remote_title">Remote</string>
-    <string name="remote_devices">设备</string>
     <string name="remote_connect">连接</string>
     <string name="remote_address">服务地址</string>
-    <string name="remote_connection_hint">输入 Fairy 服务地址。</string>
-    <string name="remote_sessions">会话</string>
     <string name="remote_empty">未找到已有会话</string>
-    <string name="remote_sync_hint">回复保存后会同步显示。</string>
-    <string name="remote_refresh">刷新</string>
-    <string name="remote_load_more">加载更多</string>
     <string name="remote_check">我已检查</string>
     <string name="remote_file_save">保存</string>
     <string name="remote_file_saved">已保存到所选位置。</string>
     <string name="remote_file_save_failed">无法保存文件。请检查目标位置后重试。</string>
     <string name="remote_file_from">来自 %1$s</string>
     <string name="remote_file_unnamed">文件</string>
-    <string name="remote_confirm">继续发送？</string>
-    <string name="remote_remove">移除连接</string>
-    <string name="remote_add_device">添加设备</string>
-    <string name="remote_no_devices">暂无设备</string>
-    <string name="remote_no_devices_desc">登录以访问你的 Fairy 会话。</string>
     <string name="remote_connection">连接</string>
-    <string name="remote_edit_device">编辑设备</string>
-    <string name="remote_delete_title">删除连接？</string>
-    <string name="remote_delete_message">删除已保存的 %1$s 连接？会话会保留。</string>
-    <string name="remote_new_session_unavailable">新建会话（此服务暂不支持）</string>
-    <string name="remote_model_unavailable">模型暂不可用</string>
     <string name="remote_address_placeholder">https://fairy.example.com</string>
     <string name="remote_sign_in">登录</string>
     <string name="remote_register">注册</string>
@@ -42,9 +25,6 @@
     <string name="remote_online">在线</string>
     <string name="remote_offline">离线</string>
     <string name="remote_connecting">连接中</string>
-    <string name="remote_archive">归档</string>
-    <string name="remote_archive_title">归档任务？</string>
-    <string name="remote_archive_message">将此任务从 Fairy 和 Remote 的未归档列表中移除？历史记录会保留。</string>
     <string name="remote_activity">处理中</string>
     <string name="remote_relayed_from">转达自 %1$s</string>
     <string name="remote_connecting_status">正在连接</string>
@@ -56,13 +36,20 @@
     <string name="remote_voice_input">语音输入</string>
     <string name="remote_voice_hold_hint">按住说话</string>
     <string name="remote_voice_listening">正在聆听…上滑取消</string>
+    <string name="remote_voice_preparing">正在连接语音输入…</string>
+    <string name="remote_voice_capture_limit">已录制 60 秒，松开识别或上滑取消</string>
     <string name="remote_voice_release_cancel">松开取消</string>
     <string name="remote_voice_processing">识别中…</string>
     <string name="remote_voice_permission_request">语音输入需要麦克风权限</string>
     <string name="remote_voice_permission_denied">麦克风权限被拒绝——请在系统设置中开启</string>
-    <string name="remote_voice_unavailable">此设备不支持语音输入</string>
+    <string name="remote_voice_unavailable">Fairy 语音输入不可用，请使用输入法语音</string>
+    <string name="remote_voice_busy">语音输入繁忙，请稍后重试</string>
     <string name="remote_voice_no_match">没有听清——按住重试</string>
     <string name="remote_voice_network">语音识别需要可用的网络连接</string>
+    <string name="remote_voice_audio">麦克风录音失败，请检查麦克风权限</string>
+    <string name="remote_voice_client">语音识别服务失败，请检查系统语音输入设置</string>
     <string name="remote_voice_failed">语音输入失败——按住重试</string>
+    <string name="remote_voice_error_code">错误 %1$d：%2$s</string>
     <string name="remote_voice_open_settings">打开设置</string>
+    <string name="remote_file_no_viewer">未找到能打开此文件的应用</string>
 </resources>

@@ -286,8 +286,7 @@ internal class DiagnosticCaptureStore(
             is DiagnosticEventPayload.ParsedStreamEvent -> current.copy(
                 content = current.content?.bounded(),
             )
-            is DiagnosticEventPayload.HttpStage,
-            is DiagnosticEventPayload.RuntimeTransition -> current
+            is DiagnosticEventPayload.HttpStage -> current
         }
         val normalized = event.copy(payload = payload)
         val encodedJson = json.encodeToString(normalized)

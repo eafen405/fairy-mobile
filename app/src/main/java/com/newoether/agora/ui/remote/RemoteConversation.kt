@@ -56,13 +56,14 @@ internal fun RemoteConversation(
     onMediaClick: (List<String>, Int) -> Unit,
     onMessage: (String, String?, (() -> Unit)?) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val owner = state.owner ?: return
     val session = state.session ?: return
     val connectionStatus = when (state.devices.firstOrNull { it.id == state.deviceId }?.status) {
-        RemoteDeviceStatus.CONNECTED -> com.newoether.agora.mcp.McpConnectionStatus.CONNECTED
-        RemoteDeviceStatus.CONNECTING -> com.newoether.agora.mcp.McpConnectionStatus.CONNECTING
-        RemoteDeviceStatus.ERROR -> com.newoether.agora.mcp.McpConnectionStatus.ERROR
-        else -> com.newoether.agora.mcp.McpConnectionStatus.IDLE
+        RemoteDeviceStatus.CONNECTED -> com.newoether.agora.model.McpConnectionStatus.CONNECTED
+        RemoteDeviceStatus.CONNECTING -> com.newoether.agora.model.McpConnectionStatus.CONNECTING
+        RemoteDeviceStatus.ERROR -> com.newoether.agora.model.McpConnectionStatus.ERROR
+        else -> com.newoether.agora.model.McpConnectionStatus.IDLE
     }
     val density = LocalDensity.current
     val motion = LocalAgoraMotionPolicy.current
@@ -81,7 +82,7 @@ internal fun RemoteConversation(
     val attachments = state.attachments[owner].orEmpty()
     val running = state.runtime?.isRunning == true
     val stopping = state.isStopping
-    val ready = state.isDraft || state.runtime?.status in setOf("idle", "active", "ready")
+    val ready = state.runtime?.status in setOf("idle", "active", "ready")
     val newChatEntry = remember(owner) { state.composerFocusOwner == owner }
     ChatLaunchInteractionEffects(
         initialComposerFocusReady = active && ready && state.composerFocusOwner == owner,
@@ -89,7 +90,7 @@ internal fun RemoteConversation(
         onShowLaunchContent = {},
         onInitialFocusRequested = { vm.completeComposerFocus(owner) },
     )
-    val speech = rememberRemoteSpeechController(owner, field, active) { vm.editDraft(owner, it) }
+    val speech = rememberRemoteSpeechController(owner, field, active, vm.speechClient(owner)) { vm.editDraft(owner, it) }
     val messages = remember(state.messageGroups) { state.messageGroups.map { it.stub } }
     val tail = messages.lastOrNull()?.takeIf {
         it.status in setOf(MessageStatus.SENDING, MessageStatus.THINKING, MessageStatus.TOOL_CALLING)
@@ -118,9 +119,6 @@ internal fun RemoteConversation(
         }
     }
     val observe = remember(owner) { { id: String -> vm.observeMessage(owner, id) } }
-    val loadToolImage: suspend (String, String) -> com.newoether.agora.model.ToolImageAttachment = remember(owner, vm) {
-        { id, revision -> vm.loadToolImage(owner, id, revision) }
-    }
     val initialMessage = remember(owner) { { id: String ->
         if (vm.state.value.owner == owner) vm.cachedMessage(owner, id) else null
     } }
@@ -187,11 +185,11 @@ internal fun RemoteConversation(
             WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
             WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
         onOffsetChanged = { if (active) onSnackbarOffsetChanged(it) })
-    var initiallyPositioned by remember(owner) { mutableStateOf(state.isDraft) }
+    var initiallyPositioned by remember(owner) { mutableStateOf(false) }
     val switching = !initiallyPositioned
     scroll.BindLayoutObservation(owner, owner, ime, density)
     scroll.BindImeEffects(owner, messageState, density, barHeight, 0.dp, ime)
-    scroll.BindRequestEffects(owner, false, generationVisible, false, switching, interaction.searchActive, false, null, animatedScrollRequest,
+    scroll.BindRequestEffects(owner, false, generationVisible, false, switching, interaction.searchActive, false, animatedScrollRequest,
         messageState, density, motion, barHeight, 0.dp, onAnimatedScrollFinished = vm::completeAnimatedScroll)
     val renderMessages = rememberScrollIsolatedMessages(owner, messageState, scroll.listState,
         bypassScrollIsolation = scroll.absoluteBottomScrollPhase.isActive || scroll.streamingTailController.isAutoFollowing)
@@ -273,10 +271,31 @@ internal fun RemoteConversation(
             Unit
         }
     }
+    fun viewFile(staged: StagedRemoteFile) {
+        try {
+            context.startActivity(remoteFileViewIntent(context, staged))
+        } catch (_: android.content.ActivityNotFoundException) {
+            onMessage(context.getString(R.string.remote_file_no_viewer), null, null)
+        } catch (_: SecurityException) {
+            onMessage(fileSaveFailedText, null, null)
+        }
+    }
+    val openRemoteFile: (com.newoether.agora.model.RemoteFile) -> Unit = { file ->
+        fileScope.launch {
+            vm.prepareFileView(owner, file)?.let { staged ->
+                if (file.mime?.startsWith("image/") == true) onMediaClick(listOf(staged.file.absolutePath), 0)
+                else viewFile(staged)
+            }
+        }
+    }
+    val attachmentActions = com.newoether.agora.ui.chat.message.RemoteAttachmentActions(
+        owner = owner,
+        load = { ref -> vm.prepareAttachmentPreview(owner, ref) },
+        open = { staged -> viewFile(staged) },
+        image = { staged -> onMediaClick(listOf(staged.file.absolutePath), 0) },
+    )
     val windowExpanded = messages.isEmpty() && initiallyPositioned && !state.loading
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val contextUsed = state.runtime?.contextTokens
-    val contextWindow = state.runtime?.contextWindow
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).clearFocusOnTap()
         .onSizeChanged { scroll.recordViewportHeight(it.height) }) {
         FairyBackground()
@@ -285,14 +304,9 @@ internal fun RemoteConversation(
         @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
         Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = {
             ChatTopBar(
-                isNewChatMode = false, conversations = emptyList(),
-                currentConversationId = session.id, currentConversationTitle = session.displayTitle(stringResource(R.string.new_chat)),
-                totalTokens = state.runtime?.contextTokens ?: 0,
-                contextTokenBudget = state.runtime?.contextWindow ?: 0,
-                contextAvailable = state.runtime?.contextTokens != null && state.runtime?.contextWindow != null,
                 subtitle = stringResource(when (connectionStatus) {
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTED -> R.string.remote_online
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
+                    com.newoether.agora.model.McpConnectionStatus.CONNECTED -> R.string.remote_online
+                    com.newoether.agora.model.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
                     else -> R.string.remote_offline
                 }),
                 subtitleLeading = { com.newoether.agora.ui.settings.McpStatusDot(connectionStatus) },
@@ -302,32 +316,13 @@ internal fun RemoteConversation(
                 onSearchPrevious = { if (interaction.previousSearchMatch()) haptics.selection() },
                 onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
                 onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
-                onNavigateBack = onBack, onOpenDrawer = onBack, onSystemPromptClick = {},
-                forceBrandTitle = true,
+                onNavigateBack = onBack,
                 fairyWindow = FairyWindowState(
                     presence = presence,
                     expanded = windowExpanded,
                     speechPulse = textGrowth.pulse,
                 ),
                 moreMenuContent = { dismiss ->
-                    if (contextUsed != null && contextWindow != null) {
-                        val fairyTokens = com.newoether.agora.ui.theme.LocalFairyTokens.current
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(
-                                        R.string.remote_context_usage,
-                                        com.newoether.agora.model.ContextBudget.compactLabel(contextUsed),
-                                        com.newoether.agora.model.ContextBudget.compactLabel(contextWindow),
-                                    ),
-                                    fontFamily = fairyTokens.labelFontFamily,
-                                )
-                            },
-                            enabled = false,
-                            colors = MenuDefaults.itemColors(disabledTextColor = fairyTokens.textMuted),
-                            onClick = {},
-                        )
-                    }
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.conversation_search)) },
                         leadingIcon = { Icon(Icons.Default.Search, null) },
@@ -345,13 +340,14 @@ internal fun RemoteConversation(
         }) { _ ->
             Box(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(
-                    com.newoether.agora.ui.chat.message.LocalToolImageLoader provides loadToolImage,
                     LocalRemoteFileAction provides saveRemoteFile,
+                    com.newoether.agora.ui.chat.message.LocalRemoteFileOpen provides openRemoteFile,
+                    com.newoether.agora.ui.chat.message.LocalRemoteAttachmentActions provides attachmentActions,
                     LocalRemoteFileSaving provides state.savingFiles,
                 ) {
-                MessageList(messages = StableMessageList(renderMessages.value), allMessages = StableMessageList(messages),
+                MessageList(messages = StableMessageList(renderMessages.value),
                     authoritativeMessages = StableMessageList(messages), conversationId = owner,
-                    state = scroll.listState, overscrollEffect = historyOverscroll, onMediaClick = onMediaClick, messageActionsEnabled = false, readOnlyActions = true, parseInlineDollarMath = inlineMath,
+                    state = scroll.listState, overscrollEffect = historyOverscroll, parseInlineDollarMath = inlineMath,
                     isLoading = generationVisible, isSwitching = switching, streamingMessage = streaming,
                     searchQuery = if (interaction.searchActive) interaction.searchQuery else "",
                     activeSearchMatch = searchMatch,
@@ -459,7 +455,6 @@ internal fun RemoteConversation(
                 inputReadOnly = speech.exclusive,
                 statusContent = {
                     RemoteSpeechStatus(speech)
-                    ComposerStatusColumn(state.queued, { it.id }) { QueuedMessageRow(text = it.text) }
                 },
                 attachmentContent = {
                     if (attachments.isNotEmpty()) {
@@ -469,8 +464,6 @@ internal fun RemoteConversation(
                             onRemove = { vm.removeAttachment(owner, it) },
                             onRetry = { vm.retryAttachment(owner, it) },
                             onAllMediaClick = onMediaClick,
-                            onFileContentClick = null,
-                            onPdfPagesClick = null,
                         )
                     }
                 },
