@@ -174,9 +174,12 @@ class RemoteTopologyTest {
             val client = applicationFixtureClient("http://127.0.0.1:" + server.address.port + "/", "a".repeat(64))
             assertEquals(page, client.conversation(session))
             assertEquals(1, paths.size)
-            assertTrue(paths.single().endsWith("includeActivity=true&includeMetadata=true"))
+            assertEquals("/api/mobile/v1/sessions/$session?view=paged&includeActivity=true&includeMetadata=true", paths.single())
+            assertEquals(page, client.conversation(session, "cursor + next"))
+            assertEquals("view=paged&cursor=cursor + next&includeActivity=true&includeMetadata=true",
+                java.net.URI(paths.last()).query)
             assertEquals(page, client.events(session).first())
-            assertEquals(2, paths.size)
+            assertEquals(3, paths.size)
             assertTrue(paths.last().endsWith("events?view=paged"))
         } finally { server.stop(0) }
     }

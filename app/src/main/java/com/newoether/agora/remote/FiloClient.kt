@@ -8,6 +8,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -199,7 +202,7 @@ internal class FiloClient(
 
     suspend fun conversation(id: String, cursor: String? = null): RemoteConversationPage = withContext(Dispatchers.Default) {
         decodePage(
-            request("v1/sessions/${sessionId(id)}", cursor, includeActivity = true, includeMetadata = true),
+            request("v1/sessions/${sessionId(id)}?view=paged", cursor, includeActivity = true, includeMetadata = true),
         )
     }
 
@@ -219,7 +222,7 @@ internal class FiloClient(
 
     fun events(id: String): Flow<RemoteConversationPage> = eventStream(id, "paged", ::decodePage)
 
-    private fun <T> eventStream(id: String, view: String?, decode: (String) -> T): Flow<T> = callbackFlow {
+    private fun <T> eventStream(id: String, view: String?, decode: (String) -> T): Flow<T> = callbackFlow<String> {
         val request = Request.Builder().url(endpoint.newBuilder()
             .addPathSegments("v1/sessions/${sessionId(id)}/events")
             .apply { view?.let { addQueryParameter("view", it) } }.build())
@@ -245,17 +248,22 @@ internal class FiloClient(
                                     val failure = decodeError(data)
                                     throw FiloStreamException(failure.error, failure.code)
                                 }
-                                trySend(decode(data))
+                                trySend(data)
                             }
                         }
                         if (errorEvent) throw FiloStreamException()
-                        close(IOException("Filo stream closed"))
+                        // Drain the last complete snapshot before reporting a clean EOF.
+                        close()
                     } catch (error: Exception) { close(error) }
                 }
             }
         })
         awaitClose { call.cancel() }
     }.buffer(Channel.CONFLATED)
+        .map { decode(it) }
+        .flowOn(Dispatchers.Default)
+        .buffer(Channel.CONFLATED)
+        .onCompletion { cause -> if (cause == null) throw IOException("Filo stream closed") }
 
     suspend fun stop(id: String, turnId: String) {
         request("v1/sessions/${sessionId(id)}/stop", body = json.encodeToString(mapOf("turnId" to turnId)))

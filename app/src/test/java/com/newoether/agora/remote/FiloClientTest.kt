@@ -20,6 +20,33 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.flow.first
 
 class FiloClientTest {
+    @Test fun rapidSnapshotsConvergeToCompleteBodyWithoutWaitingForStreamClosure() = runBlocking {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val release = java.util.concurrent.CountDownLatch(1)
+        server.createContext("/") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            exchange.sendResponseHeaders(200, 0)
+            try {
+                repeat(400) { index ->
+                    val page = RemoteConversationPage(listOf(RemoteMessage("a", "turn", null,
+                        "assistant", "字".repeat(index + 1), 1)), null,
+                        runtime = RemoteRuntime(if (index == 399) "idle" else "active", model = "fairy"))
+                    exchange.responseBody.write("data: ${Json.encodeToString(page)}\n\n".toByteArray())
+                }
+                exchange.responseBody.flush()
+                release.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            } finally { exchange.close() }
+        }
+        server.start()
+        try {
+            val page = kotlinx.coroutines.withTimeout(10_000) {
+                applicationFixtureClient("http://127.0.0.1:${server.address.port}/", token)
+                    .events(id).first { it.runtime?.status == "idle" }
+            }
+            assertEquals("字".repeat(400), page.messages.single().text)
+        } finally { release.countDown(); server.stop(0) }
+    }
+
     private val token = "a".repeat(64)
     private val id = "00000000-0000-0000-0000-000000000001"
 

@@ -39,6 +39,8 @@ internal class RemoteMessageHydration(
     private val records = linkedMapOf<String, Pair<String, RemoteMessage>>()
     private var recordBytes = 0L
     private var previousRuntime: RemoteRuntime? = null
+    // Bounded recent turn identity: one turn can span multiple display groups/pages.
+    private val streamingTurnIds = LinkedHashSet<String>()
     private var deltas = RemoteStreamDeltas()
     private val slots = Semaphore(2)
     private val projector = MessagePayloadProjector(projectionDispatcher)
@@ -53,6 +55,7 @@ internal class RemoteMessageHydration(
             records.clear()
             recordBytes = 0
             previousRuntime = null
+            streamingTurnIds.clear()
             deltas = RemoteStreamDeltas()
         }
     }
@@ -70,10 +73,18 @@ internal class RemoteMessageHydration(
 
     private fun rememberRecords(owner: String, page: RemoteConversationPage, live: Boolean) = synchronized(cacheLock) {
         checkOwner(owner)
-        val messages = if (live) deltas.apply(if (previousRuntime == null) emptyList() else records.values.map { it.second },
-            page.messages, previousRuntime, page.runtime)
+        val messages = if (live) deltas.apply(page.messages, previousRuntime, page.runtime) { id ->
+            if (previousRuntime == null) null else records[id]?.second
+        }
             else page.messages
-        if (live) previousRuntime = page.runtime
+        if (live) {
+            page.runtime?.activeTurnId?.let { turnId ->
+                streamingTurnIds.remove(turnId)
+                streamingTurnIds.add(turnId)
+                while (streamingTurnIds.size > 8) streamingTurnIds.remove(streamingTurnIds.first())
+            }
+            previousRuntime = page.runtime
+        }
         val nodes = page.nodes.associateBy { it.id }
         for (message in messages) {
             val node = nodes[message.id] ?: error("Filo page metadata is missing")
@@ -114,7 +125,8 @@ internal class RemoteMessageHydration(
         }
     }
 
-    private suspend fun project(group: RemoteMessageGroup, messages: List<RemoteMessage>): ChatMessage {
+    private suspend fun project(group: RemoteMessageGroup, messages: List<RemoteMessage>,
+        prepareMarkdown: Boolean = true): ChatMessage {
         val message = projector.project {
             // The node index is the same bounded projection: its label can fill in a
             // record that lacks one, but it can never restore tool names or payloads.
@@ -130,7 +142,7 @@ internal class RemoteMessageHydration(
                 ?.copy(id = group.stub.id, parentId = group.stub.parentId, status = group.stub.status,
                     displayPageId = group.stub.displayPageId) ?: group.stub
         }
-        if (message.participant != Participant.MODEL ||
+        if (!prepareMarkdown || message.participant != Participant.MODEL ||
             message.status !in setOf(MessageStatus.SUCCESS, MessageStatus.ERROR, MessageStatus.STOPPED)) return message
         val texts = buildSet {
             add(message.text)
@@ -173,7 +185,11 @@ internal class RemoteMessageHydration(
             if (group.nodes.none { it.id in ids }) continue
             if (!firstStream && cachedMessage(owner, group) != null) continue
             val body = cachedRecords(owner, group) ?: continue
-            val message = project(group, body)
+            // The mounted streaming Markdown renderer handles the active turn's terminal
+            // document incrementally. A full parse here would block the completed body from
+            // reaching that renderer, especially for long answers.
+            val wasStreaming = synchronized(cacheLock) { group.stub.runId in streamingTurnIds }
+            val message = project(group, body, prepareMarkdown = !wasStreaming)
             currentCoroutineContext().ensureActive()
             remember(owner, group, message)
         }

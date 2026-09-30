@@ -18,7 +18,7 @@ internal data class RemoteMessageNode(
     val relayFrom: String? = null,
     @kotlinx.serialization.Transient val displayPageId: String? = null,
     @kotlinx.serialization.Transient val displayGroupId: String? = null,
-    @kotlinx.serialization.Transient val pageCursor: String? = null,
+    val pageCursor: String? = null,
 )
 
 /** A node is renderable once it carries any visible content, including file cards. */

@@ -22,7 +22,7 @@ import java.util.UUID
 /** Remote owns saved connections and presentation; native Codex owns durable execution. */
 internal class RemoteViewModel(
     connections: RemoteConnectionStore,
-    projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
+    private val projectionDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
     private val attachmentStore: RemoteAttachmentStore? = null,
     private val fileStore: RemoteFileStore? = null,
     createClient: (String, String) -> FiloClient = { address, token -> FiloClient(address, token) },
@@ -328,7 +328,11 @@ internal class RemoteViewModel(
     ) {
         if (generation != epoch) return
         val old = state.value.nodes
-        val oldIds = old.mapTo(HashSet()) { it.id }
+        val latestIds = page.nodes.mapTo(HashSet()) { it.id }
+        val settledLive = old.any { it.id.startsWith("live-") && it.id !in latestIds }
+        // A surviving live suffix does not cover earlier temporary nodes that have
+        // just become persisted. Bridge those through history before replacing IDs.
+        val oldIds = old.filterNot { settledLive && it.id.startsWith("live-") }.mapTo(HashSet()) { it.id }
         val owner = state.value.owner ?: return
         val incoming = mutableListOf(cachePage(owner, page, live = true))
         var cursor = page.nextCursor
@@ -345,10 +349,17 @@ internal class RemoteViewModel(
         if (generation != epoch) return
         historyMutation.withLock {
             if (generation != epoch) return
-            var nodes = state.value.nodes
-            for (chunk in incoming.asReversed()) nodes = admitRemoteNodes(nodes, chunk.nodes)
-            val runtime = page.runtime
-            val groups = projectRemoteTopology(nodes, runtime)
+            val previousNodes = state.value.nodes
+            val (nodes, groups) = kotlinx.coroutines.withContext(projectionDispatcher) {
+                // Re-admit the complete live tail after bridged history so a surviving
+                // suffix stays after the newly persisted messages.
+                var admitted = previousNodes.filterNot { node ->
+                    settledLive && node.id.startsWith("live-")
+                }
+                for (chunk in incoming.asReversed()) admitted = admitRemoteNodes(admitted, chunk.nodes)
+                admitted to projectRemoteTopology(admitted, page.runtime)
+            }
+            if (generation != epoch) return
             for (chunk in incoming.asReversed()) hydration.accept(owner, chunk, groups, live = false)
             if (generation != epoch) return
             mutableState.value = state.value.copy(
@@ -446,7 +457,7 @@ internal class RemoteViewModel(
         require(page.nodes.map { it.id } == page.messages.map { it.id }) { "Filo page metadata is missing" }
         hydration.accept(owner, page, emptyList(), live)
         // Retain only topology here; body retention stays in the bounded LRU.
-        return page.copy(messages = emptyList(), nodes = page.nodes.map { it.copy(pageCursor = page.pageCursor) })
+        return page.copy(messages = emptyList(), nodes = page.nodes.map { it.copy(pageCursor = it.pageCursor ?: page.pageCursor) })
     }
 
     private suspend fun prependPage(client: FiloClient, session: String, generation: Long, cursor: String) {
