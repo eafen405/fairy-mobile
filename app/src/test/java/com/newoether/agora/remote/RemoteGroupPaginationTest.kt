@@ -4,6 +4,7 @@ import io.mockk.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.*
 import org.junit.After
 import org.junit.Assert.*
@@ -114,6 +115,71 @@ class RemoteGroupPaginationTest {
         assertEquals(existing, vm.state.value.messageGroups.last())
         assertEquals(128, vm.state.value.messageGroups.first().nodes.size)
         assertEquals(3, vm.state.value.messageGroups.size)
+        vm.setVisible(false)
+    }
+
+    @Test fun activeReconnectBridgesSettledMessagesBeforeReplacingTemporaryNodes() = runTest(dispatcher) {
+        val active = RemoteRuntime("active", activeTurnId = "turn", model = "fairy")
+        val user = RemoteMessage("live-u", "turn", null, "user", "hello", 1)
+        val reply = RemoteMessage("live-a", "turn", null, "assistant", "same reply", 2)
+        val activity = tool(1).copy(id = "live-tool-c1")
+        val suffix = reply.copy(id = "live-b", timestamp = 3)
+        coEvery { client.conversation("history", null) } returns
+            bodyPage(listOf(user, reply, activity, suffix), null, active)
+        val vm = open()
+        assertEquals(listOf("live-u", "live-a", "live-tool-c1", "live-b"), vm.state.value.nodes.map { it.id })
+
+        val persistedUser = user.copy(id = "e1")
+        val persistedReply = reply.copy(id = "e2")
+        val persistedActivity = activity.copy(id = "e3")
+        coEvery { client.conversation("history", null) } returns
+            bodyPage(listOf(persistedActivity, suffix), "before:e3", active)
+        coEvery { client.conversation("history", "before:e3") } returns
+            bodyPage(listOf(persistedUser, persistedReply), null, active)
+        vm.refresh(); runCurrent()
+        assertEquals(listOf("e1", "e2", "e3", "live-b"), vm.state.value.nodes.map { it.id })
+        coVerify(exactly = 1) { client.conversation("history", "before:e3") }
+
+        coEvery { client.conversation("history", null) } returns bodyPage(
+            listOf(persistedUser, persistedReply, persistedActivity, suffix.copy(id = "e4")), null,
+            RemoteRuntime("idle", completedTurnId = "turn"))
+        vm.refresh(); runCurrent()
+        assertEquals(listOf("e1", "e2", "e3", "e4"), vm.state.value.nodes.map { it.id })
+        val owner = vm.state.value.owner!!
+        val answer = vm.state.value.messageGroups.last()
+        assertEquals(2, vm.cachedMessage(owner, answer.stub.id)!!.segments!!.count { it.content == "same reply" })
+        vm.setVisible(false)
+    }
+
+    @Test fun omittedAnchorBridgesSettledBodiesOnceAndKeepsLaterLiveUpdatesLocal() = runTest(dispatcher) {
+        val pages = MutableSharedFlow<RemoteConversationPage>(replay = 1)
+        val prior = RemoteMessage("e0", "old-turn", null, "assistant", "older", 1)
+        pages.tryEmit(bodyPage(listOf(prior), null))
+        every { client.events(any()) } returns pages
+        val vm = open()
+        val active = RemoteRuntime("active", activeTurnId = "turn", model = "fairy")
+        val user = RemoteMessage("live-u", "turn", null, "user", "hello", 2)
+        val longReply = RemoteMessage("live-a", "turn", null, "assistant", "x".repeat(5000), 3)
+        val suffix = RemoteMessage("live-b", "turn", null, "assistant", "next", 4)
+        pages.emit(bodyPage(listOf(prior, user, longReply, suffix), null, active)); runCurrent()
+
+        val persistedUser = user.copy(id = "e1")
+        val persistedReply = longReply.copy(id = "e2")
+        coEvery { client.conversation("history", "at:e2") } returns
+            bodyPage(listOf(persistedReply), "before:e2", active)
+        coEvery { client.conversation("history", "before:e2") } returns
+            bodyPage(listOf(prior, persistedUser), null, active)
+        pages.emit(bodyPage(listOf(suffix), "at:e2", active)); runCurrent()
+        assertEquals(listOf("e0", "e1", "e2", "live-b"), vm.state.value.nodes.map { it.id })
+
+        pages.emit(bodyPage(listOf(suffix.copy(text = "next updated")), "at:e2", active)); runCurrent()
+        assertEquals(listOf("e0", "e1", "e2", "live-b"), vm.state.value.nodes.map { it.id })
+        coVerify(exactly = 1) { client.conversation("history", "at:e2") }
+        coVerify(exactly = 1) { client.conversation("history", "before:e2") }
+        val owner = vm.state.value.owner!!
+        val answer = vm.state.value.messageGroups.last()
+        assertTrue(vm.cachedMessage(owner, answer.stub.id)!!.text.contains("x".repeat(5000)))
+        assertTrue(vm.cachedMessage(owner, answer.stub.id)!!.text.contains("next updated"))
         vm.setVisible(false)
     }
 }

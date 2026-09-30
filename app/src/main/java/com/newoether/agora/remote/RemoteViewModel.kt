@@ -328,7 +328,11 @@ internal class RemoteViewModel(
     ) {
         if (generation != epoch) return
         val old = state.value.nodes
-        val oldIds = old.mapTo(HashSet()) { it.id }
+        val latestIds = page.nodes.mapTo(HashSet()) { it.id }
+        val settledLive = old.any { it.id.startsWith("live-") && it.id !in latestIds }
+        // A surviving live suffix does not cover earlier temporary nodes that have
+        // just become persisted. Bridge those through history before replacing IDs.
+        val oldIds = old.filterNot { settledLive && it.id.startsWith("live-") }.mapTo(HashSet()) { it.id }
         val owner = state.value.owner ?: return
         val incoming = mutableListOf(cachePage(owner, page, live = true))
         var cursor = page.nextCursor
@@ -347,9 +351,10 @@ internal class RemoteViewModel(
             if (generation != epoch) return
             val previousNodes = state.value.nodes
             val (nodes, groups) = kotlinx.coroutines.withContext(projectionDispatcher) {
-                // A first turn may have no persisted overlap anchor before its final snapshot.
+                // Re-admit the complete live tail after bridged history so a surviving
+                // suffix stays after the newly persisted messages.
                 var admitted = previousNodes.filterNot { node ->
-                    node.id.startsWith("live-") && node.turnId == page.runtime?.completedTurnId
+                    settledLive && node.id.startsWith("live-")
                 }
                 for (chunk in incoming.asReversed()) admitted = admitRemoteNodes(admitted, chunk.nodes)
                 admitted to projectRemoteTopology(admitted, page.runtime)
